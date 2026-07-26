@@ -1,6 +1,7 @@
 <Window x:Class="GameFlowStudio.Desktop.Views.WindowSelectionWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:GameFlowStudio.Desktop.Controls"
         Title="选择目标窗口" Width="620" Height="430" MinWidth="500" MinHeight="320"
         WindowStartupLocation="CenterOwner" Background="#111827" Foreground="#E2E8F0">
     <Grid Margin="16">
@@ -13,8 +14,8 @@
         <DockPanel Grid.Row="0" Margin="0,0,0,10">
             <Button Content="刷新" Click="RefreshClick" DockPanel.Dock="Right"/>
             <StackPanel>
-                <TextBlock Text="选择用于捕获相对坐标的窗口" FontSize="16" FontWeight="SemiBold"/>
-                <TextBlock Text="请选择目标窗口，然后在屏幕上点击要捕获的位置。" Foreground="#94A3B8" Margin="0,5,0,0"/>
+                <controls:SelectableTextBlock Text="选择用于捕获相对坐标的窗口" FontSize="16" FontWeight="SemiBold"/>
+                <controls:SelectableTextBlock Text="请选择目标窗口，然后在屏幕上点击要捕获的位置。" Foreground="#94A3B8" Margin="0,5,0,0"/>
             </StackPanel>
         </DockPanel>
 
@@ -26,8 +27,8 @@
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Text="{Binding Title}" FontSize="13"/>
-                        <TextBlock Grid.Column="1" Text="{Binding Handle}" Foreground="#64748B" Margin="16,0,4,0"/>
+                        <controls:SelectableTextBlock Text="{Binding Title}" FontSize="13"/>
+                        <controls:SelectableTextBlock Grid.Column="1" Text="{Binding Handle}" Foreground="#64748B" Margin="16,0,4,0"/>
                     </Grid>
                 </DataTemplate>
             </ListBox.ItemTemplate>

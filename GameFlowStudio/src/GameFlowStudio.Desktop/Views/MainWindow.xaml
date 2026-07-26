@@ -2,6 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:converters="clr-namespace:GameFlowStudio.Desktop.Converters"
+        xmlns:controls="clr-namespace:GameFlowStudio.Desktop.Controls"
         xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
         Title="GameFlow Studio" Width="1400" Height="900" MinWidth="1200" MinHeight="650"
         Background="{StaticResource AppBackground}" Foreground="#E2E8F0"
@@ -23,8 +24,8 @@
         <DataTemplate x:Key="ProjectFileTemplate">
             <Button Command="{Binding DataContext.OpenRecentProjectCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" HorizontalContentAlignment="Stretch" Padding="8,7" Margin="0,2">
                 <StackPanel>
-                    <TextBlock Text="{Binding Name}" Foreground="#E2E8F0" TextTrimming="CharacterEllipsis"/>
-                    <TextBlock Text="{Binding Path}" Foreground="#64748B" FontSize="10" TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
+                    <controls:SelectableTextBlock Text="{Binding Name}" Foreground="#E2E8F0" TextTrimming="CharacterEllipsis"/>
+                    <controls:SelectableTextBlock Text="{Binding Path}" Foreground="#64748B" FontSize="10" TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
                 </StackPanel>
             </Button>
         </DataTemplate>
@@ -37,8 +38,8 @@
                     </Grid.ColumnDefinitions>
                     <Button Command="{Binding DataContext.SelectScriptCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" PreviewMouseRightButtonDown="ScriptRightClick" HorizontalContentAlignment="Stretch" Padding="9,8" Margin="0,0,2,0">
                     <StackPanel>
-                        <TextBlock Text="{Binding Name}" Foreground="#F8FAFC" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                        <TextBlock Text="{Binding Description}" Foreground="#94A3B8" FontSize="10" Margin="0,3,0,0"/>
+                        <controls:SelectableTextBlock Text="{Binding Name}" Foreground="#F8FAFC" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                        <controls:SelectableTextBlock Text="{Binding Description}" Foreground="#94A3B8" FontSize="10" Margin="0,3,0,0"/>
                         </StackPanel>
                     </Button>
                 <Button Grid.Column="1" Content="⚙" Command="{Binding DataContext.OpenScriptPropertiesCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" ToolTip="查看脚本属性" Padding="0"/>
@@ -66,9 +67,9 @@
                         <Button Content="设置" Command="{Binding SettingsCommand}" ToolTip="打开全局设置"/>
                     </StackPanel>
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock Text="{Binding ProjectName}" FontWeight="SemiBold" Margin="12,0" VerticalAlignment="Center"/>
+                        <controls:SelectableTextBlock Text="{Binding ProjectName}" FontWeight="SemiBold" Margin="12,0" VerticalAlignment="Center"/>
                         <Border Background="#1E293B" CornerRadius="12" Padding="12,4">
-                            <TextBlock Text="{Binding StateText}" Foreground="#93C5FD"/>
+                            <controls:SelectableTextBlock Text="{Binding StateText}" Foreground="#93C5FD"/>
                         </Border>
                     </StackPanel>
                 </DockPanel>
@@ -95,26 +96,26 @@
             <Border Grid.Row="0" Grid.Column="0" Background="{StaticResource PanelBackground}" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="0,0,1,0" Visibility="{Binding IsProjectFilesPaneVisible, Converter={StaticResource BoolVisibility}}">
                 <DockPanel>
                     <Grid DockPanel.Dock="Top" Height="38" Background="#141D2E" Margin="0,0,0,6">
-                        <TextBlock Text="项目文件" FontWeight="SemiBold" FontSize="13" Margin="12,0" VerticalAlignment="Center"/>
+                        <controls:SelectableTextBlock Text="项目文件" FontWeight="SemiBold" FontSize="13" Margin="12,0" VerticalAlignment="Center"/>
                         <Button Content="—" Style="{StaticResource PaneHeaderButton}" HorizontalAlignment="Right" Command="{Binding ToggleProjectFilesPaneCommand}" ToolTip="最小化项目文件"/>
                     </Grid>
                     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="8,0,8,8">
                         <StackPanel>
-                            <TextBlock Text="当前文件" Foreground="#64748B" FontSize="11" Margin="3,2,3,4"/>
+                            <controls:SelectableTextBlock Text="当前文件" Foreground="#64748B" FontSize="11" Margin="3,2,3,4"/>
                             <Border Background="#1D2A42" BorderBrush="#3B82F6" BorderThickness="1" CornerRadius="5" Padding="9,8" Margin="0,0,0,12">
                                 <StackPanel>
-                                    <TextBlock Text="{Binding CurrentFileName}" Foreground="#F8FAFC" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                                    <TextBlock Text="{Binding CurrentPathText}" Foreground="#94A3B8" FontSize="10" TextTrimming="CharacterEllipsis" Margin="0,3,0,0"/>
+                                    <controls:SelectableTextBlock Text="{Binding CurrentFileName}" Foreground="#F8FAFC" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                    <controls:SelectableTextBlock Text="{Binding CurrentPathText}" Foreground="#94A3B8" FontSize="10" TextTrimming="CharacterEllipsis" Margin="0,3,0,0"/>
                                 </StackPanel>
                             </Border>
-                            <TextBlock Text="文件操作" Foreground="#64748B" FontSize="11" Margin="3,0,3,4"/>
+                            <controls:SelectableTextBlock Text="文件操作" Foreground="#64748B" FontSize="11" Margin="3,0,3,4"/>
                             <WrapPanel Margin="0,0,0,12">
                                 <Button Content="新建" Command="{Binding NewCommand}" Width="84" Padding="5,5"/>
                                 <Button Content="打开" Command="{Binding OpenCommand}" Width="84" Padding="5,5"/>
                                 <Button Content="保存" Command="{Binding SaveCommand}" Width="84" Padding="5,5"/>
                                 <Button Content="另存为" Command="{Binding SaveAsCommand}" Width="84" Padding="5,5"/>
                             </WrapPanel>
-                            <TextBlock Text="最近项目" Foreground="#64748B" FontSize="11" Margin="3,0,3,4"/>
+                            <controls:SelectableTextBlock Text="最近项目" Foreground="#64748B" FontSize="11" Margin="3,0,3,4"/>
                             <ItemsControl ItemsSource="{Binding RecentProjectFiles}" ItemTemplate="{StaticResource ProjectFileTemplate}"/>
                         </StackPanel>
                     </ScrollViewer>
@@ -126,15 +127,15 @@
             <Border Grid.Row="0" Grid.Column="2" Background="{StaticResource PanelBackground}" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="0,0,1,0" Visibility="{Binding IsScriptListPaneVisible, Converter={StaticResource BoolVisibility}}">
                 <DockPanel>
                     <Grid DockPanel.Dock="Top" Height="38" Background="#141D2E" Margin="0,0,0,6">
-                        <TextBlock Text="脚本列表" FontWeight="SemiBold" FontSize="13" Margin="12,0" VerticalAlignment="Center"/>
+                        <controls:SelectableTextBlock Text="脚本列表" FontWeight="SemiBold" FontSize="13" Margin="12,0" VerticalAlignment="Center"/>
                         <Button Content="—" Style="{StaticResource PaneHeaderButton}" HorizontalAlignment="Right" Command="{Binding ToggleScriptListPaneCommand}" ToolTip="最小化脚本列表"/>
                         <Button Content="+" Style="{StaticResource PaneHeaderButton}" HorizontalAlignment="Right" Margin="4,5,38,5" Command="{Binding NewScriptCommand}" ToolTip="新建脚本"/>
                     </Grid>
                     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="8,0,8,8">
                         <StackPanel>
-                            <TextBlock Text="当前项目脚本" Foreground="#64748B" FontSize="11" Margin="3,2,3,4"/>
+                            <controls:SelectableTextBlock Text="当前项目脚本" Foreground="#64748B" FontSize="11" Margin="3,2,3,4"/>
                             <ItemsControl ItemsSource="{Binding Scripts}" ItemTemplate="{StaticResource ScriptItemTemplate}"/>
-                            <TextBlock Text="一个项目可以包含多个脚本，可在此切换当前脚本" Foreground="#64748B" FontSize="10" TextWrapping="Wrap" Margin="3,12,3,0"/>
+                            <controls:SelectableTextBlock Text="一个项目可以包含多个脚本，可在此切换当前脚本" Foreground="#64748B" FontSize="10" TextWrapping="Wrap" Margin="3,12,3,0"/>
                         </StackPanel>
                     </ScrollViewer>
                 </DockPanel>
@@ -158,7 +159,7 @@
                 <Border Grid.Row="2" Background="{StaticResource PanelBackground}" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="0,1,0,0" Visibility="{Binding IsToolboxPaneVisible, Converter={StaticResource BoolVisibility}}">
                     <DockPanel>
                         <Grid DockPanel.Dock="Top" Height="38" Background="#141D2E" Margin="0,0,0,6">
-                            <TextBlock Text="原子动作 / Actions" FontWeight="SemiBold" FontSize="13" Margin="12,0" VerticalAlignment="Center"/>
+                            <controls:SelectableTextBlock Text="原子动作 / Actions" FontWeight="SemiBold" FontSize="13" Margin="12,0" VerticalAlignment="Center"/>
                             <Button Content="—" Style="{StaticResource PaneHeaderButton}" HorizontalAlignment="Right" Command="{Binding ToggleToolboxPaneCommand}" ToolTip="最小化原子动作 / Actions"/>
                         </Grid>
                         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="8,0,8,8" Visibility="{Binding IsHorizontalStepLayout, Converter={StaticResource InverseBoolVisibility}}">
@@ -182,35 +183,35 @@
             <Border Grid.Row="0" Grid.Column="6" Background="{StaticResource PanelBackground}" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="1,0,0,0" Visibility="{Binding IsPropertiesPaneVisible, Converter={StaticResource BoolVisibility}}">
                 <DockPanel>
                     <Grid DockPanel.Dock="Top" Height="38" Background="#141D2E" Margin="0,0,0,6">
-                        <TextBlock Text="属性" FontWeight="SemiBold" FontSize="13" Margin="12,0" VerticalAlignment="Center"/>
+                        <controls:SelectableTextBlock Text="属性" FontWeight="SemiBold" FontSize="13" Margin="12,0" VerticalAlignment="Center"/>
                         <Button Content="—" Style="{StaticResource PaneHeaderButton}" HorizontalAlignment="Right" Command="{Binding TogglePropertiesPaneCommand}" ToolTip="最小化属性面板"/>
                     </Grid>
-                    <TextBlock Text="在画布中选择一个节点，或右键脚本查看脚本属性" Foreground="#64748B" HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="Wrap" Margin="20" Visibility="{Binding HasPropertySelection, Converter={StaticResource InverseBoolVisibility}}"/>
+                    <controls:SelectableTextBlock Text="在画布中选择一个节点，或右键脚本查看脚本属性" Foreground="#64748B" HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="Wrap" Margin="20" Visibility="{Binding HasPropertySelection, Converter={StaticResource InverseBoolVisibility}}"/>
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,0,8,8" Visibility="{Binding IsScriptPropertiesVisible, Converter={StaticResource BoolVisibility}}">
                         <StackPanel>
-                            <TextBlock Text="当前脚本属性" FontWeight="SemiBold" Foreground="#F8FAFC" Margin="3,4,3,14"/>
-                            <TextBlock Text="脚本名称" Foreground="#94A3B8"/>
+                            <controls:SelectableTextBlock Text="当前脚本属性" FontWeight="SemiBold" Foreground="#F8FAFC" Margin="3,4,3,14"/>
+                            <controls:SelectableTextBlock Text="脚本名称" Foreground="#94A3B8"/>
                             <TextBox Text="{Binding ActiveScriptName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10" ToolTip="脚本名称在项目内必须唯一"/>
-                            <TextBlock Text="窗口范围" Foreground="#94A3B8"/>
+                            <controls:SelectableTextBlock Text="窗口范围" Foreground="#94A3B8"/>
                             <StackPanel Orientation="Horizontal" Margin="4,8,4,4">
                                 <RadioButton GroupName="WindowScopeMode" Content="整个屏幕" IsChecked="{Binding UseWholeScreen, Mode=TwoWay}" Foreground="#E2E8F0" Margin="0,0,18,0"/>
                                 <RadioButton GroupName="WindowScopeMode" Content="正则匹配窗口" IsChecked="{Binding ScriptWindowScopeEnabled, Mode=TwoWay}" Foreground="#E2E8F0"/>
                             </StackPanel>
-                            <TextBlock Text="窗口标题正则（正则匹配窗口）" Foreground="#94A3B8" Margin="0,6,0,3"/>
+                            <controls:SelectableTextBlock Text="窗口标题正则（正则匹配窗口）" Foreground="#94A3B8" Margin="0,6,0,3"/>
                             <TextBox Text="{Binding ScriptWindowTitlePattern, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding ScriptWindowScopeEnabled}"/>
-                            <TextBlock Text="选择“整个屏幕”时不限定窗口；选择“正则匹配窗口”时按标题正则查找并激活目标窗口。" Foreground="#64748B" FontSize="10" TextWrapping="Wrap" Margin="3,5,3,0"/>
-                            <TextBlock Text="窗口句柄输出变量" Foreground="#94A3B8" Margin="0,10,0,3"/>
+                            <controls:SelectableTextBlock Text="选择“整个屏幕”时不限定窗口；选择“正则匹配窗口”时按标题正则查找并激活目标窗口。" Foreground="#64748B" FontSize="10" TextWrapping="Wrap" Margin="3,5,3,0"/>
+                            <controls:SelectableTextBlock Text="窗口句柄输出变量" Foreground="#94A3B8" Margin="0,10,0,3"/>
                             <TextBox Text="{Binding ScriptWindowOutputVariable, UpdateSourceTrigger=PropertyChanged}"/>
-                            <TextBlock Text="节点默认等待时间（毫秒）" Foreground="#94A3B8" Margin="0,16,0,3"/>
+                            <controls:SelectableTextBlock Text="节点默认等待时间（毫秒）" Foreground="#94A3B8" Margin="0,16,0,3"/>
                             <TextBox Text="{Binding ScriptDefaultNodeDelayMs, UpdateSourceTrigger=PropertyChanged}"/>
-                            <TextBlock Text="设置为 0 表示关闭；显式等待节点仍使用自身等待时间。以上配置只对当前脚本生效。" Foreground="#64748B" TextWrapping="Wrap" Margin="3,6,3,0"/>
+                            <controls:SelectableTextBlock Text="设置为 0 表示关闭；显式等待节点仍使用自身等待时间。以上配置只对当前脚本生效。" Foreground="#64748B" TextWrapping="Wrap" Margin="3,6,3,0"/>
                         </StackPanel>
                     </ScrollViewer>
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,0,8,8" Visibility="{Binding IsScriptPropertiesVisible, Converter={StaticResource BoolVisibility}}" Margin="0,8,0,0">
                         <StackPanel>
                             <DockPanel Margin="3,8,3,4">
                                 <Button Content="添加检测器" Width="88" DockPanel.Dock="Right" Command="{Binding AddDetectorCommand}"/>
-                                <TextBlock Text="脚本检测器" FontWeight="SemiBold" Foreground="#F8FAFC" VerticalAlignment="Center"/>
+                                <controls:SelectableTextBlock Text="脚本检测器" FontWeight="SemiBold" Foreground="#F8FAFC" VerticalAlignment="Center"/>
                             </DockPanel>
                             <ItemsControl ItemsSource="{Binding Detectors}">
                                 <ItemsControl.ItemTemplate>
@@ -223,9 +224,9 @@
                                                 </DockPanel>
                                                 <ComboBox ItemsSource="{Binding DataContext.DetectorTypes, RelativeSource={RelativeSource AncestorType=Window}}" SelectedItem="{Binding Type, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,0"/>
                                                 <CheckBox Content="启用" IsChecked="{Binding Enabled, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,0"/>
-                                                <TextBlock Text="参数 JSON（颜色：x/y/width/height/targetColor/tolerance；图片：templatePath）" Foreground="#64748B" FontSize="10" Margin="0,4,0,2" TextWrapping="Wrap"/>
+                                                <controls:SelectableTextBlock Text="参数 JSON（颜色：x/y/width/height/targetColor/tolerance；图片：templatePath）" Foreground="#64748B" FontSize="10" Margin="0,4,0,2" TextWrapping="Wrap"/>
                                                 <TextBox Text="{Binding ParametersJson, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="48" FontFamily="Consolas"/>
-                                                <TextBlock Text="{Binding ParametersError}" Foreground="#F87171" FontSize="10" Margin="0,3,0,0" Visibility="{Binding HasParametersError, Converter={StaticResource BoolVisibility}}" TextWrapping="Wrap"/>
+                                                <controls:SelectableTextBlock Text="{Binding ParametersError}" Foreground="#F87171" FontSize="10" Margin="0,3,0,0" Visibility="{Binding HasParametersError, Converter={StaticResource BoolVisibility}}" TextWrapping="Wrap"/>
                                             </StackPanel>
                                         </Border>
                                     </DataTemplate>
@@ -235,9 +236,9 @@
                     </ScrollViewer>
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,0,8,8" Visibility="{Binding HasSingleStateConditionSelection, Converter={StaticResource BoolVisibility}}">
                         <StackPanel DataContext="{Binding SelectedNode}">
-                            <TextBlock Text="{Binding LogicLabel}" FontWeight="SemiBold" Foreground="#FBBF24" Margin="3,4,3,2"/>
-                            <TextBlock Text="直接配置本节点的检测内容，命中后从 true 分支继续，否则从 false 分支继续。" Foreground="#94A3B8" FontSize="10" TextWrapping="Wrap" Margin="3,0,3,10"/>
-                            <TextBlock Text="数值参数" Foreground="#94A3B8" Margin="0,0,0,3"/>
+                            <controls:SelectableTextBlock Text="{Binding LogicLabel}" FontWeight="SemiBold" Foreground="#FBBF24" Margin="3,4,3,2"/>
+                            <controls:SelectableTextBlock Text="直接配置本节点的检测内容，命中后从 true 分支继续，否则从 false 分支继续。" Foreground="#94A3B8" FontSize="10" TextWrapping="Wrap" Margin="3,0,3,10"/>
+                            <controls:SelectableTextBlock Text="数值参数" Foreground="#94A3B8" Margin="0,0,0,3"/>
                             <ItemsControl ItemsSource="{Binding NumericParameters}">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
@@ -245,13 +246,13 @@
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <StackPanel Width="136" Margin="0,3,6,3">
-                                            <TextBlock Text="{Binding DisplayName}" Foreground="#94A3B8" ToolTip="{Binding Description}"/>
+                                            <controls:SelectableTextBlock Text="{Binding DisplayName}" Foreground="#94A3B8" ToolTip="{Binding Description}"/>
                                             <TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"/>
                                         </StackPanel>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
-                            <TextBlock Text="文本参数" Foreground="#94A3B8" Margin="0,8,0,3"/>
+                            <controls:SelectableTextBlock Text="文本参数" Foreground="#94A3B8" Margin="0,8,0,3"/>
                             <ItemsControl ItemsSource="{Binding TextParameters}">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
@@ -259,13 +260,13 @@
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <StackPanel Width="280" Margin="0,3">
-                                            <TextBlock Text="{Binding DisplayName}" Foreground="#94A3B8" ToolTip="{Binding Description}"/>
+                                            <controls:SelectableTextBlock Text="{Binding DisplayName}" Foreground="#94A3B8" ToolTip="{Binding Description}"/>
                                             <TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"/>
                                         </StackPanel>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
-                            <TextBlock Text="期望状态" Foreground="#94A3B8" Margin="0,8,0,3"/>
+                            <controls:SelectableTextBlock Text="期望状态" Foreground="#94A3B8" Margin="0,8,0,3"/>
                             <ItemsControl ItemsSource="{Binding StateParameters}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
@@ -276,15 +277,15 @@
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
-                            <TextBlock Text="单一判断直接使用以上检测内容，不再引用脚本检测器。" Foreground="#64748B" FontSize="10" TextWrapping="Wrap" Margin="3,6,3,12"/>
+                            <controls:SelectableTextBlock Text="单一判断直接使用以上检测内容，不再引用脚本检测器。" Foreground="#64748B" FontSize="10" TextWrapping="Wrap" Margin="3,6,3,12"/>
                             <Button Content="应用判断" Command="{Binding DataContext.ApplyNodeCommand, RelativeSource={RelativeSource AncestorType=Window}}" Background="#D97706" BorderBrush="#F59E0B"/>
                         </StackPanel>
                     </ScrollViewer>
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,0,8,8" Visibility="{Binding HasStateConditionSelection, Converter={StaticResource BoolVisibility}}">
                         <StackPanel DataContext="{Binding SelectedNode}">
-                            <TextBlock Text="联合判断" FontWeight="SemiBold" Foreground="#FBBF24" Margin="3,4,3,2"/>
-                            <TextBlock Text="到达此节点时检测一次，并从右侧 true / false 分支继续执行；单个检测器就是单一判断。" Foreground="#94A3B8" FontSize="10" TextWrapping="Wrap" Margin="3,0,3,10"/>
-                            <TextBlock Text="{Binding StateRuleSummary}" Foreground="#FBBF24" FontSize="11" Margin="3,0,3,4"/>
+                            <controls:SelectableTextBlock Text="联合判断" FontWeight="SemiBold" Foreground="#FBBF24" Margin="3,4,3,2"/>
+                            <controls:SelectableTextBlock Text="到达此节点时检测一次，并从右侧 true / false 分支继续执行；单个检测器就是单一判断。" Foreground="#94A3B8" FontSize="10" TextWrapping="Wrap" Margin="3,0,3,10"/>
+                            <controls:SelectableTextBlock Text="{Binding StateRuleSummary}" Foreground="#FBBF24" FontSize="11" Margin="3,0,3,4"/>
                             <ItemsControl ItemsSource="{Binding StateRules}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
@@ -305,18 +306,18 @@
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
                             <Button Content="＋ 添加检测器规则" Command="{Binding DataContext.AddStateRuleCommand, RelativeSource={RelativeSource AncestorType=Window}}" Margin="0,5,0,0"/>
-                            <TextBlock Text="所有规则必须同时满足；没有规则时不会命中。" Foreground="#64748B" FontSize="10" TextWrapping="Wrap" Margin="3,6,3,12"/>
+                            <controls:SelectableTextBlock Text="所有规则必须同时满足；没有规则时不会命中。" Foreground="#64748B" FontSize="10" TextWrapping="Wrap" Margin="3,6,3,12"/>
                             <Button Content="应用联合判断" Command="{Binding DataContext.ApplyNodeCommand, RelativeSource={RelativeSource AncestorType=Window}}" Background="#D97706" BorderBrush="#F59E0B"/>
                         </StackPanel>
                     </ScrollViewer>
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,0,8,8" Visibility="{Binding IsRegularNodeSelection, Converter={StaticResource BoolVisibility}}">
                         <StackPanel DataContext="{Binding SelectedNode}">
-                            <TextBlock Text="节点名称" Foreground="#94A3B8"/>
+                            <controls:SelectableTextBlock Text="节点名称" Foreground="#94A3B8"/>
                             <TextBox Text="{Binding DisplayName, UpdateSourceTrigger=PropertyChanged}"/>
                             <CheckBox Content="启用节点" IsChecked="{Binding Enabled}" Margin="4,8" Foreground="#E2E8F0"/>
-                            <TextBlock Text="参数配置" Foreground="#94A3B8" Margin="0,12,0,4"/>
+                            <controls:SelectableTextBlock Text="参数配置" Foreground="#94A3B8" Margin="0,12,0,4"/>
                             <StackPanel Visibility="{Binding HasNumericParameters, Converter={StaticResource BoolVisibility}}">
-                                <TextBlock Text="数值参数" Foreground="#94A3B8" Margin="0,0,0,3"/>
+                                <controls:SelectableTextBlock Text="数值参数" Foreground="#94A3B8" Margin="0,0,0,3"/>
                                 <ItemsControl ItemsSource="{Binding NumericParameters}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
@@ -324,7 +325,7 @@
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <StackPanel Width="136" Margin="0,3,6,3">
-                                                <TextBlock Text="{Binding DisplayName}" Foreground="#94A3B8" ToolTip="{Binding Description}"/>
+                                                <controls:SelectableTextBlock Text="{Binding DisplayName}" Foreground="#94A3B8" ToolTip="{Binding Description}"/>
                                                 <TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"/>
                                             </StackPanel>
                                         </DataTemplate>
@@ -332,7 +333,7 @@
                                 </ItemsControl>
                             </StackPanel>
                             <StackPanel Visibility="{Binding HasTextParameters, Converter={StaticResource BoolVisibility}}">
-                                <TextBlock Text="文本参数" Foreground="#94A3B8" Margin="0,8,0,3"/>
+                                <controls:SelectableTextBlock Text="文本参数" Foreground="#94A3B8" Margin="0,8,0,3"/>
                                 <ItemsControl ItemsSource="{Binding TextParameters}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
@@ -340,7 +341,7 @@
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <StackPanel Width="136" Margin="0,3,6,3">
-                                                <TextBlock Text="{Binding DisplayName}" Foreground="#94A3B8" ToolTip="{Binding Description}"/>
+                                                <controls:SelectableTextBlock Text="{Binding DisplayName}" Foreground="#94A3B8" ToolTip="{Binding Description}"/>
                                                 <TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"/>
                                             </StackPanel>
                                         </DataTemplate>
@@ -348,7 +349,7 @@
                                 </ItemsControl>
                             </StackPanel>
                             <StackPanel Visibility="{Binding HasChoiceParameters, Converter={StaticResource BoolVisibility}}">
-                                <TextBlock Text="枚举参数" Foreground="#94A3B8" Margin="0,8,0,3"/>
+                                <controls:SelectableTextBlock Text="枚举参数" Foreground="#94A3B8" Margin="0,8,0,3"/>
                                 <ItemsControl ItemsSource="{Binding ChoiceParameters}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
@@ -356,7 +357,7 @@
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <StackPanel Width="136" Margin="0,3,6,3">
-                                                <TextBlock Text="{Binding DisplayName}" Foreground="#94A3B8" ToolTip="{Binding Description}"/>
+                                                <controls:SelectableTextBlock Text="{Binding DisplayName}" Foreground="#94A3B8" ToolTip="{Binding Description}"/>
                                                 <ComboBox SelectedValue="{Binding Value, UpdateSourceTrigger=PropertyChanged}" SelectedValuePath="Tag">
                                                     <ComboBox.Style>
                                                         <Style TargetType="ComboBox">
@@ -384,7 +385,7 @@
                                 </ItemsControl>
                             </StackPanel>
                             <StackPanel Visibility="{Binding HasBooleanParameters, Converter={StaticResource BoolVisibility}}">
-                                <TextBlock Text="开关参数" Foreground="#94A3B8" Margin="0,8,0,3"/>
+                                <controls:SelectableTextBlock Text="开关参数" Foreground="#94A3B8" Margin="0,8,0,3"/>
                                 <ItemsControl ItemsSource="{Binding BooleanParameters}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
@@ -394,12 +395,12 @@
                                 </ItemsControl>
                             </StackPanel>
                             <StackPanel Visibility="{Binding HasOtherParameters, Converter={StaticResource BoolVisibility}}">
-                                <TextBlock Text="其他参数" Foreground="#94A3B8" Margin="0,8,0,3"/>
+                                <controls:SelectableTextBlock Text="其他参数" Foreground="#94A3B8" Margin="0,8,0,3"/>
                                 <ItemsControl ItemsSource="{Binding OtherParameters}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <StackPanel Margin="0,3">
-                                                <TextBlock Text="{Binding DisplayName}" Foreground="#94A3B8" ToolTip="{Binding Description}"/>
+                                                <controls:SelectableTextBlock Text="{Binding DisplayName}" Foreground="#94A3B8" ToolTip="{Binding Description}"/>
                                                 <TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"/>
                                             </StackPanel>
                                         </DataTemplate>
@@ -422,19 +423,19 @@
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
                     <DockPanel Grid.Row="0" Margin="10,0">
-                        <TextBlock Text="运行日志" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        <controls:SelectableTextBlock Text="运行日志" FontWeight="SemiBold" VerticalAlignment="Center"/>
                         <Button Content="—" Style="{StaticResource PaneHeaderButton}" DockPanel.Dock="Right" Command="{Binding ToggleOutputPaneCommand}" ToolTip="最小化运行日志"/>
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,0">
-                            <TextBlock Text="当前节点：" Foreground="#64748B"/>
-                            <TextBlock Text="{Binding CurrentNodeText}" Margin="0,0,18,0"/>
-                            <TextBlock Text="耗时：" Foreground="#64748B"/>
-                            <TextBlock Text="{Binding ElapsedText}"/>
+                            <controls:SelectableTextBlock Text="当前节点：" Foreground="#64748B"/>
+                            <controls:SelectableTextBlock Text="{Binding CurrentNodeText}" Margin="0,0,18,0"/>
+                            <controls:SelectableTextBlock Text="耗时：" Foreground="#64748B"/>
+                            <controls:SelectableTextBlock Text="{Binding ElapsedText}"/>
                         </StackPanel>
                     </DockPanel>
                     <ListBox Grid.Row="1" ItemsSource="{Binding Logs}" Background="#090F1B" Foreground="#CBD5E1" BorderThickness="0" Padding="10,4" FontFamily="Consolas" FontSize="12">
                         <ListBox.ItemTemplate>
                             <DataTemplate>
-                                <TextBlock Text="{Binding DisplayText}" TextWrapping="Wrap"/>
+                                <controls:SelectableTextBlock Text="{Binding DisplayText}" TextWrapping="Wrap"/>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>
