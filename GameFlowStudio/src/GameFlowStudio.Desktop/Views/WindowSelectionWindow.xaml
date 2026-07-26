@@ -27,8 +27,8 @@
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <controls:SelectableTextBlock Text="{Binding Title}" FontSize="13"/>
-                        <controls:SelectableTextBlock Grid.Column="1" Text="{Binding Handle}" Foreground="#64748B" Margin="16,0,4,0"/>
+                        <controls:SelectableTextBlock Text="{Binding Path=Title, Mode=OneWay}" FontSize="13"/>
+                        <controls:SelectableTextBlock Grid.Column="1" Text="{Binding Path=Handle, Mode=OneWay}" Foreground="#64748B" Margin="16,0,4,0"/>
                     </Grid>
                 </DataTemplate>
             </ListBox.ItemTemplate>

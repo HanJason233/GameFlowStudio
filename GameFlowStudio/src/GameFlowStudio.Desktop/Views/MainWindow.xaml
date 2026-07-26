@@ -24,8 +24,8 @@
         <DataTemplate x:Key="ProjectFileTemplate">
             <Button Command="{Binding DataContext.OpenRecentProjectCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" HorizontalContentAlignment="Stretch" Padding="8,7" Margin="0,2">
                 <StackPanel>
-                    <controls:SelectableTextBlock Text="{Binding Name}" Foreground="#E2E8F0" TextTrimming="CharacterEllipsis"/>
-                    <controls:SelectableTextBlock Text="{Binding Path}" Foreground="#64748B" FontSize="10" TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
+                    <controls:SelectableTextBlock Text="{Binding Path=Name, Mode=OneWay}" Foreground="#E2E8F0" TextTrimming="CharacterEllipsis"/>
+                    <controls:SelectableTextBlock Text="{Binding Path=Path, Mode=OneWay}" Foreground="#64748B" FontSize="10" TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
                 </StackPanel>
             </Button>
         </DataTemplate>
@@ -38,8 +38,8 @@
                     </Grid.ColumnDefinitions>
                     <Button Command="{Binding DataContext.SelectScriptCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" PreviewMouseRightButtonDown="ScriptRightClick" HorizontalContentAlignment="Stretch" Padding="9,8" Margin="0,0,2,0">
                     <StackPanel>
-                        <controls:SelectableTextBlock Text="{Binding Name}" Foreground="#F8FAFC" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                        <controls:SelectableTextBlock Text="{Binding Description}" Foreground="#94A3B8" FontSize="10" Margin="0,3,0,0"/>
+                        <controls:SelectableTextBlock Text="{Binding Path=Name, Mode=OneWay}" Foreground="#F8FAFC" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                        <controls:SelectableTextBlock Text="{Binding Path=Description, Mode=OneWay}" Foreground="#94A3B8" FontSize="10" Margin="0,3,0,0"/>
                         </StackPanel>
                     </Button>
                 <Button Grid.Column="1" Content="⚙" Command="{Binding DataContext.OpenScriptPropertiesCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" ToolTip="查看脚本属性" Padding="0"/>
@@ -67,9 +67,9 @@
                         <Button Content="设置" Command="{Binding SettingsCommand}" ToolTip="打开全局设置"/>
                     </StackPanel>
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                        <controls:SelectableTextBlock Text="{Binding ProjectName}" FontWeight="SemiBold" Margin="12,0" VerticalAlignment="Center"/>
+                        <controls:SelectableTextBlock Text="{Binding Path=ProjectName, Mode=OneWay}" FontWeight="SemiBold" Margin="12,0" VerticalAlignment="Center"/>
                         <Border Background="#1E293B" CornerRadius="12" Padding="12,4">
-                            <controls:SelectableTextBlock Text="{Binding StateText}" Foreground="#93C5FD"/>
+                            <controls:SelectableTextBlock Text="{Binding Path=StateText, Mode=OneWay}" Foreground="#93C5FD"/>
                         </Border>
                     </StackPanel>
                 </DockPanel>
@@ -104,8 +104,8 @@
                             <controls:SelectableTextBlock Text="当前文件" Foreground="#64748B" FontSize="11" Margin="3,2,3,4"/>
                             <Border Background="#1D2A42" BorderBrush="#3B82F6" BorderThickness="1" CornerRadius="5" Padding="9,8" Margin="0,0,0,12">
                                 <StackPanel>
-                                    <controls:SelectableTextBlock Text="{Binding CurrentFileName}" Foreground="#F8FAFC" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                                    <controls:SelectableTextBlock Text="{Binding CurrentPathText}" Foreground="#94A3B8" FontSize="10" TextTrimming="CharacterEllipsis" Margin="0,3,0,0"/>
+                                    <controls:SelectableTextBlock Text="{Binding Path=CurrentFileName, Mode=OneWay}" Foreground="#F8FAFC" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                    <controls:SelectableTextBlock Text="{Binding Path=CurrentPathText, Mode=OneWay}" Foreground="#94A3B8" FontSize="10" TextTrimming="CharacterEllipsis" Margin="0,3,0,0"/>
                                 </StackPanel>
                             </Border>
                             <controls:SelectableTextBlock Text="文件操作" Foreground="#64748B" FontSize="11" Margin="3,0,3,4"/>
@@ -226,7 +226,7 @@
                                                 <CheckBox Content="启用" IsChecked="{Binding Enabled, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,0"/>
                                                 <controls:SelectableTextBlock Text="参数 JSON（颜色：x/y/width/height/targetColor/tolerance；图片：templatePath）" Foreground="#64748B" FontSize="10" Margin="0,4,0,2" TextWrapping="Wrap"/>
                                                 <TextBox Text="{Binding ParametersJson, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="48" FontFamily="Consolas"/>
-                                                <controls:SelectableTextBlock Text="{Binding ParametersError}" Foreground="#F87171" FontSize="10" Margin="0,3,0,0" Visibility="{Binding HasParametersError, Converter={StaticResource BoolVisibility}}" TextWrapping="Wrap"/>
+                                                <controls:SelectableTextBlock Text="{Binding Path=ParametersError, Mode=OneWay}" Foreground="#F87171" FontSize="10" Margin="0,3,0,0" Visibility="{Binding HasParametersError, Converter={StaticResource BoolVisibility}}" TextWrapping="Wrap"/>
                                             </StackPanel>
                                         </Border>
                                     </DataTemplate>
@@ -236,7 +236,7 @@
                     </ScrollViewer>
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,0,8,8" Visibility="{Binding HasSingleStateConditionSelection, Converter={StaticResource BoolVisibility}}">
                         <StackPanel DataContext="{Binding SelectedNode}">
-                            <controls:SelectableTextBlock Text="{Binding LogicLabel}" FontWeight="SemiBold" Foreground="#FBBF24" Margin="3,4,3,2"/>
+                            <controls:SelectableTextBlock Text="{Binding Path=LogicLabel, Mode=OneWay}" FontWeight="SemiBold" Foreground="#FBBF24" Margin="3,4,3,2"/>
                             <controls:SelectableTextBlock Text="直接配置本节点的检测内容，命中后从 true 分支继续，否则从 false 分支继续。" Foreground="#94A3B8" FontSize="10" TextWrapping="Wrap" Margin="3,0,3,10"/>
                             <controls:SelectableTextBlock Text="数值参数" Foreground="#94A3B8" Margin="0,0,0,3"/>
                             <ItemsControl ItemsSource="{Binding NumericParameters}">
@@ -246,7 +246,7 @@
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <StackPanel Width="136" Margin="0,3,6,3">
-                                            <controls:SelectableTextBlock Text="{Binding DisplayName}" Foreground="#94A3B8" ToolTip="{Binding Description}"/>
+                                            <controls:SelectableTextBlock Text="{Binding Path=DisplayName, Mode=OneWay}" Foreground="#94A3B8" ToolTip="{Binding Description}"/>
                                             <TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"/>
                                         </StackPanel>
                                     </DataTemplate>
@@ -260,7 +260,7 @@
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <StackPanel Width="280" Margin="0,3">
-                                            <controls:SelectableTextBlock Text="{Binding DisplayName}" Foreground="#94A3B8" ToolTip="{Binding Description}"/>
+                                            <controls:SelectableTextBlock Text="{Binding Path=DisplayName, Mode=OneWay}" Foreground="#94A3B8" ToolTip="{Binding Description}"/>
                                             <TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"/>
                                         </StackPanel>
                                     </DataTemplate>
@@ -285,7 +285,7 @@
                         <StackPanel DataContext="{Binding SelectedNode}">
                             <controls:SelectableTextBlock Text="联合判断" FontWeight="SemiBold" Foreground="#FBBF24" Margin="3,4,3,2"/>
                             <controls:SelectableTextBlock Text="到达此节点时检测一次，并从右侧 true / false 分支继续执行；单个检测器就是单一判断。" Foreground="#94A3B8" FontSize="10" TextWrapping="Wrap" Margin="3,0,3,10"/>
-                            <controls:SelectableTextBlock Text="{Binding StateRuleSummary}" Foreground="#FBBF24" FontSize="11" Margin="3,0,3,4"/>
+                            <controls:SelectableTextBlock Text="{Binding Path=StateRuleSummary, Mode=OneWay}" Foreground="#FBBF24" FontSize="11" Margin="3,0,3,4"/>
                             <ItemsControl ItemsSource="{Binding StateRules}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
@@ -325,7 +325,7 @@
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <StackPanel Width="136" Margin="0,3,6,3">
-                                                <controls:SelectableTextBlock Text="{Binding DisplayName}" Foreground="#94A3B8" ToolTip="{Binding Description}"/>
+                                                <controls:SelectableTextBlock Text="{Binding Path=DisplayName, Mode=OneWay}" Foreground="#94A3B8" ToolTip="{Binding Description}"/>
                                                 <TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"/>
                                             </StackPanel>
                                         </DataTemplate>
@@ -341,7 +341,7 @@
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <StackPanel Width="136" Margin="0,3,6,3">
-                                                <controls:SelectableTextBlock Text="{Binding DisplayName}" Foreground="#94A3B8" ToolTip="{Binding Description}"/>
+                                                <controls:SelectableTextBlock Text="{Binding Path=DisplayName, Mode=OneWay}" Foreground="#94A3B8" ToolTip="{Binding Description}"/>
                                                 <TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"/>
                                             </StackPanel>
                                         </DataTemplate>
@@ -357,7 +357,7 @@
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <StackPanel Width="136" Margin="0,3,6,3">
-                                                <controls:SelectableTextBlock Text="{Binding DisplayName}" Foreground="#94A3B8" ToolTip="{Binding Description}"/>
+                                                <controls:SelectableTextBlock Text="{Binding Path=DisplayName, Mode=OneWay}" Foreground="#94A3B8" ToolTip="{Binding Description}"/>
                                                 <ComboBox SelectedValue="{Binding Value, UpdateSourceTrigger=PropertyChanged}" SelectedValuePath="Tag">
                                                     <ComboBox.Style>
                                                         <Style TargetType="ComboBox">
@@ -400,7 +400,7 @@
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <StackPanel Margin="0,3">
-                                                <controls:SelectableTextBlock Text="{Binding DisplayName}" Foreground="#94A3B8" ToolTip="{Binding Description}"/>
+                                                <controls:SelectableTextBlock Text="{Binding Path=DisplayName, Mode=OneWay}" Foreground="#94A3B8" ToolTip="{Binding Description}"/>
                                                 <TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"/>
                                             </StackPanel>
                                         </DataTemplate>
@@ -427,15 +427,15 @@
                         <Button Content="—" Style="{StaticResource PaneHeaderButton}" DockPanel.Dock="Right" Command="{Binding ToggleOutputPaneCommand}" ToolTip="最小化运行日志"/>
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,0">
                             <controls:SelectableTextBlock Text="当前节点：" Foreground="#64748B"/>
-                            <controls:SelectableTextBlock Text="{Binding CurrentNodeText}" Margin="0,0,18,0"/>
+                            <controls:SelectableTextBlock Text="{Binding Path=CurrentNodeText, Mode=OneWay}" Margin="0,0,18,0"/>
                             <controls:SelectableTextBlock Text="耗时：" Foreground="#64748B"/>
-                            <controls:SelectableTextBlock Text="{Binding ElapsedText}"/>
+                            <controls:SelectableTextBlock Text="{Binding Path=ElapsedText, Mode=OneWay}"/>
                         </StackPanel>
                     </DockPanel>
                     <ListBox Grid.Row="1" ItemsSource="{Binding Logs}" Background="#090F1B" Foreground="#CBD5E1" BorderThickness="0" Padding="10,4" FontFamily="Consolas" FontSize="12">
                         <ListBox.ItemTemplate>
                             <DataTemplate>
-                                <controls:SelectableTextBlock Text="{Binding DisplayText}" TextWrapping="Wrap"/>
+                                <controls:SelectableTextBlock Text="{Binding Path=DisplayText, Mode=OneWay}" TextWrapping="Wrap"/>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>
