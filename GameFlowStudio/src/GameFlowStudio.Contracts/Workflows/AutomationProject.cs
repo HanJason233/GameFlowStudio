@@ -1,7 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using GameFlowStudio.Contracts.Enums;
-using GameFlowStudio.Contracts.States;
 
 namespace GameFlowStudio.Contracts.Workflows;
 
@@ -20,8 +19,6 @@ public sealed class AutomationProject
     [JsonIgnore]
     public List<WorkflowEdge> Edges { get; set; } = [];
     [JsonIgnore]
-    public List<DetectorDefinition> Detectors { get; set; } = [];
-    [JsonIgnore]
     public ScriptWindowScope? WindowScope { get; set; }
     [JsonIgnore]
     public int? DefaultNodeDelayMs { get; set; }
@@ -36,8 +33,6 @@ public sealed class AutomationScript
     public Dictionary<string, ProjectVariable> Variables { get; set; } = new(StringComparer.Ordinal);
     public List<WorkflowNode> Nodes { get; set; } = [];
     public List<WorkflowEdge> Edges { get; set; } = [];
-    /// <summary>脚本级检测器，只能被当前脚本的逻辑判断节点使用。</summary>
-    public List<DetectorDefinition> Detectors { get; set; } = [];
 }
 
 public sealed class ScriptWindowScope
@@ -55,8 +50,6 @@ public sealed class WorkflowDocument
     public Dictionary<string, ProjectVariable> Variables { get; set; } = new(StringComparer.Ordinal);
     public List<WorkflowNode> Nodes { get; set; } = [];
     public List<WorkflowEdge> Edges { get; set; } = [];
-    /// <summary>当前脚本的检测器与工作流编辑快照。</summary>
-    public List<DetectorDefinition> Detectors { get; set; } = [];
 }
 
 public sealed class ProjectMetadata

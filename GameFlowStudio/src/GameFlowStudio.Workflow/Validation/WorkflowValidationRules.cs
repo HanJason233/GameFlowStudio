@@ -145,25 +145,15 @@ internal sealed class StateConfigurationRule : IWorkflowValidationRule
 {
     public void Validate(WorkflowValidationContext context, WorkflowValidationResult result)
     {
-        var detectors = context.Workflow.Detectors;
-        foreach (var group in detectors.GroupBy(detector => detector.Id).Where(group => string.IsNullOrWhiteSpace(group.Key) || group.Count() > 1))
-            result.Add("detector_id", "检测器 ID 不能为空且必须唯一。", edgeId: group.Key);
-
-        foreach (var detector in detectors)
-        {
-            if (string.IsNullOrWhiteSpace(detector.Name)) result.Add("detector_name", "检测器名称不能为空。", edgeId: detector.Id);
-            if (!Enum.IsDefined(detector.Type)) result.Add("detector_type", "检测器类型无效。", edgeId: detector.Id);
-            ValidateDetectorParameters(detector, result);
-        }
-
-        var detectorIds = detectors.Select(detector => detector.Id).ToHashSet(StringComparer.Ordinal);
         foreach (var node in context.Workflow.Nodes.Where(node => node.Type == NodeTypes.StateCondition))
         {
             try
             {
+                var detectors = StateDetectorReader.Read(node);
                 var rules = StateRuleReader.Read(node);
+                ValidateDetectors(detectors, result, node.Id);
                 if (rules.Count == 0) result.Add("state_rules", "联合判断至少需要一个检测器规则。", node.Id);
-                if (rules.Count > 0) ValidateRules(rules, detectorIds, result, node.Id);
+                if (rules.Count > 0) ValidateRules(rules, detectors.Select(detector => detector.Id).ToHashSet(StringComparer.Ordinal), result, node.Id);
             }
             catch (Exception exception) when (exception is InvalidOperationException or JsonException)
             { result.Add("state_rules", exception.Message, node.Id); }
@@ -188,6 +178,19 @@ internal sealed class StateConfigurationRule : IWorkflowValidationRule
             }
             catch (Exception exception) when (exception is InvalidOperationException or JsonException)
             { result.Add("state_parameters", exception.Message, node.Id); }
+        }
+    }
+
+    private static void ValidateDetectors(IReadOnlyList<DetectorDefinition> detectors, WorkflowValidationResult result, string nodeId)
+    {
+        foreach (var group in detectors.GroupBy(detector => detector.Id).Where(group => string.IsNullOrWhiteSpace(group.Key) || group.Count() > 1))
+            result.Add("detector_id", "检测器 ID 不能为空且必须唯一。", nodeId);
+
+        foreach (var detector in detectors)
+        {
+            if (string.IsNullOrWhiteSpace(detector.Name)) result.Add("detector_name", "检测器名称不能为空。", nodeId);
+            if (!Enum.IsDefined(detector.Type)) result.Add("detector_type", "检测器类型无效。", nodeId);
+            ValidateDetectorParameters(detector, result, nodeId);
         }
     }
 

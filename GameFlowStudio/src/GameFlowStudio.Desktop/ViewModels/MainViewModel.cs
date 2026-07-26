@@ -195,6 +195,7 @@ public sealed class SelectedNodeViewModel : ObservableObject
     public string DisplayName { get => _displayName; set => Set(ref _displayName, value); }
     public bool Enabled { get => _enabled; set => Set(ref _enabled, value); }
     public ObservableCollection<NodeParameterItem> Parameters { get; } = [];
+    public ObservableCollection<DetectorEditorItem> Detectors { get; } = [];
     public ObservableCollection<DetectorRuleEditorItem> StateRules { get; } = [];
     public bool IsStateCondition => Type == NodeTypes.StateCondition;
     public bool IsSingleStateCondition => Type is NodeTypes.ColorCondition or NodeTypes.ImageCondition;
@@ -302,7 +303,6 @@ public sealed class MainViewModel : ObservableObject
     public ObservableCollection<DisplayLogEntry> Logs { get; } = [];
     public ObservableCollection<ProjectFileItem> RecentProjectFiles { get; } = [];
     public ObservableCollection<ScriptListItem> Scripts { get; } = [];
-    public ObservableCollection<DetectorEditorItem> Detectors { get; } = [];
     public IReadOnlyList<DetectorType> DetectorTypes { get; } = Enum.GetValues<DetectorType>();
     public IReadOnlyList<ToolboxGroup> ToolboxGroups { get; }
     public AppSettings Settings { get; private set; } = new();
@@ -428,8 +428,8 @@ public sealed class MainViewModel : ObservableObject
     public ICommand ToggleToolboxPaneCommand { get; private set; } = null!;
     public ICommand TogglePropertiesPaneCommand { get; private set; } = null!;
     public ICommand ToggleOutputPaneCommand { get; private set; } = null!;
-    public ICommand AddDetectorCommand { get; private set; } = null!;
-    public ICommand RemoveDetectorCommand { get; private set; } = null!;
+    public ICommand AddStateDetectorCommand { get; private set; } = null!;
+    public ICommand RemoveStateDetectorCommand { get; private set; } = null!;
     public ICommand AddStateRuleCommand { get; private set; } = null!;
     public ICommand RemoveStateRuleCommand { get; private set; } = null!;
 
@@ -488,8 +488,20 @@ public sealed class MainViewModel : ObservableObject
         if (data.TryGetProperty("parameters", out var parameters))
         {
             foreach (var property in parameters.EnumerateObject()) selected.Parameters.Add(new(property.Name, DisplayValue(property.Value), property.Value.ValueKind));
-            if (selected.IsStateCondition && parameters.TryGetProperty("detectorRules", out var rulesElement))
+            if (selected.IsStateCondition)
             {
+                if (parameters.TryGetProperty("detectors", out var detectorsElement))
+                {
+                    var detectors = detectorsElement.Deserialize<List<DetectorDefinition>>(ProjectJson.Options) ?? [];
+                    foreach (var detector in detectors) selected.Detectors.Add(new DetectorEditorItem(detector, selected.RefreshStateSummary));
+                }
+
+                if (!parameters.TryGetProperty("detectorRules", out var rulesElement))
+                {
+                    SelectedNode = selected;
+                    return;
+                }
+
                 var rules = rulesElement.Deserialize<List<StateDetectorRule>>(ProjectJson.Options) ?? [];
                 foreach (var rule in rules) selected.StateRules.Add(new DetectorRuleEditorItem(rule, selected.RefreshStateSummary));
             }
@@ -508,12 +520,19 @@ public sealed class MainViewModel : ObservableObject
 
         if (SelectedNode.IsStateCondition)
         {
+            if (!ValidateStateDetectors(SelectedNode.Detectors, out error))
+            {
+                _dialogs.ShowError(error);
+                return;
+            }
+
             if (!ValidateStateRules(SelectedNode.StateRules, out error))
             {
                 _dialogs.ShowError(error);
                 return;
             }
 
+            parameters["detectors"] = ProjectJson.Element(SelectedNode.Detectors.Select(detector => detector.Definition).ToList());
             parameters["detectorRules"] = ProjectJson.Element(SelectedNode.StateRules.Select(rule => rule.ToRule()).ToList());
         }
         await _editor.SendAsync("update_node_data", new { nodeId = SelectedNode.Id, data = new { displayName = SelectedNode.DisplayName, enabled = SelectedNode.Enabled, parameters } });
@@ -527,9 +546,22 @@ public sealed class MainViewModel : ObservableObject
             return false;
         }
 
-        if (rules.Any(rule => Detectors.All(detector => detector.Id != rule.DetectorId)))
+        if (rules.Any(rule => SelectedNode!.Detectors.All(detector => detector.Id != rule.DetectorId)))
         {
-            error = "联合判断包含不存在的脚本检测器，请重新选择。";
+            error = "联合判断包含不存在的检测器，请重新选择。";
+            return false;
+        }
+
+        error = string.Empty;
+        return true;
+    }
+
+    private static bool ValidateStateDetectors(IReadOnlyList<DetectorEditorItem> detectors, out string error)
+    {
+        var invalid = detectors.FirstOrDefault(detector => detector.HasParametersError);
+        if (invalid is not null)
+        {
+            error = $"检测器“{invalid.Name}”的参数 JSON 无效，请修正后再应用。";
             return false;
         }
 
@@ -640,7 +672,6 @@ public sealed class MainViewModel : ObservableObject
         SyncRuntimeScriptView(script);
         RefreshScripts();
         RefreshScriptSettings();
-        RefreshStateConfiguration();
         SelectedNode = null;
         IsScriptPropertiesVisible = true;
         _dirty = true;
@@ -663,7 +694,6 @@ public sealed class MainViewModel : ObservableObject
         SyncRuntimeScriptView(script);
         RefreshScripts();
         RefreshScriptSettings();
-        RefreshStateConfiguration();
         SelectedNode = null;
         IsScriptPropertiesVisible = true;
         await _editor.SendAsync("import_workflow", CreateEditorSnapshot(script));
@@ -758,7 +788,6 @@ public sealed class MainViewModel : ObservableObject
         SyncRuntimeScriptView(project.Scripts.First(script => script.Id == _activeScriptId));
         RefreshScripts();
         RefreshScriptSettings();
-        RefreshStateConfiguration();
     }
 
     private void SyncRuntimeScriptView(AutomationScript script)
@@ -766,7 +795,6 @@ public sealed class MainViewModel : ObservableObject
         _project.Variables = script.Variables;
         _project.Nodes = script.Nodes;
         _project.Edges = script.Edges;
-        _project.Detectors = script.Detectors;
         _project.WindowScope = script.WindowScope;
         _project.DefaultNodeDelayMs = script.DefaultNodeDelayMs;
     }
@@ -795,24 +823,12 @@ public sealed class MainViewModel : ObservableObject
         _dirty = true;
     }
 
-    private void RefreshStateConfiguration()
+    private void AddStateDetector()
     {
-        Detectors.Clear();
-        foreach (var detector in ActiveScript.Detectors) Detectors.Add(new DetectorEditorItem(detector, MarkStateConfigurationChanged));
-    }
-
-    private void MarkStateConfigurationChanged()
-    {
-        SyncRuntimeScriptView(ActiveScript);
-        _dirty = true;
-    }
-
-    private void AddDetector()
-    {
-        var detector = CreateColorDetector($"脚本检测器 {ActiveScript.Detectors.Count + 1}");
-        ActiveScript.Detectors.Add(detector);
-        MarkStateConfigurationChanged();
-        RefreshStateConfiguration();
+        if (SelectedNode is not { IsStateCondition: true }) return;
+        var detector = CreateColorDetector($"检测器 {SelectedNode.Detectors.Count + 1}");
+        SelectedNode.Detectors.Add(new DetectorEditorItem(detector, SelectedNode.RefreshStateSummary));
+        SelectedNode.RefreshStateSummary();
     }
 
     private static DetectorDefinition CreateColorDetector(string name)
@@ -827,39 +843,26 @@ public sealed class MainViewModel : ObservableObject
         return detector;
     }
 
-    private void RemoveDetector(DetectorEditorItem? item)
+    private void RemoveStateDetector(DetectorEditorItem? item)
     {
-        if (item is null) return;
-        if (IsDetectorReferenced(item.Id))
+        if (SelectedNode is not { IsStateCondition: true } || item is null) return;
+        if (SelectedNode.StateRules.Any(rule => rule.DetectorId == item.Id))
         {
-            _dialogs.ShowError("检测器仍被逻辑判断使用，请先移除对应规则。");
+            _dialogs.ShowError("检测器仍被联合判断规则使用，请先移除对应规则。");
             return;
         }
 
-        ActiveScript.Detectors.RemoveAll(detector => detector.Id == item.Id);
-        MarkStateConfigurationChanged();
-        RefreshStateConfiguration();
-    }
-
-    private bool IsDetectorReferenced(string detectorId)
-    {
-        if (SelectedNode?.IsStateCondition == true && SelectedNode.StateRules.Any(rule => rule.DetectorId == detectorId)) return true;
-        return ActiveScript.Nodes.Any(node => node.Type == NodeTypes.StateCondition && HasDetectorRule(node, detectorId));
-    }
-
-    private static bool HasDetectorRule(WorkflowNode node, string detectorId)
-    {
-        if (!node.Data.Parameters.TryGetValue("detectorRules", out var rules) || rules.ValueKind != JsonValueKind.Array) return false;
-        return rules.EnumerateArray().Any(rule => rule.ValueKind == JsonValueKind.Object && rule.TryGetProperty("detectorId", out var id) && id.GetString() == detectorId);
+        SelectedNode.Detectors.Remove(item);
+        SelectedNode.RefreshStateSummary();
     }
 
     private void AddStateRule()
     {
         if (SelectedNode is not { IsStateCondition: true }) return;
-        var detector = Detectors.FirstOrDefault();
+        var detector = SelectedNode.Detectors.FirstOrDefault();
         if (detector is null)
         {
-            _dialogs.ShowError("请先添加脚本检测器，再添加判断规则。");
+            _dialogs.ShowError("请先添加检测器，再添加联合判断规则。");
             return;
         }
 
@@ -880,8 +883,7 @@ public sealed class MainViewModel : ObservableObject
         Project = _project.Project,
         Variables = script.Variables,
         Nodes = script.Nodes,
-        Edges = script.Edges,
-        Detectors = script.Detectors
+        Edges = script.Edges
     };
 
     private void RefreshScripts()
@@ -992,8 +994,8 @@ public sealed class MainViewModel : ObservableObject
         SelectScriptCommand = new AsyncRelayCommand(item => SelectScriptAsync(item as ScriptListItem));
         OpenScriptPropertiesCommand = new AsyncRelayCommand(item => OpenScriptPropertiesAsync(item as ScriptListItem));
         DeleteScriptCommand = new AsyncRelayCommand(item => DeleteScriptAsync(item as ScriptListItem));
-        AddDetectorCommand = new RelayCommand(_ => AddDetector());
-        RemoveDetectorCommand = new RelayCommand(item => RemoveDetector(item as DetectorEditorItem));
+        AddStateDetectorCommand = new RelayCommand(_ => AddStateDetector());
+        RemoveStateDetectorCommand = new RelayCommand(item => RemoveStateDetector(item as DetectorEditorItem));
         AddStateRuleCommand = new RelayCommand(_ => AddStateRule());
         RemoveStateRuleCommand = new RelayCommand(item => RemoveStateRule(item as DetectorRuleEditorItem));
         SettingsCommand = new AsyncRelayCommand(_ => EditSettingsAsync());
@@ -1177,7 +1179,6 @@ public sealed class MainViewModel : ObservableObject
 
     private async Task<bool> ValidateForRunAsync(AutomationProject project)
     {
-        if (!ValidateDetectorEditorState()) return false;
         var validation = _validator.Validate(project);
         if (validation.IsValid) return true;
         foreach (var error in validation.Errors)
@@ -1186,14 +1187,6 @@ public sealed class MainViewModel : ObservableObject
             if (error.NodeId is not null) await _editor.SendAsync("mark_node_error", new { nodeId = error.NodeId });
         }
         _dialogs.ShowError("工作流验证失败，请查看日志和红色节点。");
-        return false;
-    }
-
-    private bool ValidateDetectorEditorState()
-    {
-        var invalid = Detectors.FirstOrDefault(detector => detector.HasParametersError);
-        if (invalid is null) return true;
-        _dialogs.ShowError($"检测器“{invalid.Name}”的参数 JSON 无效，请修正后再运行。");
         return false;
     }
 

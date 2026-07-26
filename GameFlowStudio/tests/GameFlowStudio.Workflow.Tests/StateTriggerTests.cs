@@ -85,6 +85,39 @@ public sealed class StateConditionTests
     }
 
     [Fact]
+    public async Task JointConditionReadsDetectorsFromItsOwnParameters()
+    {
+        var capture = new FakeCapture(new CapturedFrame(0, 0, 1, 1, [0, 0, 255, 255]));
+        var evaluator = new StateConditionEvaluator(new StateDetectorService([new ColorStateDetector()]), capture);
+        var detector = Color("red", "#FF0000");
+        var node = new WorkflowNode
+        {
+            Id = "state-condition",
+            Type = NodeTypes.StateCondition,
+            Data = new()
+            {
+                DisplayName = "联合判断",
+                Parameters = new Dictionary<string, System.Text.Json.JsonElement>
+                {
+                    ["detectors"] = ProjectJson.Element(new[] { detector }),
+                    ["detectorRules"] = ProjectJson.Element(new[] { new StateDetectorRule { DetectorId = "red", State = 1 } })
+                }
+            }
+        };
+        var context = new WorkflowExecutionContext
+        {
+            Workflow = new AutomationProject(),
+            WaitIfPausedAsync = _ => Task.CompletedTask,
+            Log = _ => { }
+        };
+
+        var result = await new StateConditionNodeExecutor(evaluator).ExecuteAsync(node, context, CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.Equal("true", result.NextHandle);
+    }
+
+    [Fact]
     public async Task ImageDetectorFindsTemplate()
     {
         var capture = new FakeCapture(new CapturedFrame(0, 0, 2, 1, [0, 0, 255, 255, 0, 255, 0, 255]));

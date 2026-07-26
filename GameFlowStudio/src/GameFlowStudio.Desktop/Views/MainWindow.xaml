@@ -207,33 +207,6 @@
                             <controls:SelectableTextBlock Text="设置为 0 表示关闭；显式等待节点仍使用自身等待时间。以上配置只对当前脚本生效。" Foreground="#64748B" TextWrapping="Wrap" Margin="3,6,3,0"/>
                         </StackPanel>
                     </ScrollViewer>
-                    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,0,8,8" Visibility="{Binding IsScriptPropertiesVisible, Converter={StaticResource BoolVisibility}}" Margin="0,8,0,0">
-                        <StackPanel>
-                            <DockPanel Margin="3,8,3,4">
-                                <Button Content="添加检测器" Width="88" DockPanel.Dock="Right" Command="{Binding AddDetectorCommand}"/>
-                                <controls:SelectableTextBlock Text="脚本检测器" FontWeight="SemiBold" Foreground="#F8FAFC" VerticalAlignment="Center"/>
-                            </DockPanel>
-                            <ItemsControl ItemsSource="{Binding Detectors}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Border BorderBrush="#334155" BorderThickness="1" Padding="6" Margin="0,3">
-                                            <StackPanel>
-                                                <DockPanel>
-                                                    <Button Content="×" Width="26" DockPanel.Dock="Right" Command="{Binding DataContext.RemoveDetectorCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}"/>
-                                                    <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,0"/>
-                                                </DockPanel>
-                                                <ComboBox ItemsSource="{Binding DataContext.DetectorTypes, RelativeSource={RelativeSource AncestorType=Window}}" SelectedItem="{Binding Type, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,0"/>
-                                                <CheckBox Content="启用" IsChecked="{Binding Enabled, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,0"/>
-                                                <controls:SelectableTextBlock Text="参数 JSON（颜色：x/y/width/height/targetColor/tolerance；图片：templatePath）" Foreground="#64748B" FontSize="10" Margin="0,4,0,2" TextWrapping="Wrap"/>
-                                                <TextBox Text="{Binding ParametersJson, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="48" FontFamily="Consolas"/>
-                                                <controls:SelectableTextBlock Text="{Binding Path=ParametersError, Mode=OneWay}" Foreground="#F87171" FontSize="10" Margin="0,3,0,0" Visibility="{Binding HasParametersError, Converter={StaticResource BoolVisibility}}" TextWrapping="Wrap"/>
-                                            </StackPanel>
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </StackPanel>
-                    </ScrollViewer>
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,0,8,8" Visibility="{Binding HasSingleStateConditionSelection, Converter={StaticResource BoolVisibility}}">
                         <StackPanel DataContext="{Binding SelectedNode}">
                             <controls:SelectableTextBlock Text="{Binding Path=LogicLabel, Mode=OneWay}" FontWeight="SemiBold" Foreground="#FBBF24" Margin="3,4,3,2"/>
@@ -277,7 +250,7 @@
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
-                            <controls:SelectableTextBlock Text="单一判断直接使用以上检测内容，不再引用脚本检测器。" Foreground="#64748B" FontSize="10" TextWrapping="Wrap" Margin="3,6,3,12"/>
+                            <controls:SelectableTextBlock Text="单一判断直接使用以上检测内容。" Foreground="#64748B" FontSize="10" TextWrapping="Wrap" Margin="3,6,3,12"/>
                             <Button Content="应用判断" Command="{Binding DataContext.ApplyNodeCommand, RelativeSource={RelativeSource AncestorType=Window}}" Background="#D97706" BorderBrush="#F59E0B"/>
                         </StackPanel>
                     </ScrollViewer>
@@ -286,6 +259,29 @@
                             <controls:SelectableTextBlock Text="联合判断" FontWeight="SemiBold" Foreground="#FBBF24" Margin="3,4,3,2"/>
                             <controls:SelectableTextBlock Text="到达此节点时检测一次，并从右侧 true / false 分支继续执行；单个检测器就是单一判断。" Foreground="#94A3B8" FontSize="10" TextWrapping="Wrap" Margin="3,0,3,10"/>
                             <controls:SelectableTextBlock Text="{Binding Path=StateRuleSummary, Mode=OneWay}" Foreground="#FBBF24" FontSize="11" Margin="3,0,3,4"/>
+                            <DockPanel Margin="0,4,0,3">
+                                <Button Content="添加检测器" Width="88" DockPanel.Dock="Right" Command="{Binding DataContext.AddStateDetectorCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                                <controls:SelectableTextBlock Text="检测器配置" Foreground="#94A3B8" VerticalAlignment="Center"/>
+                            </DockPanel>
+                            <ItemsControl ItemsSource="{Binding Detectors}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border BorderBrush="#334155" BorderThickness="1" Padding="6" Margin="0,3">
+                                            <StackPanel>
+                                                <DockPanel>
+                                                    <Button Content="×" Width="26" DockPanel.Dock="Right" Command="{Binding DataContext.RemoveStateDetectorCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}"/>
+                                                    <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,0"/>
+                                                </DockPanel>
+                                                <ComboBox ItemsSource="{Binding DataContext.DetectorTypes, RelativeSource={RelativeSource AncestorType=Window}}" SelectedItem="{Binding Type, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,0"/>
+                                                <CheckBox Content="启用" IsChecked="{Binding Enabled, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,0"/>
+                                                <controls:SelectableTextBlock Text="参数 JSON（颜色：x/y/width/height/targetColor/tolerance；图片：templatePath）" Foreground="#64748B" FontSize="10" Margin="0,4,0,2" TextWrapping="Wrap"/>
+                                                <TextBox Text="{Binding ParametersJson, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="48" FontFamily="Consolas"/>
+                                                <controls:SelectableTextBlock Text="{Binding Path=ParametersError, Mode=OneWay}" Foreground="#F87171" FontSize="10" Margin="0,3,0,0" Visibility="{Binding HasParametersError, Converter={StaticResource BoolVisibility}}" TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
                             <ItemsControl ItemsSource="{Binding StateRules}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
@@ -295,7 +291,7 @@
                                                 <ColumnDefinition Width="92"/>
                                                 <ColumnDefinition Width="28"/>
                                             </Grid.ColumnDefinitions>
-                                            <ComboBox Grid.Column="0" ItemsSource="{Binding DataContext.Detectors, RelativeSource={RelativeSource AncestorType=Window}}" DisplayMemberPath="Name" SelectedValuePath="Id" SelectedValue="{Binding DetectorId, UpdateSourceTrigger=PropertyChanged}" ToolTip="选择检测器"/>
+                                            <ComboBox Grid.Column="0" ItemsSource="{Binding DataContext.Detectors, RelativeSource={RelativeSource AncestorType=StackPanel}}" DisplayMemberPath="Name" SelectedValuePath="Id" SelectedValue="{Binding DetectorId, UpdateSourceTrigger=PropertyChanged}" ToolTip="选择检测器"/>
                                             <ComboBox Grid.Column="1" SelectedValuePath="Tag" SelectedValue="{Binding State, UpdateSourceTrigger=PropertyChanged}" Margin="4,0,0,0">
                                                 <ComboBoxItem Tag="1" Content="1 · 命中"/>
                                                 <ComboBoxItem Tag="0" Content="0 · 未命中"/>

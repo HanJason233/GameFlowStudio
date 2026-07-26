@@ -3,7 +3,7 @@ using GameFlowStudio.Contracts.Enums;
 
 namespace GameFlowStudio.Contracts.States;
 
-/// <summary>一个可以被脚本逻辑判断引用的状态检测器。</summary>
+/// <summary>联合判断节点中的状态检测器。</summary>
 public sealed class DetectorDefinition
 {
     public string Id { get; set; } = $"detector-{Guid.NewGuid():N}";

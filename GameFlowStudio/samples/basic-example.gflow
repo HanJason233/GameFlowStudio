@@ -13,7 +13,6 @@
       "windowScope": { "enabled": false, "titlePattern": ".*", "outputVariable": "windowHandles" },
       "defaultNodeDelayMs": 0,
       "variables": {},
-      "detectors": [],
       "nodes": [
         { "id": "start-1", "type": "start", "position": { "x": 50, "y": 200 }, "data": { "displayName": "Start", "enabled": true, "parameters": {} } },
         { "id": "log-start", "type": "log", "position": { "x": 260, "y": 200 }, "data": { "displayName": "Script started", "enabled": true, "parameters": { "message": "Script started", "level": "information" } } },

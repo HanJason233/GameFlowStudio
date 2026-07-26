@@ -28,7 +28,6 @@ export interface AutomationProject {
   variables: Record<string, { type: 'string' | 'number' | 'boolean'; value: unknown }>
   nodes: Array<{ id: string; type: NodeType; position: { x: number; y: number }; data: GameNodeData }>
   edges: Array<{ id: string; source: string; sourceHandle: string; target: string; targetHandle: string }>
-  detectors: Array<{ id: string; name: string; type: 'color' | 'image' | 'ocr' | 'aiRecognition'; enabled: boolean; parameters: Record<string, unknown> }>
 }
 
 export interface BridgeMessage<T = unknown> { type: string; requestId?: string; payload?: T }
@@ -45,7 +44,7 @@ export const nodeLabels: Record<NodeType, string> = {
 export const defaultParameters: Record<NodeType, Record<string, unknown>> = {
   colorCondition: { x: 0, y: 0, width: 1, height: 1, targetColor: '#FFFFFF', tolerance: 10, minMatchRatio: 1, state: 1 },
   imageCondition: { templatePath: '', x: 0, y: 0, tolerance: 10, matchThreshold: 0.95, state: 1 },
-  stateCondition: { detectorRules: [] },
+  stateCondition: { detectors: [], detectorRules: [] },
   start: {}, end: {},
   windowScope: { titlePattern: '.*', outputVariable: 'windowHandles' },
   mouseClick: { coordinateMode: 'screen', x: 500, y: 300, button: 'left', clickCount: 1, intervalMs: 100, windowHandleVariable: 'windowHandles', windowHandleIndex: 0 },

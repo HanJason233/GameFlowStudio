@@ -120,8 +120,9 @@ public sealed class StateConditionNodeExecutor(IStateConditionEvaluator evaluato
 {
     public override async Task<NodeExecutionResult> ExecuteAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken cancellationToken)
     {
+        var detectors = StateDetectorReader.Read(node);
         var rules = StateRuleReader.Read(node);
-        var evaluation = await evaluator.EvaluateAsync(context.Workflow.Detectors, rules, cancellationToken).ConfigureAwait(false);
+        var evaluation = await evaluator.EvaluateAsync(detectors, rules, cancellationToken).ConfigureAwait(false);
         return NodeExecutionResult.Ok(evaluation.Matched ? "true" : "false");
     }
 }
