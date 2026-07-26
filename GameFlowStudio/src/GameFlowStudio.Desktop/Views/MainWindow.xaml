@@ -255,7 +255,6 @@
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
                             <controls:SelectableTextBlock Text="单一判断直接使用以上检测内容。" Foreground="#64748B" FontSize="10" TextWrapping="Wrap" Margin="3,6,3,12"/>
-                            <Button Content="应用判断" Command="{Binding DataContext.ApplyNodeCommand, RelativeSource={RelativeSource AncestorType=Window}}" Background="#D97706" BorderBrush="#F59E0B"/>
                         </StackPanel>
                     </ScrollViewer>
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,0,8,8" Visibility="{Binding HasStateConditionSelection, Converter={StaticResource BoolVisibility}}">
@@ -309,7 +308,6 @@
                             </ItemsControl>
                             <Button Content="＋ 添加检测器规则" Command="{Binding DataContext.AddStateRuleCommand, RelativeSource={RelativeSource AncestorType=Window}}" Margin="0,5,0,0"/>
                             <controls:SelectableTextBlock Text="所有规则必须同时满足；没有规则时不会命中。" Foreground="#64748B" FontSize="10" TextWrapping="Wrap" Margin="3,6,3,12"/>
-                            <Button Content="应用联合判断" Command="{Binding DataContext.ApplyNodeCommand, RelativeSource={RelativeSource AncestorType=Window}}" Background="#D97706" BorderBrush="#F59E0B"/>
                         </StackPanel>
                     </ScrollViewer>
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,0,8,8" Visibility="{Binding IsRegularNodeSelection, Converter={StaticResource BoolVisibility}}">
@@ -411,7 +409,6 @@
                                 </ItemsControl>
                             </StackPanel>
                             <Button Content="拾取坐标（按当前模式）" ToolTip="屏幕模式捕获绝对坐标；窗口相对模式自动换算为相对坐标" Command="{Binding DataContext.PickCoordinateCommand, RelativeSource={RelativeSource AncestorType=Window}}" Visibility="{Binding CanPickCoordinate, Converter={StaticResource BoolVisibility}}" Margin="3,12,3,3"/>
-                            <Button Content="应用属性" Command="{Binding DataContext.ApplyNodeCommand, RelativeSource={RelativeSource AncestorType=Window}}" Background="#2563EB" BorderBrush="#3B82F6"/>
                         </StackPanel>
                     </ScrollViewer>
                 </DockPanel>

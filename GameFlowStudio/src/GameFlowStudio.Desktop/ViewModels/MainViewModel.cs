@@ -44,7 +44,7 @@ public sealed class ScriptListItem(string id, string name, string description) :
     public bool IsActive { get => _isActive; set => Set(ref _isActive, value); }
 }
 
-public sealed class NodeParameterItem(string name, string value, JsonValueKind kind) : ObservableObject
+public sealed class NodeParameterItem(string name, string value, JsonValueKind kind, Action? changed = null) : ObservableObject
 {
     private static readonly IReadOnlyDictionary<string, string> ParameterDescriptions = new Dictionary<string, string>(StringComparer.Ordinal)
     {
@@ -99,7 +99,9 @@ public sealed class NodeParameterItem(string name, string value, JsonValueKind k
         get => _value;
         set
         {
-            if (Set(ref _value, value)) Raise(nameof(BooleanValue));
+            if (!Set(ref _value, value)) return;
+            Raise(nameof(BooleanValue));
+            changed?.Invoke();
         }
     }
     public bool BooleanValue
@@ -191,9 +193,17 @@ public sealed class DetectorRuleEditorItem : ObservableObject
 public sealed class SelectedNodeViewModel : ObservableObject
 {
     private string _displayName = string.Empty;
+    private Action? _changed;
     public required string Id { get; init; }
     public required string Type { get; init; }
-    public string DisplayName { get => _displayName; set => Set(ref _displayName, value); }
+    public string DisplayName
+    {
+        get => _displayName;
+        set
+        {
+            if (Set(ref _displayName, value)) _changed?.Invoke();
+        }
+    }
     public ObservableCollection<NodeParameterItem> Parameters { get; } = [];
     public ObservableCollection<DetectorEditorItem> Detectors { get; } = [];
     public ObservableCollection<DetectorRuleEditorItem> StateRules { get; } = [];
@@ -229,6 +239,7 @@ public sealed class SelectedNodeViewModel : ObservableObject
     public string GetParameterValue(string name, string fallback) =>
         Parameters.FirstOrDefault(parameter => parameter.Name == name)?.Value ?? fallback;
 
+    public void SetChangedHandler(Action changed) => _changed = changed;
     public void RefreshStateSummary() => Raise(nameof(StateRuleSummary));
 
     public int GetParameterInt(string name, int fallback) =>
@@ -417,7 +428,7 @@ public sealed class MainViewModel : ObservableObject
     public ICommand NewCommand { get; private set; } = null!; public ICommand OpenCommand { get; private set; } = null!; public ICommand SaveCommand { get; private set; } = null!;
     public ICommand SaveAsCommand { get; private set; } = null!; public ICommand OpenSampleCommand { get; private set; } = null!; public ICommand RunCommand { get; private set; } = null!;
     public ICommand PauseCommand { get; private set; } = null!; public ICommand ResumeCommand { get; private set; } = null!; public ICommand StopCommand { get; private set; } = null!;
-    public ICommand AddNodeCommand { get; private set; } = null!; public ICommand ApplyNodeCommand { get; private set; } = null!; public ICommand PickCoordinateCommand { get; private set; } = null!;
+    public ICommand AddNodeCommand { get; private set; } = null!; public ICommand PickCoordinateCommand { get; private set; } = null!;
     public ICommand OpenRecentProjectCommand { get; private set; } = null!;
     public ICommand NewScriptCommand { get; private set; } = null!;
     public ICommand SelectScriptCommand { get; private set; } = null!;
@@ -486,15 +497,16 @@ public sealed class MainViewModel : ObservableObject
         IsScriptPropertiesVisible = false;
         var data = payload.GetProperty("data");
         var selected = new SelectedNodeViewModel { Id = payload.GetProperty("nodeId").GetString()!, Type = payload.GetProperty("nodeType").GetString()!, DisplayName = data.GetProperty("displayName").GetString() ?? string.Empty };
+        selected.SetChangedHandler(OnSelectedNodeEditorChanged);
         if (data.TryGetProperty("parameters", out var parameters))
         {
-            foreach (var property in parameters.EnumerateObject()) selected.Parameters.Add(new(property.Name, DisplayValue(property.Value), property.Value.ValueKind));
+            foreach (var property in parameters.EnumerateObject()) selected.Parameters.Add(new(property.Name, DisplayValue(property.Value), property.Value.ValueKind, OnSelectedNodeEditorChanged));
             if (selected.IsStateCondition)
             {
                 if (parameters.TryGetProperty("detectors", out var detectorsElement))
                 {
                     var detectors = detectorsElement.Deserialize<List<DetectorDefinition>>(ProjectJson.Options) ?? [];
-                    foreach (var detector in detectors) selected.Detectors.Add(new DetectorEditorItem(detector, selected.RefreshStateSummary));
+                    foreach (var detector in detectors) selected.Detectors.Add(new DetectorEditorItem(detector, OnSelectedNodeEditorChanged));
                 }
 
                 if (!parameters.TryGetProperty("detectorRules", out var rulesElement))
@@ -504,34 +516,27 @@ public sealed class MainViewModel : ObservableObject
                 }
 
                 var rules = rulesElement.Deserialize<List<StateDetectorRule>>(ProjectJson.Options) ?? [];
-                foreach (var rule in rules) selected.StateRules.Add(new DetectorRuleEditorItem(rule, selected.RefreshStateSummary));
+                foreach (var rule in rules) selected.StateRules.Add(new DetectorRuleEditorItem(rule, OnSelectedNodeEditorChanged));
             }
         }
         SelectedNode = selected;
     }
 
-    private async Task ApplySelectedNodeAsync()
+    private void OnSelectedNodeEditorChanged()
+    {
+        SelectedNode?.RefreshStateSummary();
+        _ = UpdateSelectedNodeAsync();
+    }
+
+    private async Task UpdateSelectedNodeAsync()
     {
         if (SelectedNode is null) return;
-        if (!TryParseNodeParameters(SelectedNode.Parameters, out var parameters, out var error))
-        {
-            _dialogs.ShowError(error);
-            return;
-        }
+        if (!TryParseNodeParameters(SelectedNode.Parameters, out var parameters, out _)) return;
 
         if (SelectedNode.IsStateCondition)
         {
-            if (!ValidateStateDetectors(SelectedNode.Detectors, out error))
-            {
-                _dialogs.ShowError(error);
-                return;
-            }
-
-            if (!ValidateStateRules(SelectedNode.StateRules, out error))
-            {
-                _dialogs.ShowError(error);
-                return;
-            }
+            if (!ValidateStateDetectors(SelectedNode.Detectors, out _)) return;
+            if (!ValidateStateRules(SelectedNode.StateRules, out _)) return;
 
             parameters["detectors"] = ProjectJson.Element(SelectedNode.Detectors.Select(detector => detector.Definition).ToList());
             parameters["detectorRules"] = ProjectJson.Element(SelectedNode.StateRules.Select(rule => rule.ToRule()).ToList());
@@ -574,7 +579,7 @@ public sealed class MainViewModel : ObservableObject
     {
         if (SelectedNode is null) return;
         var point = await PickCoordinateForNodeAsync(); if (point is null) return;
-        SetParameter("x", point.Value.X); SetParameter("y", point.Value.Y); await ApplySelectedNodeAsync();
+        SetParameter("x", point.Value.X); SetParameter("y", point.Value.Y); await UpdateSelectedNodeAsync();
     }
 
     private async Task<(int X, int Y)?> PickCoordinateForNodeAsync()
@@ -830,8 +835,8 @@ public sealed class MainViewModel : ObservableObject
     {
         if (SelectedNode is not { IsStateCondition: true }) return;
         var detector = CreateColorDetector($"检测器 {SelectedNode.Detectors.Count + 1}");
-        SelectedNode.Detectors.Add(new DetectorEditorItem(detector, SelectedNode.RefreshStateSummary));
-        SelectedNode.RefreshStateSummary();
+        SelectedNode.Detectors.Add(new DetectorEditorItem(detector, OnSelectedNodeEditorChanged));
+        OnSelectedNodeEditorChanged();
     }
 
     private static DetectorDefinition CreateColorDetector(string name)
@@ -856,7 +861,7 @@ public sealed class MainViewModel : ObservableObject
         }
 
         SelectedNode.Detectors.Remove(item);
-        SelectedNode.RefreshStateSummary();
+        OnSelectedNodeEditorChanged();
     }
 
     private void AddStateRule()
@@ -869,15 +874,15 @@ public sealed class MainViewModel : ObservableObject
             return;
         }
 
-        SelectedNode.StateRules.Add(new DetectorRuleEditorItem(new StateDetectorRule { DetectorId = detector.Id, State = 1 }, SelectedNode.RefreshStateSummary));
-        SelectedNode.RefreshStateSummary();
+        SelectedNode.StateRules.Add(new DetectorRuleEditorItem(new StateDetectorRule { DetectorId = detector.Id, State = 1 }, OnSelectedNodeEditorChanged));
+        OnSelectedNodeEditorChanged();
     }
 
     private void RemoveStateRule(DetectorRuleEditorItem? rule)
     {
         if (SelectedNode is not { IsStateCondition: true } || rule is null) return;
         SelectedNode.StateRules.Remove(rule);
-        SelectedNode.RefreshStateSummary();
+        OnSelectedNodeEditorChanged();
     }
 
     private WorkflowDocument CreateEditorSnapshot(AutomationScript script) => new()
@@ -932,7 +937,7 @@ public sealed class MainViewModel : ObservableObject
     }
 
     private void OnNodeStarted(NodeExecutionEventArgs e) => Application.Current.Dispatcher.Invoke(() => { CurrentNodeText = e.Node.Data.DisplayName; _ = _editor.SendAsync("highlight_node", new { nodeId = e.Node.Id }); });
-    private void RaiseCommandStates() { foreach (var command in new[] { RunCommand, PauseCommand, ResumeCommand, StopCommand, ApplyNodeCommand, PickCoordinateCommand }) if (command is AsyncRelayCommand asyncCommand) asyncCommand.RaiseCanExecuteChanged(); }
+    private void RaiseCommandStates() { foreach (var command in new[] { RunCommand, PauseCommand, ResumeCommand, StopCommand, PickCoordinateCommand }) if (command is AsyncRelayCommand asyncCommand) asyncCommand.RaiseCanExecuteChanged(); }
     private static string StateLabel(WorkflowExecutionState state) => state switch { WorkflowExecutionState.Running => "正在运行", WorkflowExecutionState.Paused => "已暂停", WorkflowExecutionState.Stopping => "正在停止", WorkflowExecutionState.Completed => "已完成", WorkflowExecutionState.Failed => "执行失败", _ => "未运行" };
     private static string DisplayValue(JsonElement value) => value.ValueKind == JsonValueKind.String ? value.GetString() ?? string.Empty : value.GetRawText();
 
@@ -1000,7 +1005,7 @@ public sealed class MainViewModel : ObservableObject
         SaveCommand = new AsyncRelayCommand(_ => SaveAsync(false)); SaveAsCommand = new AsyncRelayCommand(_ => SaveAsync(true));
         OpenSampleCommand = new AsyncRelayCommand(_ => OpenSampleAsync()); RunCommand = new AsyncRelayCommand(_ => RunAsync(), _ => !IsWorkflowActive());
         PauseCommand = new AsyncRelayCommand(_ => _runner.PauseAsync()); ResumeCommand = new AsyncRelayCommand(_ => _runner.ResumeAsync()); StopCommand = new AsyncRelayCommand(_ => _runner.StopAsync());
-        AddNodeCommand = new AsyncRelayCommand(item => AddNodeAsync(item as ToolboxItem)); ApplyNodeCommand = new AsyncRelayCommand(_ => ApplySelectedNodeAsync(), _ => SelectedNode is not null);
+        AddNodeCommand = new AsyncRelayCommand(item => AddNodeAsync(item as ToolboxItem));
         PickCoordinateCommand = new AsyncRelayCommand(_ => PickCoordinateAsync(), _ => SelectedNode?.CanPickCoordinate == true);
         NewScriptCommand = new AsyncRelayCommand(_ => NewScriptAsync());
         SelectScriptCommand = new AsyncRelayCommand(item => SelectScriptAsync(item as ScriptListItem));
