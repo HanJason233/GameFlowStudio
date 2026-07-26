@@ -751,7 +751,9 @@ public sealed class MainViewModel : ObservableObject
     }
     private async Task EditSettingsAsync()
     {
+        CapturePaneLayout();
         if (!_dialogs.EditSettings(Settings)) return;
+        ApplyPaneVisibility();
         ApplyStepLayout();
         ApplyTheme();
         await _settingsStorage.SaveAsync(Settings, CancellationToken.None);
@@ -1066,8 +1068,13 @@ public sealed class MainViewModel : ObservableObject
         _lastStepsPaneHeight = new GridLength(220);
         _lastProjectFilesPaneWidth = new GridLength(210);
         _lastScriptListPaneWidth = new GridLength(220);
-        IsProjectFilesPaneVisible = true;
-        IsScriptListPaneVisible = true;
+        ApplyPaneVisibility();
+    }
+
+    private void ApplyPaneVisibility()
+    {
+        IsProjectFilesPaneVisible = Settings.IsProjectFilesPaneVisible;
+        IsScriptListPaneVisible = Settings.IsScriptListPaneVisible;
         IsToolboxPaneVisible = Settings.IsToolboxPaneVisible;
         IsPropertiesPaneVisible = Settings.IsPropertiesPaneVisible;
         IsOutputPaneVisible = Settings.IsOutputPaneVisible;
@@ -1084,12 +1091,16 @@ public sealed class MainViewModel : ObservableObject
 
     private void CapturePaneLayout()
     {
+        if (IsProjectFilesPaneVisible && ProjectFilesPaneWidth.Value > 0) _lastProjectFilesPaneWidth = ProjectFilesPaneWidth;
+        if (IsScriptListPaneVisible && ScriptListPaneWidth.Value > 0) _lastScriptListPaneWidth = ScriptListPaneWidth;
         if (IsToolboxPaneVisible && ToolboxPaneWidth.Value > 0) _lastToolboxPaneWidth = ToolboxPaneWidth;
         if (IsPropertiesPaneVisible && PropertiesPaneWidth.Value > 0) _lastPropertiesPaneWidth = PropertiesPaneWidth;
         if (IsOutputPaneVisible && OutputPaneHeight.Value > 0) _lastOutputPaneHeight = OutputPaneHeight;
         Settings.ToolboxPaneWidth = _lastToolboxPaneWidth.Value;
         Settings.PropertiesPaneWidth = _lastPropertiesPaneWidth.Value;
         Settings.OutputPaneHeight = _lastOutputPaneHeight.Value;
+        Settings.IsProjectFilesPaneVisible = IsProjectFilesPaneVisible;
+        Settings.IsScriptListPaneVisible = IsScriptListPaneVisible;
         Settings.IsToolboxPaneVisible = IsToolboxPaneVisible;
         Settings.IsPropertiesPaneVisible = IsPropertiesPaneVisible;
         Settings.IsOutputPaneVisible = IsOutputPaneVisible;
@@ -1108,6 +1119,7 @@ public sealed class MainViewModel : ObservableObject
             ProjectFilesPaneWidth = _lastProjectFilesPaneWidth;
             IsProjectFilesPaneVisible = true;
         }
+        CapturePaneLayout(); PersistSettings();
     }
 
     private void ToggleScriptListPane()
@@ -1123,6 +1135,7 @@ public sealed class MainViewModel : ObservableObject
             ScriptListPaneWidth = _lastScriptListPaneWidth;
             IsScriptListPaneVisible = true;
         }
+        CapturePaneLayout(); PersistSettings();
     }
 
     private void ToggleToolboxPane()

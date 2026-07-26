@@ -119,9 +119,11 @@ public sealed class AppSettings
     public double ToolboxPaneWidth { get; set; } = 220;
     public double PropertiesPaneWidth { get; set; } = 320;
     public double OutputPaneHeight { get; set; } = 220;
+    public bool IsProjectFilesPaneVisible { get; set; } = false;
+    public bool IsScriptListPaneVisible { get; set; } = true;
     public bool IsToolboxPaneVisible { get; set; } = true;
-    public bool IsPropertiesPaneVisible { get; set; } = true;
-    public bool IsOutputPaneVisible { get; set; } = true;
+    public bool IsPropertiesPaneVisible { get; set; } = false;
+    public bool IsOutputPaneVisible { get; set; } = false;
     public string StepCategoryLayout { get; set; } = "vertical";
     public double? WindowLeft { get; set; }
     public double? WindowTop { get; set; }
