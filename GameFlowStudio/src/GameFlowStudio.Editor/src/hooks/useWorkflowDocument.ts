@@ -25,7 +25,7 @@ export function useWorkflowDocument() {
   const exportProject = useCallback((): AutomationProject => ({
     ...project,
     project: { ...project.project, updatedAt: new Date().toISOString() },
-    nodes: nodes.map(node => ({ id: node.id, type: node.data.nodeType as NodeType, position: node.position, data: { displayName: node.data.displayName, enabled: node.data.enabled, parameters: node.data.parameters } })),
+    nodes: nodes.map(node => ({ id: node.id, type: node.data.nodeType as NodeType, position: node.position, data: { displayName: node.data.displayName, parameters: node.data.parameters } })),
     edges: edges.map(edge => ({ id: edge.id, source: edge.source, sourceHandle: edge.sourceHandle ?? 'output', target: edge.target, targetHandle: edge.targetHandle ?? 'input' })),
   }), [edges, nodes, project])
 
@@ -41,7 +41,7 @@ export function useWorkflowDocument() {
   const addNode = useCallback((nodeType: NodeType) => {
     if (readOnly) return
     const position = flow.screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 })
-    setNodes(current => [...current, { id: nextActionId(current), type: 'gameNode', position, data: { nodeType, displayName: nodeLabels[nodeType], enabled: true, parameters: structuredClone(defaultParameters[nodeType]) } }])
+    setNodes(current => [...current, { id: nextActionId(current), type: 'gameNode', position, data: { nodeType, displayName: nodeLabels[nodeType], parameters: structuredClone(defaultParameters[nodeType]) } }])
     setTimeout(notifyChanged, 0)
   }, [flow, notifyChanged, readOnly, setNodes])
 

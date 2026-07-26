@@ -86,7 +86,6 @@ public sealed class NodePosition
 public sealed class WorkflowNodeData
 {
     public string DisplayName { get; set; } = string.Empty;
-    public bool Enabled { get; set; } = true;
     public Dictionary<string, JsonElement> Parameters { get; set; } = new(StringComparer.Ordinal);
 }
 

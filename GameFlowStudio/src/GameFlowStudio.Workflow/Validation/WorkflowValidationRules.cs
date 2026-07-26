@@ -27,7 +27,6 @@ internal sealed class ProjectStructureRule(NodeParameterValidator parameterValid
             if (!NodeTypes.All.Contains(node.Type)) result.Add("node_type", $"未知节点类型：{node.Type}。", node.Id);
             if (!double.IsFinite(node.Position.X) || !double.IsFinite(node.Position.Y)) result.Add("position", "节点坐标必须是有限数值。", node.Id);
             if (string.IsNullOrWhiteSpace(node.Data.DisplayName)) result.Add("display_name", "节点名称不能为空。", node.Id);
-            if (NodeTypes.Structural.Contains(node.Type) && !node.Data.Enabled) result.Add("structural_disabled", "结构节点不能被禁用。", node.Id);
             parameterValidator.Validate(node, result);
         }
     }

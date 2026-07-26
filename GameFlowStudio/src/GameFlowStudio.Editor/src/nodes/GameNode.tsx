@@ -26,7 +26,7 @@ export function GameNodeView({ data, selected }: NodeProps<GameFlowNode>) {
   return <div className={`game-node status-${status} ${selected ? 'selected' : ''}`} style={{ '--node-color': colors[nodeType] } as React.CSSProperties}>
     {nodeType !== 'start' && <Handle type="target" id="input" position={Position.Left} />}
     <div className="node-heading">{data.displayName || nodeLabels[nodeType]}</div>
-    <div className="node-type">{nodeLabels[nodeType]}{data.enabled === false ? ' · 已禁用' : ''}</div>
+    <div className="node-type">{nodeLabels[nodeType]}</div>
     {nodeType === 'stateCondition' && <div className="node-rule-summary">{stateRuleSummary}</div>}
     {outputs.map((handle, index) => <Handle key={handle} type="source" id={handle} position={Position.Right} style={{ top: outputs.length === 1 ? '50%' : `${35 + index * 30}%` }}>
       {outputs.length > 1 && <span className="handle-label">{handle}</span>}

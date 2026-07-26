@@ -318,7 +318,6 @@
                             <controls:SelectableTextBlock Text="{Binding Path=Id, Mode=OneWay}" Foreground="#E2E8F0" TextWrapping="Wrap" Margin="0,0,0,8"/>
                             <controls:SelectableTextBlock Text="节点名称" Foreground="#94A3B8"/>
                             <TextBox Text="{Binding DisplayName, UpdateSourceTrigger=PropertyChanged}"/>
-                            <CheckBox Content="启用节点" IsChecked="{Binding Enabled}" Margin="4,8" Foreground="#E2E8F0"/>
                             <controls:SelectableTextBlock Text="参数配置" Foreground="#94A3B8" Margin="0,12,0,4"/>
                             <StackPanel Visibility="{Binding HasNumericParameters, Converter={StaticResource BoolVisibility}}">
                                 <controls:SelectableTextBlock Text="数值参数" Foreground="#94A3B8" Margin="0,0,0,3"/>

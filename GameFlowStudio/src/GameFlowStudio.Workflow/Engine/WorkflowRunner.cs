@@ -186,11 +186,6 @@ public sealed class WorkflowRunner : IWorkflowRunner
 
     private async Task<NodeExecutionResult> InvokeExecutorAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken token)
     {
-        if (!node.Data.Enabled)
-        {
-            context.Log(Log(context.Workflow, node, WorkflowLogLevel.Information, "节点已禁用，已跳过。"));
-            return NodeExecutionResult.Ok();
-        }
         if (!_executors.TryGetValue(node.Type, out var executor))
             throw new InvalidOperationException($"没有为节点类型 {node.Type} 注册执行器。");
         return await executor.ExecuteAsync(node, context, token).ConfigureAwait(false);

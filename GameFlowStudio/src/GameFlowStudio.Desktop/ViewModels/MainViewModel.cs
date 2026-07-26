@@ -191,11 +191,9 @@ public sealed class DetectorRuleEditorItem : ObservableObject
 public sealed class SelectedNodeViewModel : ObservableObject
 {
     private string _displayName = string.Empty;
-    private bool _enabled = true;
     public required string Id { get; init; }
     public required string Type { get; init; }
     public string DisplayName { get => _displayName; set => Set(ref _displayName, value); }
-    public bool Enabled { get => _enabled; set => Set(ref _enabled, value); }
     public ObservableCollection<NodeParameterItem> Parameters { get; } = [];
     public ObservableCollection<DetectorEditorItem> Detectors { get; } = [];
     public ObservableCollection<DetectorRuleEditorItem> StateRules { get; } = [];
@@ -487,7 +485,7 @@ public sealed class MainViewModel : ObservableObject
         if (payload.ValueKind == JsonValueKind.Null || payload.ValueKind == JsonValueKind.Undefined) { SelectedNode = null; IsScriptPropertiesVisible = false; return; }
         IsScriptPropertiesVisible = false;
         var data = payload.GetProperty("data");
-        var selected = new SelectedNodeViewModel { Id = payload.GetProperty("nodeId").GetString()!, Type = payload.GetProperty("nodeType").GetString()!, DisplayName = data.GetProperty("displayName").GetString() ?? string.Empty, Enabled = data.GetProperty("enabled").GetBoolean() };
+        var selected = new SelectedNodeViewModel { Id = payload.GetProperty("nodeId").GetString()!, Type = payload.GetProperty("nodeType").GetString()!, DisplayName = data.GetProperty("displayName").GetString() ?? string.Empty };
         if (data.TryGetProperty("parameters", out var parameters))
         {
             foreach (var property in parameters.EnumerateObject()) selected.Parameters.Add(new(property.Name, DisplayValue(property.Value), property.Value.ValueKind));
@@ -538,7 +536,7 @@ public sealed class MainViewModel : ObservableObject
             parameters["detectors"] = ProjectJson.Element(SelectedNode.Detectors.Select(detector => detector.Definition).ToList());
             parameters["detectorRules"] = ProjectJson.Element(SelectedNode.StateRules.Select(rule => rule.ToRule()).ToList());
         }
-        await _editor.SendAsync("update_node_data", new { nodeId = SelectedNode.Id, data = new { displayName = SelectedNode.DisplayName, enabled = SelectedNode.Enabled, parameters } });
+        await _editor.SendAsync("update_node_data", new { nodeId = SelectedNode.Id, data = new { displayName = SelectedNode.DisplayName, parameters } });
     }
 
     private bool ValidateStateRules(IReadOnlyList<DetectorRuleEditorItem> rules, out string error)

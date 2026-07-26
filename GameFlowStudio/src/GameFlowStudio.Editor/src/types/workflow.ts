@@ -8,7 +8,6 @@ export type ExecutionStatus = 'none' | 'running' | 'success' | 'error'
 
 export interface GameNodeData extends Record<string, unknown> {
   displayName: string
-  enabled: boolean
   parameters: Record<string, unknown>
   executionStatus?: ExecutionStatus
 }

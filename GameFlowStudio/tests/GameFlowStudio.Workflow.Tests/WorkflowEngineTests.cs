@@ -23,15 +23,6 @@ public sealed class WorkflowEngineTests
     }
 
     [Fact]
-    public async Task DisabledActionNodeIsSkipped()
-    {
-        var tracker = new TrackingLogExecutor();
-        var disabled = Log("skip"); disabled.Data.Enabled = false;
-        await Runner(tracker).RunAsync(Chain(disabled), CancellationToken.None);
-        Assert.Empty(tracker.Executed);
-    }
-
-    [Fact]
     public async Task PausePreventsNextNodeUntilResume()
     {
         var executor = new GatedLogExecutor(); var runner = Runner(executor); var run = runner.RunAsync(Chain(Log("one"), Log("two")), CancellationToken.None);
