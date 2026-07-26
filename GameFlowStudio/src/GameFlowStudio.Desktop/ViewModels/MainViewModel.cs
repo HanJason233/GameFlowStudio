@@ -81,6 +81,8 @@ public sealed class NodeParameterItem(string name, string value, JsonValueKind k
         ["minMatchRatio"] = "最低匹配比例",
         ["templatePath"] = "图片模板路径",
         ["matchThreshold"] = "图片匹配阈值",
+        ["scriptId"] = "目标脚本 ID",
+        ["actionId"] = "目标动作 ID",
         ["columns"] = "列数",
         ["gapX"] = "横向间距",
         ["gapY"] = "纵向间距",
@@ -307,6 +309,7 @@ public sealed class MainViewModel : ObservableObject
     public IReadOnlyList<ToolboxGroup> ToolboxGroups { get; }
     public AppSettings Settings { get; private set; } = new();
     public string ProjectName { get => _projectName; private set => Set(ref _projectName, value); }
+    public string ActiveScriptId => ActiveScript.Id;
     public string ActiveScriptName
     {
         get => _activeScriptName;
@@ -792,6 +795,7 @@ public sealed class MainViewModel : ObservableObject
 
     private void SyncRuntimeScriptView(AutomationScript script)
     {
+        _project.ActiveScriptId = script.Id;
         _project.Variables = script.Variables;
         _project.Nodes = script.Nodes;
         _project.Edges = script.Edges;
@@ -809,6 +813,7 @@ public sealed class MainViewModel : ObservableObject
         _scriptWindowOutputVariable = script.WindowScope.OutputVariable;
         _scriptDefaultNodeDelayMs = Math.Clamp(script.DefaultNodeDelayMs, 0, 60000);
         Raise(nameof(ActiveScriptName));
+        Raise(nameof(ActiveScriptId));
         Raise(nameof(UseWholeScreen));
         Raise(nameof(ScriptWindowScopeEnabled));
         Raise(nameof(ScriptWindowTitlePattern));

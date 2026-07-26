@@ -5,10 +5,14 @@ using GameFlowStudio.Contracts.States;
 
 namespace GameFlowStudio.Contracts.Results;
 
-/// <summary>节点执行结果；NextHandle 决定采用哪个输出句柄。</summary>
-public sealed record NodeExecutionResult(bool Success, string NextHandle = "output", string? ErrorMessage = null)
+/// <summary>跨脚本跳转目标。</summary>
+public sealed record WorkflowJumpTarget(string ScriptId, string ActionId);
+
+/// <summary>节点执行结果；NextHandle 决定采用哪个输出句柄，JumpTarget 用于跨脚本跳转。</summary>
+public sealed record NodeExecutionResult(bool Success, string NextHandle = "output", string? ErrorMessage = null, WorkflowJumpTarget? JumpTarget = null)
 {
     public static NodeExecutionResult Ok(string nextHandle = "output") => new(true, nextHandle);
+    public static NodeExecutionResult Jump(string scriptId, string actionId) => new(true, JumpTarget: new(scriptId, actionId));
     public static NodeExecutionResult Fail(string error) => new(false, "output", error);
 }
 

@@ -51,6 +51,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<INodeExecutor>(serviceProvider => new SingleStateConditionNodeExecutor(NodeTypes.ColorCondition, DetectorType.Color, serviceProvider.GetRequiredService<IStateConditionEvaluator>()));
         services.AddSingleton<INodeExecutor>(serviceProvider => new SingleStateConditionNodeExecutor(NodeTypes.ImageCondition, DetectorType.Image, serviceProvider.GetRequiredService<IStateConditionEvaluator>()));
         services.AddSingleton<INodeExecutor, StateConditionNodeExecutor>();
+        services.AddSingleton<INodeExecutor, JumpNodeExecutor>();
         services.AddSingleton<INodeExecutor, LogNodeExecutor>();
         services.AddSingleton<INodeExecutor, RunProgramNodeExecutor>();
         services.AddSingleton<INodeExecutor, CloseProgramNodeExecutor>();

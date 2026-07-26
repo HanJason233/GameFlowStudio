@@ -127,6 +127,17 @@ public sealed class StateConditionNodeExecutor(IStateConditionEvaluator evaluato
     }
 }
 
+/// <summary>跳转到项目中指定脚本的指定动作。</summary>
+public sealed class JumpNodeExecutor() : NodeExecutorBase(NodeTypes.Jump)
+{
+    public override Task<NodeExecutionResult> ExecuteAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken cancellationToken)
+    {
+        var scriptId = NodeParameterReader.String(node, "scriptId");
+        var actionId = NodeParameterReader.String(node, "actionId");
+        return Task.FromResult(NodeExecutionResult.Jump(scriptId, actionId));
+    }
+}
+
 /// <summary>单一底层检测判断节点，检测内容直接来自节点参数。</summary>
 public sealed class SingleStateConditionNodeExecutor(string nodeType, DetectorType expectedType, IStateConditionEvaluator evaluator) : NodeExecutorBase(nodeType)
 {

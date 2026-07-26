@@ -18,6 +18,7 @@ public sealed class WorkflowValidator : IWorkflowValidator
             new EdgeReferenceRule(),
             new NodeConnectionRule(),
             new GraphTopologyRule(),
+            new JumpTargetRule(),
             new StateConfigurationRule()
         ];
     }

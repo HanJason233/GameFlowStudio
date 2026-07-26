@@ -190,6 +190,8 @@
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,0,8,8" Visibility="{Binding IsScriptPropertiesVisible, Converter={StaticResource BoolVisibility}}">
                         <StackPanel>
                             <controls:SelectableTextBlock Text="当前脚本属性" FontWeight="SemiBold" Foreground="#F8FAFC" Margin="3,4,3,14"/>
+                            <controls:SelectableTextBlock Text="脚本 ID" Foreground="#94A3B8"/>
+                            <controls:SelectableTextBlock Text="{Binding Path=ActiveScriptId, Mode=OneWay}" Foreground="#E2E8F0" TextWrapping="Wrap" Margin="0,0,0,10"/>
                             <controls:SelectableTextBlock Text="脚本名称" Foreground="#94A3B8"/>
                             <TextBox Text="{Binding ActiveScriptName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10" ToolTip="脚本名称在项目内必须唯一"/>
                             <controls:SelectableTextBlock Text="窗口范围" Foreground="#94A3B8"/>
@@ -210,6 +212,8 @@
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,0,8,8" Visibility="{Binding HasSingleStateConditionSelection, Converter={StaticResource BoolVisibility}}">
                         <StackPanel DataContext="{Binding SelectedNode}">
                             <controls:SelectableTextBlock Text="{Binding Path=LogicLabel, Mode=OneWay}" FontWeight="SemiBold" Foreground="#FBBF24" Margin="3,4,3,2"/>
+                            <controls:SelectableTextBlock Text="动作 ID" Foreground="#94A3B8"/>
+                            <controls:SelectableTextBlock Text="{Binding Path=Id, Mode=OneWay}" Foreground="#E2E8F0" TextWrapping="Wrap" Margin="0,0,0,8"/>
                             <controls:SelectableTextBlock Text="直接配置本节点的检测内容，命中后从 true 分支继续，否则从 false 分支继续。" Foreground="#94A3B8" FontSize="10" TextWrapping="Wrap" Margin="3,0,3,10"/>
                             <controls:SelectableTextBlock Text="数值参数" Foreground="#94A3B8" Margin="0,0,0,3"/>
                             <ItemsControl ItemsSource="{Binding NumericParameters}">
@@ -257,6 +261,8 @@
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,0,8,8" Visibility="{Binding HasStateConditionSelection, Converter={StaticResource BoolVisibility}}">
                         <StackPanel DataContext="{Binding SelectedNode}">
                             <controls:SelectableTextBlock Text="联合判断" FontWeight="SemiBold" Foreground="#FBBF24" Margin="3,4,3,2"/>
+                            <controls:SelectableTextBlock Text="动作 ID" Foreground="#94A3B8"/>
+                            <controls:SelectableTextBlock Text="{Binding Path=Id, Mode=OneWay}" Foreground="#E2E8F0" TextWrapping="Wrap" Margin="0,0,0,8"/>
                             <controls:SelectableTextBlock Text="到达此节点时检测一次，并从右侧 true / false 分支继续执行；单个检测器就是单一判断。" Foreground="#94A3B8" FontSize="10" TextWrapping="Wrap" Margin="3,0,3,10"/>
                             <controls:SelectableTextBlock Text="{Binding Path=StateRuleSummary, Mode=OneWay}" Foreground="#FBBF24" FontSize="11" Margin="3,0,3,4"/>
                             <DockPanel Margin="0,4,0,3">
@@ -308,6 +314,8 @@
                     </ScrollViewer>
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,0,8,8" Visibility="{Binding IsRegularNodeSelection, Converter={StaticResource BoolVisibility}}">
                         <StackPanel DataContext="{Binding SelectedNode}">
+                            <controls:SelectableTextBlock Text="动作 ID" Foreground="#94A3B8"/>
+                            <controls:SelectableTextBlock Text="{Binding Path=Id, Mode=OneWay}" Foreground="#E2E8F0" TextWrapping="Wrap" Margin="0,0,0,8"/>
                             <controls:SelectableTextBlock Text="节点名称" Foreground="#94A3B8"/>
                             <TextBox Text="{Binding DisplayName, UpdateSourceTrigger=PropertyChanged}"/>
                             <CheckBox Content="启用节点" IsChecked="{Binding Enabled}" Margin="4,8" Foreground="#E2E8F0"/>

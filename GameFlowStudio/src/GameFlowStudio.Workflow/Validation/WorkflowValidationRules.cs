@@ -141,6 +141,29 @@ internal sealed class GraphTopologyRule : IWorkflowValidationRule
     }
 }
 
+internal sealed class JumpTargetRule : IWorkflowValidationRule
+{
+    public void Validate(WorkflowValidationContext context, WorkflowValidationResult result)
+    {
+        foreach (var node in context.Workflow.Nodes.Where(node => node.Type == NodeTypes.Jump))
+        {
+            if (!NodeParameterReader.Has(node, "scriptId") || !NodeParameterReader.Has(node, "actionId")) continue;
+
+            var scriptId = NodeParameterReader.String(node, "scriptId");
+            var actionId = NodeParameterReader.String(node, "actionId");
+            var script = context.Workflow.Scripts.FirstOrDefault(candidate => candidate.Id == scriptId);
+            if (script is null)
+            {
+                result.Add("jump_script", $"跳转目标脚本不存在：{scriptId}。", node.Id);
+                continue;
+            }
+
+            if (!script.Nodes.Any(target => target.Id == actionId))
+                result.Add("jump_action", $"跳转目标动作不存在：{actionId}。", node.Id);
+        }
+    }
+}
+
 internal sealed class StateConfigurationRule : IWorkflowValidationRule
 {
     public void Validate(WorkflowValidationContext context, WorkflowValidationResult result)

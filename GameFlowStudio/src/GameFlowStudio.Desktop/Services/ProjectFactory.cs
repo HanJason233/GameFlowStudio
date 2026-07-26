@@ -10,6 +10,7 @@ internal static class ProjectFactory
         var project = new AutomationProject();
         var script = CreateScript("主流程");
         project.Scripts.Add(script);
+        project.ActiveScriptId = script.Id;
         project.Variables = script.Variables;
         project.Nodes = script.Nodes;
         project.Edges = script.Edges;

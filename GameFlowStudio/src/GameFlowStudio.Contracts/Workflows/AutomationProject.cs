@@ -19,6 +19,8 @@ public sealed class AutomationProject
     [JsonIgnore]
     public List<WorkflowEdge> Edges { get; set; } = [];
     [JsonIgnore]
+    public string? ActiveScriptId { get; set; }
+    [JsonIgnore]
     public ScriptWindowScope? WindowScope { get; set; }
     [JsonIgnore]
     public int? DefaultNodeDelayMs { get; set; }

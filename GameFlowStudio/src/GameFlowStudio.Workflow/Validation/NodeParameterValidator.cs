@@ -45,6 +45,8 @@ internal sealed class NodeParameterValidator
                 ValidateSingleStateCondition(node); break;
             case NodeTypes.StateCondition:
                 _ = StateRuleReader.Read(node); break;
+            case NodeTypes.Jump:
+                RequiredText(node, "scriptId"); RequiredText(node, "actionId"); break;
             case NodeTypes.Log:
                 NodeParameterReader.String(node, "message"); ValidateLogLevel(node); break;
             case NodeTypes.RunProgram:

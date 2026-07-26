@@ -106,6 +106,34 @@ public sealed class WorkflowEngineTests
     }
 
     [Fact]
+    public async Task JumpSwitchesToTargetScriptAction()
+    {
+        var tracker = new TrackingLogExecutor();
+        var source = new AutomationScript { Id = "source", Name = "源脚本" };
+        var target = new AutomationScript { Id = "target", Name = "目标脚本" };
+        var start = Node("source-start", NodeTypes.Start);
+        var jump = Node("jump", NodeTypes.Jump, ("scriptId", "target"), ("actionId", "target-log"));
+        var sourceEnd = Node("source-end", NodeTypes.End);
+        source.Nodes = [start, jump, sourceEnd];
+        source.Edges = [Edge(start, "output", jump), Edge(jump, "output", sourceEnd)];
+        var targetStart = Node("target-start", NodeTypes.Start);
+        var targetLog = Log("target-log");
+        var targetEnd = Node("target-end", NodeTypes.End);
+        target.Nodes = [targetStart, targetLog, targetEnd];
+        target.Edges = [Edge(targetStart, "output", targetLog), Edge(targetLog, "output", targetEnd)];
+        var project = NewProject();
+        project.Scripts = [source, target];
+        project.ActiveScriptId = source.Id;
+        project.Nodes = source.Nodes;
+        project.Edges = source.Edges;
+
+        await Runner(tracker).RunAsync(project, CancellationToken.None);
+
+        Assert.Equal(["target-log"], tracker.Executed);
+        Assert.Equal(target.Id, project.ActiveScriptId);
+    }
+
+    [Fact]
     public async Task WorkflowWindowScopeInitializesContextBeforeNodes()
     {
         var executor = new WindowScopeTrackingExecutor();
@@ -139,7 +167,7 @@ public sealed class WorkflowEngineTests
     }
 
     private static WorkflowRunner Runner(INodeExecutor logExecutor, IWindowScopeService? windowScopes = null) => new(
-        [new StartNodeExecutor(), new EndNodeExecutor(), new WaitNodeExecutor(), new MouseClickNodeExecutor(new NullInputAutomationService(), new NullCoordinateResolver()), logExecutor],
+        [new StartNodeExecutor(), new EndNodeExecutor(), new WaitNodeExecutor(), new JumpNodeExecutor(), new MouseClickNodeExecutor(new NullInputAutomationService(), new NullCoordinateResolver()), logExecutor],
         new WorkflowValidator(), NullLogger<WorkflowRunner>.Instance, windowScopes);
 
     private static AutomationProject Chain(params WorkflowNode[] middle)
