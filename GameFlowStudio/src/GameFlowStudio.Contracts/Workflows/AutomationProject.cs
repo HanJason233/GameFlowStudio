@@ -42,6 +42,7 @@ public sealed class ScriptWindowScope
     public bool Enabled { get; set; }
     public string TitlePattern { get; set; } = ".*";
     public string OutputVariable { get; set; } = "windowHandles";
+    public WindowExecutionMode ExecutionMode { get; set; } = WindowExecutionMode.FirstOnly;
 }
 
 /// <summary>当前脚本与 React 编辑器之间传输的平面工作流快照。</summary>

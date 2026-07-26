@@ -97,16 +97,41 @@ public sealed class WorkflowRunner : IWorkflowRunner
 
     private async Task ExecuteGraphAsync(AutomationProject workflow, CancellationToken token)
     {
-        var currentScript = ResolveInitialScript(workflow);
+        var initialScript = ResolveInitialScript(workflow);
+        var handles = ResolveWindowHandles(initialScript.WindowScope);
+        var budget = new ExecutionBudget();
+        if (handles is null)
+        {
+            await ExecuteGraphForWindowAsync(workflow, initialScript, null, budget, token).ConfigureAwait(false);
+            return;
+        }
+
+        switch (initialScript.WindowScope.ExecutionMode)
+        {
+            case WindowExecutionMode.WindowPriority:
+                foreach (var handle in handles)
+                    await ExecuteGraphForWindowAsync(workflow, initialScript, [handle], budget, token).ConfigureAwait(false);
+                return;
+            case WindowExecutionMode.ActionPriority:
+                await ExecuteGraphByActionPriorityAsync(workflow, initialScript, handles, budget, token).ConfigureAwait(false);
+                return;
+            default:
+                await ExecuteGraphForWindowAsync(workflow, initialScript, [handles[0]], budget, token).ConfigureAwait(false);
+                return;
+        }
+    }
+
+    private async Task ExecuteGraphForWindowAsync(AutomationProject workflow, AutomationScript initialScript, IReadOnlyList<nint>? windowHandles, ExecutionBudget budget, CancellationToken token)
+    {
+        var context = CreateContext(workflow, initialScript, windowHandles);
+        var currentScript = initialScript;
         var nodes = currentScript.Nodes.ToDictionary(n => n.Id, StringComparer.Ordinal);
         var current = currentScript.Nodes.Single(n => n.Type == Contracts.Nodes.NodeTypes.Start);
-        var context = CreateContext(workflow, currentScript);
-        var executed = 0;
         while (true)
         {
             token.ThrowIfCancellationRequested();
             await _pauseGate.WaitAsync(token).ConfigureAwait(false);
-            EnsureExecutionLimit(++executed);
+            EnsureExecutionLimit(++budget.Executed);
             var result = await ExecuteNodeAsync(workflow, current, context, token).ConfigureAwait(false);
             if (current.Type == Contracts.Nodes.NodeTypes.End) return;
             if (result.JumpTarget is not null)
@@ -114,16 +139,83 @@ public sealed class WorkflowRunner : IWorkflowRunner
                 var targetScript = ResolveTargetScript(workflow, result.JumpTarget);
                 var targetNodes = targetScript.Nodes.ToDictionary(n => n.Id, StringComparer.Ordinal);
                 var target = targetNodes[result.JumpTarget.ActionId];
-                await WaitBetweenNodesAsync(workflow, current, target, context, token).ConfigureAwait(false);
-                ActivateScript(workflow, targetScript, context);
+                await WaitBetweenNodesAsync(workflow, currentScript, current, target, context, token).ConfigureAwait(false);
+                ActivateScript(workflow, targetScript, context, CurrentWindowScope(context));
+                currentScript = targetScript;
                 nodes = targetNodes;
                 current = target;
                 continue;
             }
-            var next = ResolveNextNode(workflow, nodes, current, result.NextHandle);
-            await WaitBetweenNodesAsync(workflow, current, next, context, token).ConfigureAwait(false);
+            var next = ResolveNextNode(currentScript, nodes, current, result.NextHandle);
+            await WaitBetweenNodesAsync(workflow, currentScript, current, next, context, token).ConfigureAwait(false);
             current = next;
         }
+    }
+
+    private async Task ExecuteGraphByActionPriorityAsync(AutomationProject workflow, AutomationScript initialScript, IReadOnlyList<nint> handles, ExecutionBudget budget, CancellationToken token)
+    {
+        var tracks = handles.Select(handle => CreateWindowTrack(workflow, initialScript, handle)).ToList();
+        while (tracks.Count > 0)
+        {
+            for (var index = 0; index < tracks.Count;)
+            {
+                var track = tracks[index];
+                token.ThrowIfCancellationRequested();
+                await _pauseGate.WaitAsync(token).ConfigureAwait(false);
+                EnsureExecutionLimit(++budget.Executed);
+                var result = await ExecuteNodeAsync(workflow, track.Current, track.Context, token).ConfigureAwait(false);
+                if (track.Current.Type == Contracts.Nodes.NodeTypes.End)
+                {
+                    tracks.RemoveAt(index);
+                    continue;
+                }
+
+                if (result.JumpTarget is not null)
+                {
+                    var targetScript = ResolveTargetScript(workflow, result.JumpTarget);
+                    var targetNodes = targetScript.Nodes.ToDictionary(n => n.Id, StringComparer.Ordinal);
+                    var target = targetNodes[result.JumpTarget.ActionId];
+                    await WaitBetweenNodesAsync(workflow, track.Script, track.Current, target, track.Context, token).ConfigureAwait(false);
+                    ActivateScript(workflow, targetScript, track.Context, CurrentWindowScope(track.Context));
+                    track.Script = targetScript;
+                    track.Nodes = targetNodes;
+                    track.Current = target;
+                }
+                else
+                {
+                    var next = ResolveNextNode(track.Script, track.Nodes, track.Current, result.NextHandle);
+                    await WaitBetweenNodesAsync(workflow, track.Script, track.Current, next, track.Context, token).ConfigureAwait(false);
+                    track.Current = next;
+                }
+
+                index++;
+            }
+        }
+    }
+
+    private WindowExecutionTrack CreateWindowTrack(AutomationProject workflow, AutomationScript script, nint handle) =>
+        new(script, script.Nodes.ToDictionary(n => n.Id, StringComparer.Ordinal), script.Nodes.Single(n => n.Type == Contracts.Nodes.NodeTypes.Start), CreateContext(workflow, script, [handle]));
+
+    private IReadOnlyList<nint>? ResolveWindowHandles(ScriptWindowScope? scope)
+    {
+        if (scope is not { Enabled: true }) return null;
+        if (_windowScopes is null) throw new InvalidOperationException("窗口作用域服务未注册。");
+        var handles = _windowScopes.ResolveWindowHandles(string.IsNullOrWhiteSpace(scope.TitlePattern) ? ".*" : scope.TitlePattern);
+        if (handles.Count == 0) throw new InvalidOperationException("窗口作用域没有找到匹配的窗口。");
+        return handles;
+    }
+
+    private sealed class WindowExecutionTrack(AutomationScript script, IReadOnlyDictionary<string, WorkflowNode> nodes, WorkflowNode current, WorkflowExecutionContext context)
+    {
+        public AutomationScript Script { get; set; } = script;
+        public IReadOnlyDictionary<string, WorkflowNode> Nodes { get; set; } = nodes;
+        public WorkflowNode Current { get; set; } = current;
+        public WorkflowExecutionContext Context { get; } = context;
+    }
+
+    private sealed class ExecutionBudget
+    {
+        public int Executed { get; set; }
     }
 
     private static AutomationScript ResolveInitialScript(AutomationProject workflow)
@@ -147,7 +239,7 @@ public sealed class WorkflowRunner : IWorkflowRunner
     private static AutomationScript ResolveTargetScript(AutomationProject workflow, WorkflowJumpTarget target) =>
         workflow.Scripts.First(script => script.Id == target.ScriptId);
 
-    private void ActivateScript(AutomationProject workflow, AutomationScript script, WorkflowExecutionContext context)
+    private void ActivateScript(AutomationProject workflow, AutomationScript script, WorkflowExecutionContext context, IReadOnlyList<nint>? windowHandles = null)
     {
         workflow.ActiveScriptId = script.Id;
         workflow.Variables = script.Variables;
@@ -159,7 +251,7 @@ public sealed class WorkflowRunner : IWorkflowRunner
         foreach (var variable in script.Variables)
             context.Variables[variable.Key] = ConvertElement(variable.Value.Value);
         context.WindowHandles = [];
-        InitializeWindowScope(script.WindowScope, context);
+        InitializeWindowScope(script.WindowScope, context, windowHandles);
     }
 
     private async Task<NodeExecutionResult> ExecuteNodeAsync(AutomationProject workflow, WorkflowNode node, WorkflowExecutionContext context, CancellationToken token)
@@ -168,6 +260,7 @@ public sealed class WorkflowRunner : IWorkflowRunner
         Raise(NodeStarted, new(node));
         try
         {
+            ActivateContextWindow(context);
             var result = await InvokeExecutorAsync(node, context, token).ConfigureAwait(false);
             timer.Stop();
             if (!result.Success) throw new InvalidOperationException(result.ErrorMessage ?? "节点执行失败。");
@@ -184,6 +277,15 @@ public sealed class WorkflowRunner : IWorkflowRunner
         }
     }
 
+    private void ActivateContextWindow(WorkflowExecutionContext context)
+    {
+        if (_windows is null || context.WindowHandles.Count != 1) return;
+        if (!_windows.ActivateWindow(context.WindowHandles[0])) throw new InvalidOperationException("无法激活当前窗口作用域中的目标窗口。");
+    }
+
+    private static IReadOnlyList<nint>? CurrentWindowScope(WorkflowExecutionContext context) =>
+        context.WindowHandles.Count == 1 ? context.WindowHandles : null;
+
     private async Task<NodeExecutionResult> InvokeExecutorAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken token)
     {
         if (!_executors.TryGetValue(node.Type, out var executor))
@@ -191,9 +293,9 @@ public sealed class WorkflowRunner : IWorkflowRunner
         return await executor.ExecuteAsync(node, context, token).ConfigureAwait(false);
     }
 
-    private WorkflowNode ResolveNextNode(AutomationProject workflow, IReadOnlyDictionary<string, WorkflowNode> nodes, WorkflowNode current, string handle)
+    private static WorkflowNode ResolveNextNode(AutomationScript script, IReadOnlyDictionary<string, WorkflowNode> nodes, WorkflowNode current, string handle)
     {
-        var edge = workflow.Edges.SingleOrDefault(e => e.Source == current.Id && e.SourceHandle == handle)
+        var edge = script.Edges.SingleOrDefault(e => e.Source == current.Id && e.SourceHandle == handle)
             ?? throw new InvalidOperationException($"节点 {current.Data.DisplayName} 的 {handle} 出口没有连接。");
         return nodes[edge.Target];
     }
@@ -203,13 +305,19 @@ public sealed class WorkflowRunner : IWorkflowRunner
         if (executed > MaxExecutedNodes) throw new InvalidOperationException($"执行节点数超过安全上限 {MaxExecutedNodes}。");
     }
 
-    private Task WaitBetweenNodesAsync(AutomationProject workflow, WorkflowNode current, WorkflowNode next, WorkflowExecutionContext context, CancellationToken token) =>
-        ShouldApplyDefaultDelay(workflow, current, next)
-            ? PausableDelay.WaitAsync(workflow.DefaultNodeDelayMs ?? DefaultNodeDelayMs, context.WaitIfPausedAsync, token)
+    private Task WaitBetweenNodesAsync(AutomationProject workflow, AutomationScript script, WorkflowNode current, WorkflowNode next, WorkflowExecutionContext context, CancellationToken token) =>
+        WaitBetweenNodesAsync(GetDefaultNodeDelay(workflow, script), current, next, context, token);
+
+    private static Task WaitBetweenNodesAsync(int delay, WorkflowNode current, WorkflowNode next, WorkflowExecutionContext context, CancellationToken token) =>
+        ShouldApplyDefaultDelay(delay, current, next)
+            ? PausableDelay.WaitAsync(delay, context.WaitIfPausedAsync, token)
             : Task.CompletedTask;
 
-    private bool ShouldApplyDefaultDelay(AutomationProject workflow, WorkflowNode current, WorkflowNode next) =>
-        (workflow.DefaultNodeDelayMs ?? DefaultNodeDelayMs) > 0
+    private int GetDefaultNodeDelay(AutomationProject workflow, AutomationScript script) =>
+        script.Id == "runtime" ? workflow.DefaultNodeDelayMs ?? DefaultNodeDelayMs : script.DefaultNodeDelayMs;
+
+    private static bool ShouldApplyDefaultDelay(int delay, WorkflowNode current, WorkflowNode next) =>
+        delay > 0
         && current.Type is not (Contracts.Nodes.NodeTypes.Start or Contracts.Nodes.NodeTypes.Wait)
         && next.Type is not (Contracts.Nodes.NodeTypes.End or Contracts.Nodes.NodeTypes.Wait);
 
@@ -237,7 +345,7 @@ public sealed class WorkflowRunner : IWorkflowRunner
         ChangeState(WorkflowExecutionState.Stopping); _pauseGate.Set(); _runCancellation?.Cancel(); return Task.CompletedTask;
     }
 
-    private WorkflowExecutionContext CreateContext(AutomationProject workflow, AutomationScript script)
+    private WorkflowExecutionContext CreateContext(AutomationProject workflow, AutomationScript script, IReadOnlyList<nint>? windowHandles = null)
     {
         var context = new WorkflowExecutionContext
         {
@@ -245,18 +353,26 @@ public sealed class WorkflowRunner : IWorkflowRunner
             WaitIfPausedAsync = token => _pauseGate.WaitAsync(token),
             Log = entry => _logger.Log(ToMicrosoftLevel(entry.Level), "[{WorkflowId}/{NodeId}/{NodeName}] {Message} (耗时 {Elapsed} ms) {Exception}", entry.WorkflowId, entry.NodeId ?? "-", entry.NodeName ?? "-", entry.Message, entry.ElapsedMilliseconds, entry.Exception)
         };
+        if (script.Id != "runtime")
+        {
+            workflow.ActiveScriptId = script.Id;
+            workflow.Variables = script.Variables;
+            workflow.Nodes = script.Nodes;
+            workflow.Edges = script.Edges;
+            workflow.WindowScope = script.WindowScope;
+            workflow.DefaultNodeDelayMs = script.DefaultNodeDelayMs;
+        }
         foreach (var variable in script.Variables)
             context.Variables[variable.Key] = ConvertElement(variable.Value.Value);
-        InitializeWindowScope(script.WindowScope, context);
+        InitializeWindowScope(script.WindowScope, context, windowHandles);
         return context;
     }
 
-    private void InitializeWindowScope(ScriptWindowScope? scope, WorkflowExecutionContext context)
+    private void InitializeWindowScope(ScriptWindowScope? scope, WorkflowExecutionContext context, IReadOnlyList<nint>? windowHandles = null)
     {
         if (scope is not { Enabled: true }) return;
-        if (_windowScopes is null) throw new InvalidOperationException("窗口作用域服务未注册。");
-        var handles = _windowScopes.ResolveWindowHandles(string.IsNullOrWhiteSpace(scope.TitlePattern) ? ".*" : scope.TitlePattern);
-        if (handles.Count == 0) throw new InvalidOperationException("窗口作用域没有找到匹配的窗口。");
+        var handles = windowHandles ?? ResolveWindowHandles(scope);
+        if (handles is null || handles.Count == 0) throw new InvalidOperationException("窗口作用域没有找到匹配的窗口。");
         if (_windows is not null && !_windows.ActivateWindow(handles[0])) throw new InvalidOperationException("无法激活窗口作用域中的目标窗口。");
         context.WindowHandles = handles;
         var outputVariable = string.IsNullOrWhiteSpace(scope.OutputVariable) ? "windowHandles" : scope.OutputVariable;

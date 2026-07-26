@@ -129,13 +129,43 @@ public sealed class WorkflowEngineTests
     {
         var executor = new WindowScopeTrackingExecutor();
         var runner = Runner(executor, new FixedWindowScopeService([(nint)101, (nint)202]));
-        var project = Chain(Log("one"));
-        project.WindowScope = new() { Enabled = true, TitlePattern = "^Game", OutputVariable = "targets" };
+        var project = Chain(Log("one"), Log("two"));
+        project.WindowScope = new() { Enabled = true, TitlePattern = "^Game", OutputVariable = "targets", ExecutionMode = WindowExecutionMode.FirstOnly };
 
         await runner.RunAsync(project, CancellationToken.None);
 
-        Assert.Equal(new nint[] { 101, 202 }, executor.Handles);
-        Assert.Equal(new long[] { 101, 202 }, Assert.IsType<long[]>(executor.OutputValue));
+        Assert.Equal(new nint[] { 101 }, executor.Handles);
+        Assert.Equal(new long[] { 101 }, Assert.IsType<long[]>(executor.OutputValue));
+    }
+
+    [Fact]
+    public async Task WindowPriorityRunsCompleteGraphPerWindow()
+    {
+        var executor = new WindowExecutionTrackingExecutor();
+        var runner = Runner(executor, new FixedWindowScopeService([(nint)101, (nint)202]));
+        var project = Chain(Log("one"), Log("two"));
+        project.WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.WindowPriority };
+
+        await runner.RunAsync(project, CancellationToken.None);
+
+        Assert.Equal(
+            ["one:101", "two:101", "one:202", "two:202"],
+            executor.Executions);
+    }
+
+    [Fact]
+    public async Task ActionPriorityRunsEachWindowOneActionPerRound()
+    {
+        var executor = new WindowExecutionTrackingExecutor();
+        var runner = Runner(executor, new FixedWindowScopeService([(nint)101, (nint)202]));
+        var project = Chain(Log("one"), Log("two"));
+        project.WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.ActionPriority };
+
+        await runner.RunAsync(project, CancellationToken.None);
+
+        Assert.Equal(
+            ["one:101", "one:202", "two:101", "two:202"],
+            executor.Executions);
     }
 
     [Fact]
@@ -207,6 +237,17 @@ public sealed class WorkflowEngineTests
         {
             Handles = context.WindowHandles;
             OutputValue = context.Variables["targets"];
+            return Task.FromResult(NodeExecutionResult.Ok());
+        }
+    }
+
+    private sealed class WindowExecutionTrackingExecutor : NodeExecutorBase
+    {
+        public WindowExecutionTrackingExecutor() : base(NodeTypes.Log) { }
+        public List<string> Executions { get; } = [];
+        public override Task<NodeExecutionResult> ExecuteAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken cancellationToken)
+        {
+            Executions.Add($"{node.Id}:{context.WindowHandles.Single()}");
             return Task.FromResult(NodeExecutionResult.Ok());
         }
     }

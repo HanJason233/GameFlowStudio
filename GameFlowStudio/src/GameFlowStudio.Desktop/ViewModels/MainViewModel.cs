@@ -33,6 +33,8 @@ public sealed class ToolboxGroup(string name, IReadOnlyList<ToolboxItem> items) 
 
 public sealed record ProjectFileItem(string Name, string Path);
 
+public sealed record WindowExecutionModeOption(WindowExecutionMode Value, string Label, string Description);
+
 public sealed class ScriptListItem(string id, string name, string description) : ObservableObject
 {
     private bool _isActive;
@@ -294,6 +296,7 @@ public sealed class MainViewModel : ObservableObject
     private bool _scriptWindowScopeEnabled;
     private string _scriptWindowTitlePattern = ".*";
     private string _scriptWindowOutputVariable = "windowHandles";
+    private WindowExecutionMode _scriptWindowExecutionMode = WindowExecutionMode.FirstOnly;
     private string _activeScriptName = string.Empty;
     private int _scriptDefaultNodeDelayMs;
 
@@ -315,6 +318,12 @@ public sealed class MainViewModel : ObservableObject
     public ObservableCollection<ProjectFileItem> RecentProjectFiles { get; } = [];
     public ObservableCollection<ScriptListItem> Scripts { get; } = [];
     public IReadOnlyList<DetectorType> DetectorTypes { get; } = Enum.GetValues<DetectorType>();
+    public IReadOnlyList<WindowExecutionModeOption> WindowExecutionModes { get; } =
+    [
+        new(WindowExecutionMode.FirstOnly, "只操作第一个窗口", "匹配多个窗口时，只激活并操作第一个窗口。"),
+        new(WindowExecutionMode.WindowPriority, "窗口优先", "先完整执行窗口 1 的流程，再完整执行窗口 2 的流程。"),
+        new(WindowExecutionMode.ActionPriority, "动作优先", "每一轮让所有窗口各执行一个当前动作，再进入下一轮。")
+    ];
     public IReadOnlyList<ToolboxGroup> ToolboxGroups { get; }
     public AppSettings Settings { get; private set; } = new();
     public string ProjectName { get => _projectName; private set => Set(ref _projectName, value); }
@@ -396,6 +405,19 @@ public sealed class MainViewModel : ObservableObject
         get => _scriptWindowOutputVariable;
         set { if (Set(ref _scriptWindowOutputVariable, value)) { ActiveScript.WindowScope.OutputVariable = value; MarkScriptSettingsChanged(); } }
     }
+    public WindowExecutionMode ScriptWindowExecutionMode
+    {
+        get => _scriptWindowExecutionMode;
+        set
+        {
+            if (!Set(ref _scriptWindowExecutionMode, value)) return;
+            ActiveScript.WindowScope.ExecutionMode = value;
+            Raise(nameof(ScriptWindowExecutionModeDescription));
+            MarkScriptSettingsChanged();
+        }
+    }
+    public string ScriptWindowExecutionModeDescription =>
+        WindowExecutionModes.First(mode => mode.Value == ScriptWindowExecutionMode).Description;
     public int ScriptDefaultNodeDelayMs
     {
         get => _scriptDefaultNodeDelayMs;
@@ -816,6 +838,7 @@ public sealed class MainViewModel : ObservableObject
         _scriptWindowScopeEnabled = script.WindowScope.Enabled;
         _scriptWindowTitlePattern = script.WindowScope.TitlePattern;
         _scriptWindowOutputVariable = script.WindowScope.OutputVariable;
+        _scriptWindowExecutionMode = script.WindowScope.ExecutionMode;
         _scriptDefaultNodeDelayMs = Math.Clamp(script.DefaultNodeDelayMs, 0, 60000);
         Raise(nameof(ActiveScriptName));
         Raise(nameof(ActiveScriptId));
@@ -823,6 +846,8 @@ public sealed class MainViewModel : ObservableObject
         Raise(nameof(ScriptWindowScopeEnabled));
         Raise(nameof(ScriptWindowTitlePattern));
         Raise(nameof(ScriptWindowOutputVariable));
+        Raise(nameof(ScriptWindowExecutionMode));
+        Raise(nameof(ScriptWindowExecutionModeDescription));
         Raise(nameof(ScriptDefaultNodeDelayMs));
     }
 

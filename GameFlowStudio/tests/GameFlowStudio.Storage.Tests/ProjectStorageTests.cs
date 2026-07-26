@@ -1,3 +1,4 @@
+using GameFlowStudio.Contracts.Enums;
 using GameFlowStudio.Contracts.Nodes;
 using GameFlowStudio.Contracts.Workflows;
 using GameFlowStudio.Storage.Projects;
@@ -24,7 +25,7 @@ public sealed class ProjectStorageTests : IDisposable
         var path = Path.Combine(_directory, "script-properties.gflow");
         var project = Project();
         project.Scripts[0].Name = "异常恢复脚本";
-        project.Scripts[0].WindowScope = new() { Enabled = true, TitlePattern = "^Game", OutputVariable = "targets" };
+        project.Scripts[0].WindowScope = new() { Enabled = true, TitlePattern = "^Game", OutputVariable = "targets", ExecutionMode = WindowExecutionMode.WindowPriority };
         project.Scripts[0].DefaultNodeDelayMs = 75;
 
         await _storage.SaveAsync(project, path, CancellationToken.None);
@@ -34,6 +35,7 @@ public sealed class ProjectStorageTests : IDisposable
         Assert.True(loaded.Scripts[0].WindowScope.Enabled);
         Assert.Equal("^Game", loaded.Scripts[0].WindowScope.TitlePattern);
         Assert.Equal("targets", loaded.Scripts[0].WindowScope.OutputVariable);
+        Assert.Equal(WindowExecutionMode.WindowPriority, loaded.Scripts[0].WindowScope.ExecutionMode);
         Assert.Equal(75, loaded.Scripts[0].DefaultNodeDelayMs);
     }
 

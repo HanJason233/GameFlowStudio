@@ -28,3 +28,11 @@ public enum DetectorType
     Ocr,
     AiRecognition
 }
+
+/// <summary>脚本匹配多个窗口时的执行顺序。</summary>
+public enum WindowExecutionMode
+{
+    FirstOnly,
+    WindowPriority,
+    ActionPriority
+}
