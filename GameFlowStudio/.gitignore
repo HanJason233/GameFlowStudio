@@ -1,0 +1,11 @@
+**/bin/
+**/obj/
+**/node_modules/
+src/GameFlowStudio.Desktop/EditorAssets/
+src/GameFlowStudio.Editor/dist/
+.vs/
+*.user
+*.suo
+**/*_wpftmp.csproj
+TestResults/
+.verify/

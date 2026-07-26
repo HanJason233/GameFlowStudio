@@ -1,0 +1,141 @@
+using System.Globalization;
+using GameFlowStudio.Contracts.Enums;
+using GameFlowStudio.Contracts.Results;
+using GameFlowStudio.Contracts.Services;
+using GameFlowStudio.Contracts.States;
+
+namespace GameFlowStudio.Workflow.Detectors;
+
+public sealed class StateDetectorService(IEnumerable<IStateDetector> detectors) : IStateDetectorService
+{
+    private readonly IReadOnlyDictionary<DetectorType, IStateDetector> _detectors =
+        detectors.GroupBy(detector => detector.Type).ToDictionary(group => group.Key, group => group.First());
+
+    public async Task<DetectorEvaluationResult> EvaluateAsync(DetectorDefinition detector, DetectorEvaluationContext context, CancellationToken cancellationToken)
+    {
+        if (!detector.Enabled)
+            return Result(detector, 0, false, "检测器已禁用。");
+        if (!_detectors.TryGetValue(detector.Type, out var implementation))
+            return Result(detector, 0, false, $"未注册检测器类型 {detector.Type}。");
+
+        try { return await implementation.EvaluateAsync(detector, context, cancellationToken).ConfigureAwait(false); }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception exception) { return Result(detector, 0, false, exception.Message); }
+    }
+
+    internal static DetectorEvaluationResult Result(DetectorDefinition detector, int state, bool supported = true, string? message = null) =>
+        new(detector.Id, detector.Type, state is 1 ? 1 : 0, supported, message, DateTimeOffset.UtcNow);
+}
+
+public sealed class ColorStateDetector : IStateDetector
+{
+    public DetectorType Type => DetectorType.Color;
+
+    public async Task<DetectorEvaluationResult> EvaluateAsync(DetectorDefinition detector, DetectorEvaluationContext context, CancellationToken cancellationToken)
+    {
+        var region = ReadRegion(detector, context.Capture.VirtualScreenBounds, defaultWidth: 1, defaultHeight: 1);
+        var target = ParseColor(DetectorParameterReader.String(detector, "targetColor", "#FFFFFF"));
+        var tolerance = Math.Clamp(DetectorParameterReader.Int(detector, "tolerance", 10), 0, 255);
+        var minimumRatio = Math.Clamp(DetectorParameterReader.Double(detector, "minMatchRatio", 1), 0, 1);
+        var frame = await context.CaptureAsync(region, cancellationToken).ConfigureAwait(false);
+        var total = frame.Width * frame.Height;
+        var matching = 0;
+        for (var y = 0; y < frame.Height; y++)
+        for (var x = 0; x < frame.Width; x++)
+        {
+            var pixel = frame.Pixel(x, y);
+            if (pixel.Length == 4 && Math.Abs(pixel[2] - target.R) <= tolerance && Math.Abs(pixel[1] - target.G) <= tolerance && Math.Abs(pixel[0] - target.B) <= tolerance)
+                matching++;
+        }
+
+        var ratio = total == 0 ? 0 : (double)matching / total;
+        return StateDetectorService.Result(detector, ratio >= minimumRatio ? 1 : 0, true, $"匹配比例 {ratio:P1}。");
+    }
+
+    private static CaptureRegion ReadRegion(DetectorDefinition detector, CaptureRegion fallback, int defaultWidth, int defaultHeight)
+    {
+        var x = DetectorParameterReader.Int(detector, "x", fallback.X);
+        var y = DetectorParameterReader.Int(detector, "y", fallback.Y);
+        var width = DetectorParameterReader.Int(detector, "width", defaultWidth);
+        var height = DetectorParameterReader.Int(detector, "height", defaultHeight);
+        if (width <= 0 || height <= 0) throw new InvalidOperationException("检测区域的宽度和高度必须大于 0。");
+        return new(x, y, width, height);
+    }
+
+    private static (byte R, byte G, byte B) ParseColor(string value)
+    {
+        var normalized = value.Trim().TrimStart('#');
+        if (normalized.Length == 3) normalized = string.Concat(normalized.Select(character => $"{character}{character}"));
+        if (normalized.Length != 6 || !int.TryParse(normalized, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var number))
+            throw new InvalidOperationException($"颜色值 {value} 无效，应使用 #RRGGBB 格式。");
+        return ((byte)(number >> 16), (byte)(number >> 8), (byte)number);
+    }
+}
+
+public sealed class ImageStateDetector : IStateDetector
+{
+    public DetectorType Type => DetectorType.Image;
+
+    public async Task<DetectorEvaluationResult> EvaluateAsync(DetectorDefinition detector, DetectorEvaluationContext context, CancellationToken cancellationToken)
+    {
+        var templatePath = DetectorParameterReader.String(detector, "templatePath");
+        var template = await context.LoadImageAsync(templatePath, cancellationToken).ConfigureAwait(false);
+        if (template.Width <= 0 || template.Height <= 0 || template.Bgra32.Length < template.Width * template.Height * 4)
+            throw new InvalidOperationException("图片模板为空或不是 BGRA32 图片。");
+
+        var search = ReadSearchRegion(detector, context.Capture.VirtualScreenBounds);
+        var frame = await context.CaptureAsync(search, cancellationToken).ConfigureAwait(false);
+        var tolerance = Math.Clamp(DetectorParameterReader.Int(detector, "tolerance", 10), 0, 255);
+        var threshold = Math.Clamp(DetectorParameterReader.Double(detector, "matchThreshold", 0.95), 0, 1);
+        var best = FindBestMatch(frame, template, tolerance, cancellationToken);
+        return StateDetectorService.Result(detector, best >= threshold ? 1 : 0, true, $"最佳匹配 {best:P1}。");
+    }
+
+    private static CaptureRegion ReadSearchRegion(DetectorDefinition detector, CaptureRegion fallback)
+    {
+        var hasWidth = detector.Parameters.ContainsKey("width");
+        var hasHeight = detector.Parameters.ContainsKey("height");
+        var width = DetectorParameterReader.Int(detector, "width", fallback.Width);
+        var height = DetectorParameterReader.Int(detector, "height", fallback.Height);
+        if (!hasWidth || !hasHeight) { width = fallback.Width; height = fallback.Height; }
+        if (width <= 0 || height <= 0) throw new InvalidOperationException("图片搜索区域的宽度和高度必须大于 0。");
+        return new(
+            DetectorParameterReader.Int(detector, "x", fallback.X),
+            DetectorParameterReader.Int(detector, "y", fallback.Y), width, height);
+    }
+
+    private static double FindBestMatch(CapturedFrame frame, DetectorImage template, int tolerance, CancellationToken cancellationToken)
+    {
+        if (template.Width > frame.Width || template.Height > frame.Height) return 0;
+        var best = 0d;
+        var maxX = frame.Width - template.Width;
+        var maxY = frame.Height - template.Height;
+        for (var y = 0; y <= maxY; y++)
+        for (var x = 0; x <= maxX; x++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var matching = 0;
+            for (var templateY = 0; templateY < template.Height; templateY++)
+            for (var templateX = 0; templateX < template.Width; templateX++)
+            {
+                var source = frame.Pixel(x + templateX, y + templateY);
+                var offset = (templateY * template.Width + templateX) * 4;
+                if (Math.Abs(source[0] - template.Bgra32[offset]) <= tolerance &&
+                    Math.Abs(source[1] - template.Bgra32[offset + 1]) <= tolerance &&
+                    Math.Abs(source[2] - template.Bgra32[offset + 2]) <= tolerance)
+                    matching++;
+            }
+            best = Math.Max(best, (double)matching / (template.Width * template.Height));
+            if (best >= 1) return best;
+        }
+        return best;
+    }
+}
+
+public sealed class TodoStateDetector(DetectorType type) : IStateDetector
+{
+    public DetectorType Type { get; } = type;
+
+    public Task<DetectorEvaluationResult> EvaluateAsync(DetectorDefinition detector, DetectorEvaluationContext context, CancellationToken cancellationToken) =>
+        Task.FromResult(StateDetectorService.Result(detector, 0, false, $"{Type} 检测器 TODO：当前版本尚未实现。"));
+}
