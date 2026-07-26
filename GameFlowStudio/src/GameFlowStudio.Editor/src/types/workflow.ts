@@ -15,6 +15,11 @@ export interface GameNodeData extends Record<string, unknown> {
 
 export type GameFlowNode = Node<GameNodeData, 'gameNode'>
 
+export function nextActionId(nodes: GameFlowNode[]): string {
+  const numericIds = nodes.map(node => /^\d+$/.test(node.id) ? Number(node.id) : 0)
+  return String(Math.max(0, ...numericIds) + 1)
+}
+
 export interface ProjectMetadata {
   id: string
   name: string

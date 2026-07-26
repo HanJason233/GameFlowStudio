@@ -6,7 +6,7 @@ import {
 import { postBridgeMessage } from '../services/bridge'
 import {
   defaultParameters, nodeLabels, toFlowEdges, toFlowNodes,
-  type AutomationProject, type GameFlowNode, type NodeType,
+  nextActionId, type AutomationProject, type GameFlowNode, type NodeType,
 } from '../types/workflow'
 
 const createEmptyProject = (): AutomationProject => ({
@@ -40,9 +40,8 @@ export function useWorkflowDocument() {
 
   const addNode = useCallback((nodeType: NodeType) => {
     if (readOnly) return
-    const id = `${nodeType}-${crypto.randomUUID()}`
     const position = flow.screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 })
-    setNodes(current => [...current, { id, type: 'gameNode', position, data: { nodeType, displayName: nodeLabels[nodeType], enabled: true, parameters: structuredClone(defaultParameters[nodeType]) } }])
+    setNodes(current => [...current, { id: nextActionId(current), type: 'gameNode', position, data: { nodeType, displayName: nodeLabels[nodeType], enabled: true, parameters: structuredClone(defaultParameters[nodeType]) } }])
     setTimeout(notifyChanged, 0)
   }, [flow, notifyChanged, readOnly, setNodes])
 

@@ -28,7 +28,7 @@ public sealed class AutomationProject
 
 public sealed class AutomationScript
 {
-    public string Id { get; set; } = $"script-{Guid.NewGuid():N}";
+    public string Id { get; set; } = "1";
     public string Name { get; set; } = "主流程";
     public ScriptWindowScope WindowScope { get; set; } = new();
     public int DefaultNodeDelayMs { get; set; }

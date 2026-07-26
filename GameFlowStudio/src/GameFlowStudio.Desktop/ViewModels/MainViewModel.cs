@@ -669,7 +669,7 @@ public sealed class MainViewModel : ObservableObject
     {
         await ExportAsync();
         var name = CreateScriptName();
-        var script = ProjectFactory.CreateScript(name);
+        var script = ProjectFactory.CreateScript(name, NextScriptId());
         _project.Scripts.Add(script);
         _activeScriptId = script.Id;
         SyncRuntimeScriptView(script);
@@ -771,7 +771,7 @@ public sealed class MainViewModel : ObservableObject
         {
             project.Scripts.Add(new AutomationScript
             {
-                Id = $"{project.Project.Id}-main",
+                Id = "1",
                 Name = "主流程",
                 Variables = project.Variables,
                 Nodes = project.Nodes,
@@ -905,6 +905,15 @@ public sealed class MainViewModel : ObservableObject
         while (_project.Scripts.Any(script => string.Equals(script.Name, name, StringComparison.OrdinalIgnoreCase)))
             name = $"脚本 {++index}";
         return name;
+    }
+
+    private string NextScriptId()
+    {
+        var next = _project.Scripts
+            .Select(script => int.TryParse(script.Id, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id) ? id : 0)
+            .DefaultIfEmpty(0)
+            .Max() + 1;
+        return next.ToString(CultureInfo.InvariantCulture);
     }
 
     private string NormalizeScriptName(string value)

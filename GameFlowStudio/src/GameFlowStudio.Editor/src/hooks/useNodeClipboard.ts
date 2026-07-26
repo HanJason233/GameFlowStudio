@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import type { GameFlowNode } from '../types/workflow'
+import { nextActionId, type GameFlowNode } from '../types/workflow'
 
 export function useNodeClipboard(
   nodes: GameFlowNode[],
@@ -26,7 +26,10 @@ function copySelectedNodes(nodes: GameFlowNode[], clipboard: React.MutableRefObj
 
 function pasteNodes(event: KeyboardEvent, clipboard: GameFlowNode[], setNodes: React.Dispatch<React.SetStateAction<GameFlowNode[]>>, notifyChanged: () => void): void {
   event.preventDefault()
-  const pasted = clipboard.map(node => ({ ...structuredClone(node), id: `${node.data.nodeType}-${crypto.randomUUID()}`, selected: true, position: { x: node.position.x + 32, y: node.position.y + 32 } }))
-  setNodes(current => [...current.map(node => ({ ...node, selected: false })), ...pasted])
+  setNodes(current => {
+    let nextId = Number(nextActionId(current))
+    const pasted = clipboard.map(node => ({ ...structuredClone(node), id: String(nextId++), selected: true, position: { x: node.position.x + 32, y: node.position.y + 32 } }))
+    return [...current.map(node => ({ ...node, selected: false })), ...pasted]
+  })
   setTimeout(notifyChanged, 0)
 }
