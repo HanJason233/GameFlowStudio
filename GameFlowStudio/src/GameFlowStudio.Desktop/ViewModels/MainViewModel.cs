@@ -288,6 +288,7 @@ public sealed class MainViewModel : ObservableObject
     private readonly ISettingsStorageService _settingsStorage;
     private readonly IFileDialogService _dialogs;
     private readonly ICoordinatePickerService _coordinatePicker;
+    private readonly IColorPickerService _colorPicker;
     private readonly IRectanglePickerService _rectanglePicker;
     private readonly IImageCaptureService _imageCapture;
     private readonly ICoordinatePickModeService _coordinatePickMode;
@@ -332,13 +333,14 @@ public sealed class MainViewModel : ObservableObject
 
     public MainViewModel(IEditorBridge editor, IWorkflowRunner runner, IWorkflowValidator validator, IProjectStorageService storage,
         ISettingsStorageService settingsStorage, IFileDialogService dialogs, ICoordinatePickerService coordinatePicker,
+        IColorPickerService colorPicker,
         IRectanglePickerService rectanglePicker, IImageCaptureService imageCapture,
         ICoordinatePickModeService coordinatePickMode,
         IWindowSelectionService windowSelection, IWindowAutomationService windows, IRelativeCoordinatePickerService relativeCoordinatePicker,
         GameFlowLogProvider logProvider, ILogger<MainViewModel> logger)
     {
         _editor = editor; _runner = runner; _validator = validator; _storage = storage; _settingsStorage = settingsStorage;
-        _dialogs = dialogs; _coordinatePicker = coordinatePicker; _rectanglePicker = rectanglePicker; _imageCapture = imageCapture;
+        _dialogs = dialogs; _coordinatePicker = coordinatePicker; _colorPicker = colorPicker; _rectanglePicker = rectanglePicker; _imageCapture = imageCapture;
         _coordinatePickMode = coordinatePickMode; _windowSelection = windowSelection; _windows = windows; _relativeCoordinatePicker = relativeCoordinatePicker; _logger = logger;
         ToolboxGroups = NodeCatalog.Groups;
         EnsureScriptModel(_project);
@@ -660,6 +662,12 @@ public sealed class MainViewModel : ObservableObject
             if (window is null) return;
         }
 
+        if (SelectedNode.Type == NodeTypes.ColorCondition)
+        {
+            await PickColorAsync(mode.Value, window);
+            return;
+        }
+
         if (SelectedNode.Type == NodeTypes.ImageCondition)
         {
             await PickImageAsync(mode.Value, window);
@@ -683,6 +691,21 @@ public sealed class MainViewModel : ObservableObject
         {
             SetParameter("x", first.X); SetParameter("y", first.Y);
         }
+        await UpdateSelectedNodeAsync();
+    }
+
+    private async Task PickColorAsync(CoordinatePickMode mode, WindowInfo? window)
+    {
+        WindowBounds? bounds = window is null ? null : _windows.GetWindowBounds(window.Handle);
+        var result = await _colorPicker.PickAsync(bounds);
+        if (result is null) return;
+
+        SetParameter("coordinateMode", mode == CoordinatePickMode.Screen ? "absolute" : "relative");
+        var x = mode == CoordinatePickMode.Screen ? result.X : result.X - bounds!.Left;
+        var y = mode == CoordinatePickMode.Screen ? result.Y : result.Y - bounds!.Top;
+        SetParameter("x", x);
+        SetParameter("y", y);
+        if (result.Color is not null) SetParameter("targetColor", result.Color);
         await UpdateSelectedNodeAsync();
     }
 

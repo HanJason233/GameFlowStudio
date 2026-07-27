@@ -25,6 +25,7 @@ public partial class App : Application
                 services.AddGameFlowCore();
                 services.AddSingleton<IImageTemplateProvider, WpfImageTemplateProvider>();
                 services.AddSingleton<IImageCaptureService, ImageCaptureService>();
+                services.AddSingleton<IColorPickerService, ColorPickerService>();
                 services.AddSingleton(logProvider);
                 services.AddSingleton<IEditorBridge, EditorBridge>();
                 services.AddSingleton<IFileDialogService, FileDialogService>();
