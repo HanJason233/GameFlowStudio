@@ -135,6 +135,54 @@ public sealed class ImageStateDetector : IStateDetector
     }
 }
 
+/// <summary>在屏幕区域执行 OCR，并按识别文本及置信度输出状态。</summary>
+public sealed class OcrStateDetector(IOcrService ocr) : IStateDetector
+{
+    public DetectorType Type => DetectorType.Ocr;
+
+    public async Task<DetectorEvaluationResult> EvaluateAsync(DetectorDefinition detector, DetectorEvaluationContext context, CancellationToken cancellationToken)
+    {
+        var targetText = ReadText(detector).Trim();
+        if (targetText.Length == 0) throw new InvalidOperationException("OCR 目标文本不能为空。");
+
+        var origin = CoordinateOrigin.Read(detector, context);
+        var region = ReadRegion(detector, context.Capture.VirtualScreenBounds, origin);
+        var frame = await context.CaptureAsync(region, cancellationToken).ConfigureAwait(false);
+        var recognition = await ocr.RecognizeAsync(frame, cancellationToken).ConfigureAwait(false);
+        var normalizedTarget = Normalize(targetText);
+        var normalizedText = Normalize(recognition.Text);
+        var textMatched = normalizedText.Contains(normalizedTarget, StringComparison.OrdinalIgnoreCase);
+        var threshold = Math.Clamp(ReadThreshold(detector), 0, 1);
+        var confidenceMatched = !recognition.Confidence.HasValue || recognition.Confidence.Value >= threshold;
+        var state = textMatched && confidenceMatched ? 1 : 0;
+        var confidence = recognition.Confidence is { } value ? $"，置信度 {value:P1}" : string.Empty;
+        return StateDetectorService.Result(detector, state, true, $"识别文本：{recognition.Text}{confidence}");
+    }
+
+    private static CaptureRegion ReadRegion(DetectorDefinition detector, CaptureRegion fallback, CoordinateOrigin origin)
+    {
+        var x = DetectorParameterReader.Int(detector, "x", origin.IsWindow ? 0 : fallback.X);
+        var y = DetectorParameterReader.Int(detector, "y", origin.IsWindow ? 0 : fallback.Y);
+        var width = DetectorParameterReader.Int(detector, "width", origin.Width ?? fallback.Width);
+        var height = DetectorParameterReader.Int(detector, "height", origin.Height ?? fallback.Height);
+        if (width <= 0 || height <= 0) throw new InvalidOperationException("OCR 检测区域的宽度和高度必须大于 0。");
+        return new(x + origin.X, y + origin.Y, width, height);
+    }
+
+    private static string Normalize(string value) =>
+        string.Join(' ', value.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+
+    private static string ReadText(DetectorDefinition detector) =>
+        detector.Parameters.ContainsKey("targetText")
+            ? DetectorParameterReader.String(detector, "targetText")
+            : DetectorParameterReader.String(detector, "expectedText");
+
+    private static double ReadThreshold(DetectorDefinition detector) =>
+        detector.Parameters.ContainsKey("matchThreshold")
+            ? DetectorParameterReader.Double(detector, "matchThreshold", 0.8)
+            : DetectorParameterReader.Double(detector, "confidenceThreshold", 0.8);
+}
+
 internal sealed record CoordinateOrigin(bool IsWindow, int X, int Y, int? Width = null, int? Height = null)
 {
     public static CoordinateOrigin Read(DetectorDefinition detector, DetectorEvaluationContext context)

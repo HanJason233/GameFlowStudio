@@ -65,6 +65,9 @@ public sealed record CapturedFrame(int X, int Y, int Width, int Height, byte[] B
 /// <summary>BGRA32、从左到右从上到下排列的模板图片。</summary>
 public sealed record DetectorImage(int Width, int Height, byte[] Bgra32);
 
+/// <summary>OCR识别结果。Confidence 为空时表示引擎未提供置信度。</summary>
+public sealed record OcrRecognitionResult(string Text, double? Confidence = null);
+
 public sealed record DetectorEvaluationResult(
     string DetectorId,
     DetectorType Type,

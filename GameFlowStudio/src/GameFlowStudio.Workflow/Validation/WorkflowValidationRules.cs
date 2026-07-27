@@ -182,7 +182,7 @@ internal sealed class StateConfigurationRule : IWorkflowValidationRule
             { result.Add("state_rules", exception.Message, node.Id); }
         }
 
-        foreach (var node in context.Workflow.Nodes.Where(node => node.Type is NodeTypes.ColorCondition or NodeTypes.ImageCondition))
+        foreach (var node in context.Workflow.Nodes.Where(node => node.Type is NodeTypes.ColorCondition or NodeTypes.ImageCondition or NodeTypes.OcrCondition))
         {
             try
             {
@@ -190,7 +190,12 @@ internal sealed class StateConfigurationRule : IWorkflowValidationRule
                 {
                     Id = node.Id,
                     Name = node.Data.DisplayName,
-                    Type = node.Type == NodeTypes.ColorCondition ? DetectorType.Color : DetectorType.Image,
+                    Type = node.Type switch
+                    {
+                        NodeTypes.ColorCondition => DetectorType.Color,
+                        NodeTypes.ImageCondition => DetectorType.Image,
+                        _ => DetectorType.Ocr
+                    },
                     Parameters = node.Data.Parameters
                         .Where(pair => pair.Key != "state")
                         .ToDictionary(pair => pair.Key, pair => pair.Value.Clone(), StringComparer.Ordinal)
@@ -253,6 +258,15 @@ internal sealed class StateConfigurationRule : IWorkflowValidationRule
                 ValidateRange(DetectorParameterReader.Int(detector, "tolerance", 10), 0, 255, "图片容差");
                 ValidateRange(DetectorParameterReader.Double(detector, "matchThreshold", 0.95), 0, 1, "图片匹配阈值");
             }
+            if (detector.Type == DetectorType.Ocr)
+            {
+                ValidateCoordinate(detector, "x", "y");
+                var targetText = OcrTargetText(detector).Trim();
+                if (targetText.Length == 0) throw new InvalidOperationException("OCR target text cannot be empty.");
+                if (DetectorParameterReader.Int(detector, "width", 1) <= 0 || DetectorParameterReader.Int(detector, "height", 1) <= 0)
+                    throw new InvalidOperationException("OCR region width and height must be greater than zero.");
+                ValidateRange(OcrThreshold(detector), 0, 1, "OCR match threshold");
+            }
         }
         catch (InvalidOperationException exception)
         {
@@ -266,6 +280,16 @@ internal sealed class StateConfigurationRule : IWorkflowValidationRule
         var y = DetectorParameterReader.Int(detector, yName, 0);
         if (x is < -100000 or > 100000 || y is < -100000 or > 100000) throw new InvalidOperationException("检测区域坐标超出允许范围。");
     }
+
+    private static string OcrTargetText(DetectorDefinition detector) =>
+        detector.Parameters.ContainsKey("targetText")
+            ? DetectorParameterReader.String(detector, "targetText", string.Empty)
+            : DetectorParameterReader.String(detector, "expectedText", string.Empty);
+
+    private static double OcrThreshold(DetectorDefinition detector) =>
+        detector.Parameters.ContainsKey("matchThreshold")
+            ? DetectorParameterReader.Double(detector, "matchThreshold", 0.8)
+            : DetectorParameterReader.Double(detector, "confidenceThreshold", 0.8);
 
     private static void ValidateColor(string value)
     {

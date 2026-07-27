@@ -26,9 +26,10 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IProgramAutomationService, ProgramAutomationService>();
         services.AddSingleton<IWindowScopeService, WindowScopeService>();
         services.AddSingleton<IDesktopCaptureService, DesktopCaptureService>();
+        services.AddSingleton<IOcrService, UnsupportedOcrService>();
         services.AddSingleton<IStateDetector, ColorStateDetector>();
         services.AddSingleton<IStateDetector, ImageStateDetector>();
-        services.AddSingleton<IStateDetector>(new TodoStateDetector(DetectorType.Ocr));
+        services.AddSingleton<IStateDetector, OcrStateDetector>();
         services.AddSingleton<IStateDetector>(new TodoStateDetector(DetectorType.AiRecognition));
         services.AddSingleton<IStateDetectorService, StateDetectorService>();
         services.AddSingleton<IStateConditionEvaluator, StateConditionEvaluator>();
@@ -50,6 +51,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<INodeExecutor, TextInputNodeExecutor>();
         services.AddSingleton<INodeExecutor>(serviceProvider => new SingleStateConditionNodeExecutor(NodeTypes.ColorCondition, DetectorType.Color, serviceProvider.GetRequiredService<IStateConditionEvaluator>()));
         services.AddSingleton<INodeExecutor>(serviceProvider => new SingleStateConditionNodeExecutor(NodeTypes.ImageCondition, DetectorType.Image, serviceProvider.GetRequiredService<IStateConditionEvaluator>()));
+        services.AddSingleton<INodeExecutor>(serviceProvider => new SingleStateConditionNodeExecutor(NodeTypes.OcrCondition, DetectorType.Ocr, serviceProvider.GetRequiredService<IStateConditionEvaluator>()));
         services.AddSingleton<INodeExecutor, StateConditionNodeExecutor>();
         services.AddSingleton<INodeExecutor, JumpNodeExecutor>();
         services.AddSingleton<INodeExecutor, LogNodeExecutor>();

@@ -43,6 +43,7 @@ internal sealed class NodeParameterValidator
                 ValidateWait(node); break;
             case NodeTypes.ColorCondition:
             case NodeTypes.ImageCondition:
+            case NodeTypes.OcrCondition:
                 CoordinateMode(node); ValidateSingleStateCondition(node); break;
             case NodeTypes.StateCondition:
                 _ = StateRuleReader.Read(node); break;

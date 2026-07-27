@@ -34,6 +34,12 @@ public interface IImageTemplateProvider
     Task<DetectorImage> LoadAsync(string path, CancellationToken cancellationToken);
 }
 
+/// <summary>在指定屏幕区域执行 OCR。具体引擎由宿主（例如 Desktop 的 Windows OCR）提供。</summary>
+public interface IOcrService
+{
+    Task<OcrRecognitionResult> RecognizeAsync(CapturedFrame frame, CancellationToken cancellationToken);
+}
+
 public interface IStateDetector
 {
     DetectorType Type { get; }
