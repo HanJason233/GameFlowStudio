@@ -19,7 +19,6 @@ internal static class NodeCatalog
         new(NodeTypes.KeyPress, "键盘按键", "键盘"),
         new(NodeTypes.TextInput, "输入文本", "键盘"),
         new(NodeTypes.MouseClick, "点击", "鼠标操作"),
-        new("imageClick", "识图点击", "鼠标操作", false),
         new(NodeTypes.MouseDrag, "鼠标拖动", "鼠标操作"),
         new(NodeTypes.MouseScroll, "鼠标滑动", "鼠标操作"),
         new(NodeTypes.RunProgram, "启动程序", "窗口与程序"),
