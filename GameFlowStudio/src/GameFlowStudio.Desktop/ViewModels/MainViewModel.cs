@@ -214,7 +214,8 @@ public sealed class SelectedNodeViewModel : ObservableObject
     public bool IsSingleStateCondition => Type is NodeTypes.ColorCondition or NodeTypes.ImageCondition;
     public bool SupportsCoordinateMode => Type is NodeTypes.ColorCondition or NodeTypes.ImageCondition
         or NodeTypes.MouseClick or NodeTypes.MouseMove or NodeTypes.MouseDrag or NodeTypes.MouseScroll;
-    public IEnumerable<NodeParameterItem> NumericParameters => Parameters.Where(parameter => parameter.Kind == JsonValueKind.Number && parameter.Name != "state");
+    public IEnumerable<NodeParameterItem> NumericParameters => Parameters.Where(parameter => parameter.Kind == JsonValueKind.Number
+        && parameter.Name is not ("state" or "minMatchRatio" or "matchThreshold"));
     public IEnumerable<NodeParameterItem> TextParameters => Parameters.Where(parameter => parameter.Kind == JsonValueKind.String && !IsChoiceParameter(parameter.Name) && parameter.Name != "coordinateMode");
     public IEnumerable<NodeParameterItem> ChoiceParameters => Parameters.Where(parameter => parameter.Kind == JsonValueKind.String && IsChoiceParameter(parameter.Name) && parameter.Name != "coordinateMode");
     public IEnumerable<NodeParameterItem> CoordinateParameters => Parameters.Where(parameter => parameter.Name == "coordinateMode");
@@ -227,6 +228,17 @@ public sealed class SelectedNodeViewModel : ObservableObject
     public bool HasCoordinateParameters => SupportsCoordinateMode;
     public bool HasBooleanParameters => BooleanParameters.Any();
     public bool HasOtherParameters => OtherParameters.Any();
+    public NodeParameterItem? ConfidenceParameter => Type switch
+    {
+        NodeTypes.ColorCondition => Parameters.FirstOrDefault(parameter => parameter.Name == "minMatchRatio"),
+        NodeTypes.ImageCondition => Parameters.FirstOrDefault(parameter => parameter.Name == "matchThreshold"),
+        _ => null
+    };
+    public bool HasConfidenceParameter => ConfidenceParameter is not null;
+    public string ConfidenceLabel => Type == NodeTypes.ColorCondition ? "颜色匹配置信阈值" : "图像匹配置信阈值";
+    public string ConfidenceHint => Type == NodeTypes.ColorCondition
+        ? "区域内达到此比例的像素匹配目标颜色时判定为命中。"
+        : "模板匹配得分达到此比例时判定为命中。";
     public string LogicLabel => Type switch
     {
         NodeTypes.ColorCondition => "色判断",
@@ -548,6 +560,13 @@ public sealed class MainViewModel : ObservableObject
         }
         if (selected.SupportsCoordinateMode && !selected.Parameters.Any(parameter => parameter.Name == "coordinateMode"))
             selected.Parameters.Insert(0, new("coordinateMode", "followScript", JsonValueKind.String, OnSelectedNodeEditorChanged));
+        if (selected.IsSingleStateCondition)
+        {
+            var confidenceName = selected.Type == NodeTypes.ColorCondition ? "minMatchRatio" : "matchThreshold";
+            var defaultConfidence = selected.Type == NodeTypes.ColorCondition ? "1" : "0.95";
+            if (!selected.Parameters.Any(parameter => parameter.Name == confidenceName))
+                selected.Parameters.Add(new(confidenceName, defaultConfidence, JsonValueKind.Number, OnSelectedNodeEditorChanged));
+        }
         SelectedNode = selected;
     }
 

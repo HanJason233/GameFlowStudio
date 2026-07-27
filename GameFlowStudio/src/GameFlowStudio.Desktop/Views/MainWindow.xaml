@@ -10,6 +10,8 @@
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolVisibility"/>
         <converters:InverseBooleanToVisibilityConverter x:Key="InverseBoolVisibility"/>
+        <converters:StringPercentConverter x:Key="StringPercent"/>
+        <converters:PercentTextConverter x:Key="PercentText"/>
         <DataTemplate x:Key="StepCategoryTemplate">
             <Expander Header="{Binding Name}" IsExpanded="{Binding IsExpanded}" Foreground="#CBD5E1" Background="Transparent" BorderThickness="0" Width="190" Margin="0,2">
                 <ItemsControl ItemsSource="{Binding Items}" Margin="4,0,0,4">
@@ -229,6 +231,16 @@
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
+                            </StackPanel>
+                            <StackPanel Visibility="{Binding HasConfidenceParameter, Converter={StaticResource BoolVisibility}}" Margin="0,8,0,2">
+                                <DockPanel Margin="0,0,0,3">
+                                    <controls:SelectableTextBlock Text="{Binding ConfidenceLabel, Mode=OneWay}" Foreground="#94A3B8" ToolTip="{Binding ConfidenceHint, Mode=OneWay}"/>
+                                    <controls:SelectableTextBlock DockPanel.Dock="Right" Text="{Binding ConfidenceParameter.Value, Mode=OneWay, Converter={StaticResource PercentText}}" Foreground="#60A5FA" FontWeight="SemiBold" Margin="8,0,0,0"/>
+                                </DockPanel>
+                                <Slider Minimum="0" Maximum="100" TickFrequency="1" IsSnapToTickEnabled="True" SmallChange="1" LargeChange="5"
+                                        Value="{Binding ConfidenceParameter.Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource StringPercent}}"
+                                        ToolTip="{Binding ConfidenceHint, Mode=OneWay}"/>
+                                <controls:SelectableTextBlock Text="拖动滑块降低阈值可增强抗噪能力，但可能增加误判。" Foreground="#64748B" FontSize="10" TextWrapping="Wrap" Margin="3,2,3,0"/>
                             </StackPanel>
                             <controls:SelectableTextBlock Text="数值参数" Foreground="#94A3B8" Margin="0,0,0,3"/>
                             <Border BorderBrush="#334155" BorderThickness="1" CornerRadius="4" Padding="6" Margin="0,0,0,4">
