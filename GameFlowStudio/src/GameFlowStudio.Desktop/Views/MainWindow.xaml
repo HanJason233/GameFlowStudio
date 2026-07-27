@@ -232,19 +232,25 @@
                             </StackPanel>
                             <controls:SelectableTextBlock Text="数值参数" Foreground="#94A3B8" Margin="0,0,0,3"/>
                             <Border BorderBrush="#334155" BorderThickness="1" CornerRadius="4" Padding="6" Margin="0,0,0,4">
-                                <ItemsControl ItemsSource="{Binding NumericParameters}">
-                                    <ItemsControl.ItemsPanel>
-                                        <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
-                                    </ItemsControl.ItemsPanel>
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <StackPanel Width="112" Margin="0,2,6,2">
-                                                <controls:SelectableTextBlock Text="{Binding Name, Mode=OneWay}" Foreground="#94A3B8" ToolTip="{Binding Description}"/>
-                                                <TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"/>
-                                            </StackPanel>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
+                                <DockPanel>
+                                    <Button DockPanel.Dock="Right" Content="{Binding DataContext.SelectedNode.CoordinatePickButtonLabel, RelativeSource={RelativeSource AncestorType=Window}}"
+                                            Command="{Binding DataContext.PickCoordinateCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                            Visibility="{Binding DataContext.SelectedNode.CanPickCoordinate, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolVisibility}}"
+                                            Width="82" Margin="8,0,0,0" Padding="4,3" ToolTip="先选择基于屏幕或基于窗口的拾取模式"/>
+                                    <ItemsControl ItemsSource="{Binding NumericParameters}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Width="112" Margin="0,2,6,2">
+                                                    <controls:SelectableTextBlock Text="{Binding Name, Mode=OneWay}" Foreground="#94A3B8" ToolTip="{Binding Description}"/>
+                                                    <TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"/>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </DockPanel>
                             </Border>
                             <controls:SelectableTextBlock Text="文本参数" Foreground="#94A3B8" Margin="0,8,0,3"/>
                             <ItemsControl ItemsSource="{Binding TextParameters}">
@@ -351,19 +357,25 @@
                             <StackPanel Visibility="{Binding HasNumericParameters, Converter={StaticResource BoolVisibility}}">
                                 <controls:SelectableTextBlock Text="数值参数" Foreground="#94A3B8" Margin="0,0,0,3"/>
                                 <Border BorderBrush="#334155" BorderThickness="1" CornerRadius="4" Padding="6" Margin="0,0,0,4">
-                                    <ItemsControl ItemsSource="{Binding NumericParameters}">
-                                        <ItemsControl.ItemsPanel>
-                                            <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
-                                        </ItemsControl.ItemsPanel>
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate>
-                                                <StackPanel Width="112" Margin="0,2,6,2">
-                                                    <controls:SelectableTextBlock Text="{Binding Name, Mode=OneWay}" Foreground="#94A3B8" ToolTip="{Binding Description}"/>
-                                                    <TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"/>
-                                                </StackPanel>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
+                                    <DockPanel>
+                                        <Button DockPanel.Dock="Right" Content="{Binding DataContext.SelectedNode.CoordinatePickButtonLabel, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                Command="{Binding DataContext.PickCoordinateCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                Visibility="{Binding DataContext.SelectedNode.CanPickCoordinate, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolVisibility}}"
+                                                Width="82" Margin="8,0,0,0" Padding="4,3" ToolTip="先选择基于屏幕或基于窗口的拾取模式"/>
+                                        <ItemsControl ItemsSource="{Binding NumericParameters}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <StackPanel Width="112" Margin="0,2,6,2">
+                                                        <controls:SelectableTextBlock Text="{Binding Name, Mode=OneWay}" Foreground="#94A3B8" ToolTip="{Binding Description}"/>
+                                                        <TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"/>
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </DockPanel>
                                 </Border>
                             </StackPanel>
                             <StackPanel Visibility="{Binding HasTextParameters, Converter={StaticResource BoolVisibility}}">
@@ -501,7 +513,6 @@
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
                             </StackPanel>
-                            <Button Content="拾取坐标（按当前模式）" ToolTip="跟随脚本时按脚本窗口范围决定；强制绝对使用屏幕坐标；强制相对换算为窗口坐标" Command="{Binding DataContext.PickCoordinateCommand, RelativeSource={RelativeSource AncestorType=Window}}" Visibility="{Binding CanPickCoordinate, Converter={StaticResource BoolVisibility}}" Margin="3,12,3,3"/>
                         </StackPanel>
                     </ScrollViewer>
                 </DockPanel>

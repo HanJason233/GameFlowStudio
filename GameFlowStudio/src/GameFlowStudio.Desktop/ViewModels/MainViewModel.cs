@@ -8,6 +8,7 @@ using System.Windows.Input;
 using GameFlowStudio.Contracts.Enums;
 using GameFlowStudio.Contracts.Events;
 using GameFlowStudio.Contracts.Nodes;
+using GameFlowStudio.Contracts.Results;
 using GameFlowStudio.Contracts.Services;
 using GameFlowStudio.Contracts.Workflows;
 using GameFlowStudio.Contracts.States;
@@ -238,11 +239,8 @@ public sealed class SelectedNodeViewModel : ObservableObject
         1 => "单一判断",
         _ => $"{StateRules.Count} 个检测器 · 联合满足"
     };
-    public bool CanPickCoordinate => Type is NodeTypes.ColorCondition or NodeTypes.ImageCondition or NodeTypes.MouseClick or NodeTypes.MouseMove;
-    public bool UsesWindowRelativeCoordinates => SupportsCoordinateMode &&
-        (string.Equals(GetParameterValue("coordinateMode", "followScript"), "relative", StringComparison.OrdinalIgnoreCase) ||
-         string.Equals(GetParameterValue("coordinateMode", "followScript"), "windowRelative", StringComparison.OrdinalIgnoreCase));
-
+    public bool CanPickCoordinate => Type is NodeTypes.ColorCondition or NodeTypes.ImageCondition or NodeTypes.MouseClick or NodeTypes.MouseMove or NodeTypes.MouseDrag or NodeTypes.MouseScroll;
+    public string CoordinatePickButtonLabel => Type == NodeTypes.MouseDrag ? "拾取起止点" : "拾取坐标";
     public string GetParameterValue(string name, string fallback) =>
         Parameters.FirstOrDefault(parameter => parameter.Name == name)?.Value ?? fallback;
 
@@ -266,6 +264,7 @@ public sealed class MainViewModel : ObservableObject
     private readonly ISettingsStorageService _settingsStorage;
     private readonly IFileDialogService _dialogs;
     private readonly ICoordinatePickerService _coordinatePicker;
+    private readonly ICoordinatePickModeService _coordinatePickMode;
     private readonly IWindowSelectionService _windowSelection;
     private readonly IRelativeCoordinatePickerService _relativeCoordinatePicker;
     private readonly ILogger<MainViewModel> _logger;
@@ -306,11 +305,12 @@ public sealed class MainViewModel : ObservableObject
 
     public MainViewModel(IEditorBridge editor, IWorkflowRunner runner, IWorkflowValidator validator, IProjectStorageService storage,
         ISettingsStorageService settingsStorage, IFileDialogService dialogs, ICoordinatePickerService coordinatePicker,
+        ICoordinatePickModeService coordinatePickMode,
         IWindowSelectionService windowSelection, IRelativeCoordinatePickerService relativeCoordinatePicker,
         GameFlowLogProvider logProvider, ILogger<MainViewModel> logger)
     {
         _editor = editor; _runner = runner; _validator = validator; _storage = storage; _settingsStorage = settingsStorage;
-        _dialogs = dialogs; _coordinatePicker = coordinatePicker; _windowSelection = windowSelection; _relativeCoordinatePicker = relativeCoordinatePicker; _logger = logger;
+        _dialogs = dialogs; _coordinatePicker = coordinatePicker; _coordinatePickMode = coordinatePickMode; _windowSelection = windowSelection; _relativeCoordinatePicker = relativeCoordinatePicker; _logger = logger;
         ToolboxGroups = NodeCatalog.Groups;
         EnsureScriptModel(_project);
         InitializeCommands();
@@ -614,24 +614,38 @@ public sealed class MainViewModel : ObservableObject
     private async Task PickCoordinateAsync()
     {
         if (SelectedNode is null) return;
-        var point = await PickCoordinateForNodeAsync(); if (point is null) return;
-        SetParameter("x", point.Value.X); SetParameter("y", point.Value.Y); await UpdateSelectedNodeAsync();
+        var mode = _coordinatePickMode.Select();
+        if (mode is null) return;
+
+        WindowInfo? window = null;
+        if (mode == CoordinatePickMode.Window)
+        {
+            window = _windowSelection.SelectWindow();
+            if (window is null) return;
+        }
+
+        var first = await PickCoordinateAsync(mode.Value, window);
+        if (first is null) return;
+
+        if (SelectedNode.Type == NodeTypes.MouseDrag)
+        {
+            var second = await PickCoordinateAsync(mode.Value, window);
+            if (second is null) return;
+            SetParameter("startX", first.Value.X); SetParameter("startY", first.Value.Y);
+            SetParameter("endX", second.Value.X); SetParameter("endY", second.Value.Y);
+        }
+        else
+        {
+            SetParameter("x", first.Value.X); SetParameter("y", first.Value.Y);
+        }
+        await UpdateSelectedNodeAsync();
     }
 
-    private async Task<(int X, int Y)?> PickCoordinateForNodeAsync()
+    private Task<(int X, int Y)?> PickCoordinateAsync(CoordinatePickMode mode, WindowInfo? window)
     {
-        if (SelectedNode is null || !ShouldUseWindowRelativeCoordinates(SelectedNode))
-            return await _coordinatePicker.PickAsync();
-
-        var window = _windowSelection.SelectWindow();
-        return window is null ? null : await _relativeCoordinatePicker.PickAsync(window);
-    }
-
-    private bool ShouldUseWindowRelativeCoordinates(SelectedNodeViewModel node)
-    {
-        var mode = node.GetParameterValue("coordinateMode", "followScript");
-        return node.UsesWindowRelativeCoordinates ||
-            string.Equals(mode, "followScript", StringComparison.OrdinalIgnoreCase) && ActiveScript.WindowScope.Enabled;
+        return mode == CoordinatePickMode.Window && window is not null
+            ? _relativeCoordinatePicker.PickAsync(window)
+            : _coordinatePicker.PickAsync();
     }
 
     private void SetParameter(string name, int value)

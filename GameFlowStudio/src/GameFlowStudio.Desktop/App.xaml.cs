@@ -28,6 +28,7 @@ public partial class App : Application
                 services.AddSingleton<IEditorBridge, EditorBridge>();
                 services.AddSingleton<IFileDialogService, FileDialogService>();
                 services.AddSingleton<ICoordinatePickerService, CoordinatePickerService>();
+                services.AddSingleton<ICoordinatePickModeService, CoordinatePickModeService>();
                 services.AddSingleton<IWindowSelectionService, WindowSelectionService>();
                 services.AddSingleton<IRelativeCoordinatePickerService, RelativeCoordinatePickerService>();
                 services.AddSingleton<MainViewModel>();
