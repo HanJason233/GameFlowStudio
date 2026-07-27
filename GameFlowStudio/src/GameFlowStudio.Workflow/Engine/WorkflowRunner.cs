@@ -351,7 +351,7 @@ public sealed class WorkflowRunner : IWorkflowRunner
         {
             Workflow = workflow,
             WaitIfPausedAsync = token => _pauseGate.WaitAsync(token),
-            Log = entry => _logger.Log(ToMicrosoftLevel(entry.Level), "[{WorkflowId}/{NodeId}/{NodeName}] {Message} (耗时 {Elapsed} ms) {Exception}", entry.WorkflowId, entry.NodeId ?? "-", entry.NodeName ?? "-", entry.Message, entry.ElapsedMilliseconds, entry.Exception)
+            Log = entry => _logger.Log(ToMicrosoftLevel(entry.Level), FormatLogMessage(entry))
         };
         if (script.Id != "runtime")
         {
@@ -386,6 +386,12 @@ public sealed class WorkflowRunner : IWorkflowRunner
 
     private static WorkflowLogEntry Log(AutomationProject workflow, WorkflowNode node, WorkflowLogLevel level, string message, long? elapsed = null, Exception? exception = null) =>
         new(DateTimeOffset.Now, level, workflow.Project.Id, node.Id, node.Data.DisplayName, message, exception?.ToString(), elapsed);
+
+    private static string FormatLogMessage(WorkflowLogEntry entry)
+    {
+        var message = $"[{entry.WorkflowId}/{entry.NodeId ?? "-"}/{entry.NodeName ?? "-"}] {entry.Message} (耗时 {entry.ElapsedMilliseconds?.ToString() ?? "-"} ms)";
+        return string.IsNullOrWhiteSpace(entry.Exception) ? message : $"{message} {entry.Exception}";
+    }
 
     private static LogLevel ToMicrosoftLevel(WorkflowLogLevel level) => level switch
     {
