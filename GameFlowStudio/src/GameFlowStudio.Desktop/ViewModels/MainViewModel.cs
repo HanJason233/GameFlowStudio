@@ -252,7 +252,19 @@ public sealed class SelectedNodeViewModel : ObservableObject
         _ => $"{StateRules.Count} 个检测器 · 联合满足"
     };
     public bool CanPickCoordinate => Type is NodeTypes.ColorCondition or NodeTypes.ImageCondition or NodeTypes.MouseClick or NodeTypes.MouseMove or NodeTypes.MouseDrag or NodeTypes.MouseScroll;
-    public string CoordinatePickButtonLabel => Type == NodeTypes.MouseDrag ? "拾取起止点" : "拾取坐标";
+    public string CoordinatePickButtonLabel => Type switch
+    {
+        NodeTypes.ColorCondition => "拾取色值点",
+        NodeTypes.ImageCondition => "取图",
+        NodeTypes.MouseDrag => "拾取起止点",
+        _ => "拾取坐标"
+    };
+    public string CoordinatePickButtonToolTip => Type switch
+    {
+        NodeTypes.ColorCondition => "选择拾取模式后点击屏幕，同时记录坐标和颜色值。",
+        NodeTypes.ImageCondition => "选择拾取模式后拖动框选矩形截图，同时记录坐标和尺寸。",
+        _ => "先选择基于屏幕或基于窗口的拾取模式。"
+    };
     public string GetParameterValue(string name, string fallback) =>
         Parameters.FirstOrDefault(parameter => parameter.Name == name)?.Value ?? fallback;
 
@@ -276,8 +288,11 @@ public sealed class MainViewModel : ObservableObject
     private readonly ISettingsStorageService _settingsStorage;
     private readonly IFileDialogService _dialogs;
     private readonly ICoordinatePickerService _coordinatePicker;
+    private readonly IRectanglePickerService _rectanglePicker;
+    private readonly IImageCaptureService _imageCapture;
     private readonly ICoordinatePickModeService _coordinatePickMode;
     private readonly IWindowSelectionService _windowSelection;
+    private readonly IWindowAutomationService _windows;
     private readonly IRelativeCoordinatePickerService _relativeCoordinatePicker;
     private readonly ILogger<MainViewModel> _logger;
     private AutomationProject _project = ProjectFactory.CreateNew();
@@ -317,12 +332,14 @@ public sealed class MainViewModel : ObservableObject
 
     public MainViewModel(IEditorBridge editor, IWorkflowRunner runner, IWorkflowValidator validator, IProjectStorageService storage,
         ISettingsStorageService settingsStorage, IFileDialogService dialogs, ICoordinatePickerService coordinatePicker,
+        IRectanglePickerService rectanglePicker, IImageCaptureService imageCapture,
         ICoordinatePickModeService coordinatePickMode,
-        IWindowSelectionService windowSelection, IRelativeCoordinatePickerService relativeCoordinatePicker,
+        IWindowSelectionService windowSelection, IWindowAutomationService windows, IRelativeCoordinatePickerService relativeCoordinatePicker,
         GameFlowLogProvider logProvider, ILogger<MainViewModel> logger)
     {
         _editor = editor; _runner = runner; _validator = validator; _storage = storage; _settingsStorage = settingsStorage;
-        _dialogs = dialogs; _coordinatePicker = coordinatePicker; _coordinatePickMode = coordinatePickMode; _windowSelection = windowSelection; _relativeCoordinatePicker = relativeCoordinatePicker; _logger = logger;
+        _dialogs = dialogs; _coordinatePicker = coordinatePicker; _rectanglePicker = rectanglePicker; _imageCapture = imageCapture;
+        _coordinatePickMode = coordinatePickMode; _windowSelection = windowSelection; _windows = windows; _relativeCoordinatePicker = relativeCoordinatePicker; _logger = logger;
         ToolboxGroups = NodeCatalog.Groups;
         EnsureScriptModel(_project);
         InitializeCommands();
@@ -643,6 +660,12 @@ public sealed class MainViewModel : ObservableObject
             if (window is null) return;
         }
 
+        if (SelectedNode.Type == NodeTypes.ImageCondition)
+        {
+            await PickImageAsync(mode.Value, window);
+            return;
+        }
+
         var first = await PickCoordinateAsync(mode.Value, window);
         if (first is null) return;
         SetParameter("coordinateMode", mode == CoordinatePickMode.Screen ? "absolute" : "relative");
@@ -660,6 +683,38 @@ public sealed class MainViewModel : ObservableObject
         {
             SetParameter("x", first.X); SetParameter("y", first.Y);
         }
+        await UpdateSelectedNodeAsync();
+    }
+
+    private async Task PickImageAsync(CoordinatePickMode mode, WindowInfo? window)
+    {
+        WindowBounds? bounds = window is null ? null : _windows.GetWindowBounds(window.Handle);
+        var region = await _rectanglePicker.PickAsync(bounds);
+        if (region is null) return;
+
+        var initialDirectory = _currentPath is null ? null : Path.GetDirectoryName(_currentPath);
+        var path = _dialogs.SaveImageTemplate(initialDirectory);
+        if (path is null) return;
+
+        try
+        {
+            await _imageCapture.SaveAsync(new CaptureRegion(region.X, region.Y, region.Width, region.Height), path);
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "保存图判断模板截图失败");
+            _dialogs.ShowError($"保存截图失败：{exception.Message}");
+            return;
+        }
+
+        SetParameter("coordinateMode", mode == CoordinatePickMode.Screen ? "absolute" : "relative");
+        var x = mode == CoordinatePickMode.Screen ? region.X : region.X - bounds!.Left;
+        var y = mode == CoordinatePickMode.Screen ? region.Y : region.Y - bounds!.Top;
+        SetParameter("x", x);
+        SetParameter("y", y);
+        SetParameter("width", region.Width);
+        SetParameter("height", region.Height);
+        SetParameter("templatePath", path);
         await UpdateSelectedNodeAsync();
     }
 

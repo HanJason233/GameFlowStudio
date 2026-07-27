@@ -248,7 +248,7 @@
                                     <Button DockPanel.Dock="Right" Content="{Binding DataContext.SelectedNode.CoordinatePickButtonLabel, RelativeSource={RelativeSource AncestorType=Window}}"
                                             Command="{Binding DataContext.PickCoordinateCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                             Visibility="{Binding DataContext.SelectedNode.CanPickCoordinate, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolVisibility}}"
-                                            Width="82" Margin="8,0,0,0" Padding="4,3" ToolTip="先选择基于屏幕或基于窗口的拾取模式"/>
+                                            Width="82" Margin="8,0,0,0" Padding="4,3" ToolTip="{Binding DataContext.SelectedNode.CoordinatePickButtonToolTip, RelativeSource={RelativeSource AncestorType=Window}}"/>
                                     <ItemsControl ItemsSource="{Binding NumericParameters}">
                                         <ItemsControl.ItemsPanel>
                                             <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
@@ -373,7 +373,7 @@
                                         <Button DockPanel.Dock="Right" Content="{Binding DataContext.SelectedNode.CoordinatePickButtonLabel, RelativeSource={RelativeSource AncestorType=Window}}"
                                                 Command="{Binding DataContext.PickCoordinateCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                 Visibility="{Binding DataContext.SelectedNode.CanPickCoordinate, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolVisibility}}"
-                                                Width="82" Margin="8,0,0,0" Padding="4,3" ToolTip="先选择基于屏幕或基于窗口的拾取模式"/>
+                                                Width="82" Margin="8,0,0,0" Padding="4,3" ToolTip="{Binding DataContext.SelectedNode.CoordinatePickButtonToolTip, RelativeSource={RelativeSource AncestorType=Window}}"/>
                                         <ItemsControl ItemsSource="{Binding NumericParameters}">
                                             <ItemsControl.ItemsPanel>
                                                 <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>

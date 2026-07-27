@@ -24,10 +24,12 @@ public partial class App : Application
             {
                 services.AddGameFlowCore();
                 services.AddSingleton<IImageTemplateProvider, WpfImageTemplateProvider>();
+                services.AddSingleton<IImageCaptureService, ImageCaptureService>();
                 services.AddSingleton(logProvider);
                 services.AddSingleton<IEditorBridge, EditorBridge>();
                 services.AddSingleton<IFileDialogService, FileDialogService>();
                 services.AddSingleton<ICoordinatePickerService, CoordinatePickerService>();
+                services.AddSingleton<IRectanglePickerService, RectanglePickerService>();
                 services.AddSingleton<ICoordinatePickModeService, CoordinatePickModeService>();
                 services.AddSingleton<IWindowSelectionService, WindowSelectionService>();
                 services.AddSingleton<IRelativeCoordinatePickerService, RelativeCoordinatePickerService>();

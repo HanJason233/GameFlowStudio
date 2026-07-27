@@ -1,0 +1,16 @@
+<Window x:Class="GameFlowStudio.Desktop.Views.RectanglePickerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:GameFlowStudio.Desktop.Controls"
+        WindowStyle="None" AllowsTransparency="True" Background="#18000000" Topmost="True" ShowInTaskbar="False" Cursor="Cross"
+        PreviewKeyDown="OnKeyDown" PreviewMouseLeftButtonDown="OnMouseLeftButtonDown" PreviewMouseLeftButtonUp="OnMouseLeftButtonUp" PreviewMouseMove="OnMouseMove">
+    <Canvas x:Name="OverlayCanvas" Background="Transparent">
+        <Rectangle x:Name="SelectionRectangle" Fill="#403B82F6" Stroke="#60A5FA" StrokeThickness="2" StrokeDashArray="4,2" Visibility="Collapsed"/>
+        <Border x:Name="CoordinateBadge" Background="#E60F172A" BorderBrush="#60A5FA" BorderThickness="1" CornerRadius="6" Padding="12,7">
+            <controls:SelectableTextBlock x:Name="CoordinateText" Foreground="White" FontFamily="Consolas" FontSize="15"/>
+        </Border>
+        <Border Canvas.Left="20" Canvas.Top="20" Background="#D9111827" CornerRadius="8" Padding="14">
+            <controls:SelectableTextBlock Foreground="White" Text="拖动鼠标框选矩形区域 · 松开确认 · Esc 取消"/>
+        </Border>
+    </Canvas>
+</Window>
