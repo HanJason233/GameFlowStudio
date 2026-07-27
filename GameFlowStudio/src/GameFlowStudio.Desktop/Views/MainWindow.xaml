@@ -278,18 +278,7 @@
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
-                            <controls:SelectableTextBlock Text="期望状态" Foreground="#94A3B8" Margin="0,8,0,3"/>
-                            <ItemsControl ItemsSource="{Binding StateParameters}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <ComboBox SelectedValuePath="Tag" SelectedValue="{Binding Value, UpdateSourceTrigger=PropertyChanged}">
-                                            <ComboBoxItem Tag="1" Content="1 · 命中"/>
-                                            <ComboBoxItem Tag="0" Content="0 · 未命中"/>
-                                        </ComboBox>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                            <controls:SelectableTextBlock Text="单一判断直接使用以上检测内容。" Foreground="#64748B" FontSize="10" TextWrapping="Wrap" Margin="3,6,3,12"/>
+                            <controls:SelectableTextBlock Text="命中输出 true，未命中输出 false。" Foreground="#64748B" FontSize="10" TextWrapping="Wrap" Margin="3,6,3,12"/>
                         </StackPanel>
                     </ScrollViewer>
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,0,8,8" Visibility="{Binding HasStateConditionSelection, Converter={StaticResource BoolVisibility}}">
@@ -298,7 +287,6 @@
                             <controls:SelectableTextBlock Text="动作 ID" Foreground="#94A3B8"/>
                             <controls:SelectableTextBlock Text="{Binding Path=Id, Mode=OneWay}" Foreground="#E2E8F0" TextWrapping="Wrap" Margin="0,0,0,8"/>
                             <controls:SelectableTextBlock Text="到达此节点时检测一次，并从右侧 true / false 分支继续执行；单个检测器就是单一判断。" Foreground="#94A3B8" FontSize="10" TextWrapping="Wrap" Margin="3,0,3,10"/>
-                            <controls:SelectableTextBlock Text="{Binding Path=StateRuleSummary, Mode=OneWay}" Foreground="#FBBF24" FontSize="11" Margin="3,0,3,4"/>
                             <DockPanel Margin="0,4,0,3">
                                 <Button Content="添加检测器" Width="88" DockPanel.Dock="Right" Command="{Binding DataContext.AddStateDetectorCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>
                                 <controls:SelectableTextBlock Text="检测器配置" Foreground="#94A3B8" VerticalAlignment="Center"/>
@@ -322,27 +310,7 @@
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
-                            <ItemsControl ItemsSource="{Binding StateRules}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Grid Margin="0,3">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="92"/>
-                                                <ColumnDefinition Width="28"/>
-                                            </Grid.ColumnDefinitions>
-                                            <ComboBox Grid.Column="0" ItemsSource="{Binding DataContext.Detectors, RelativeSource={RelativeSource AncestorType=StackPanel}}" DisplayMemberPath="Name" SelectedValuePath="Id" SelectedValue="{Binding DetectorId, UpdateSourceTrigger=PropertyChanged}" ToolTip="选择检测器"/>
-                                            <ComboBox Grid.Column="1" SelectedValuePath="Tag" SelectedValue="{Binding State, UpdateSourceTrigger=PropertyChanged}" Margin="4,0,0,0">
-                                                <ComboBoxItem Tag="1" Content="1 · 命中"/>
-                                                <ComboBoxItem Tag="0" Content="0 · 未命中"/>
-                                            </ComboBox>
-                                            <Button Grid.Column="2" Content="−" Command="{Binding DataContext.RemoveStateRuleCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" Margin="4,0,0,0" ToolTip="删除规则"/>
-                                        </Grid>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                            <Button Content="＋ 添加检测器规则" Command="{Binding DataContext.AddStateRuleCommand, RelativeSource={RelativeSource AncestorType=Window}}" Margin="0,5,0,0"/>
-                            <controls:SelectableTextBlock Text="所有规则必须同时满足；没有规则时不会命中。" Foreground="#64748B" FontSize="10" TextWrapping="Wrap" Margin="3,6,3,12"/>
+                            <controls:SelectableTextBlock Text="所有检测器都命中时输出 true，否则输出 false。" Foreground="#64748B" FontSize="10" TextWrapping="Wrap" Margin="3,6,3,12"/>
                         </StackPanel>
                     </ScrollViewer>
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,0,8,8" Visibility="{Binding IsRegularNodeSelection, Converter={StaticResource BoolVisibility}}">

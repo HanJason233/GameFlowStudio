@@ -147,8 +147,7 @@ public sealed class StateConditionNodeExecutor(IStateConditionEvaluator evaluato
     public override async Task<NodeExecutionResult> ExecuteAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken cancellationToken)
     {
         var detectors = StateDetectorReader.Read(node);
-        var rules = StateRuleReader.Read(node);
-        var evaluation = await evaluator.EvaluateAsync(detectors, rules, context.WindowHandles, cancellationToken).ConfigureAwait(false);
+        var evaluation = await evaluator.EvaluateAsync(detectors, context.WindowHandles, cancellationToken).ConfigureAwait(false);
         foreach (var result in evaluation.DetectorResults.Values)
             ActionExecutionLogging.Write(context, node, $"检测器 {result.Type}：{result.Message ?? "无详细结果"}；状态 {result.State}。");
         ActionExecutionLogging.Write(context, node, $"联合判断最终结果：{ActionExecutionLogging.Outcome(evaluation.Matched)}。");
@@ -172,21 +171,16 @@ public sealed class SingleStateConditionNodeExecutor(string nodeType, DetectorTy
 {
     public override async Task<NodeExecutionResult> ExecuteAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken cancellationToken)
     {
-        var state = NodeParameterReader.Int(node, "state", 1);
-        if (state is not (0 or 1)) throw new InvalidOperationException("检测器期望状态只能是 0 或 1。");
-
         var detector = new DetectorDefinition
         {
             Id = node.Id,
             Name = node.Data.DisplayName,
             Type = expectedType,
-            Parameters = node.Data.Parameters
-                .Where(pair => pair.Key != "state")
-                .ToDictionary(pair => pair.Key, pair => pair.Value.Clone(), StringComparer.Ordinal)
+            Parameters = node.Data.Parameters.ToDictionary(pair => pair.Key, pair => pair.Value.Clone(), StringComparer.Ordinal)
         };
-        var evaluation = await evaluator.EvaluateAsync([detector], [new StateDetectorRule { DetectorId = detector.Id, State = state }], context.WindowHandles, cancellationToken).ConfigureAwait(false);
+        var evaluation = await evaluator.EvaluateAsync([detector], context.WindowHandles, cancellationToken).ConfigureAwait(false);
         var detail = evaluation.DetectorResults.TryGetValue(detector.Id, out var detectorResult) ? detectorResult.Message ?? "无详细结果" : "无检测结果";
-        ActionExecutionLogging.Write(context, node, $"{detail}；期望状态 {state}；条件结果：{ActionExecutionLogging.Outcome(evaluation.Matched)}。");
+        ActionExecutionLogging.Write(context, node, $"{detail}；条件结果：{ActionExecutionLogging.Outcome(evaluation.Matched)}。");
         return NodeExecutionResult.Ok(evaluation.Matched ? "true" : "false");
     }
 }

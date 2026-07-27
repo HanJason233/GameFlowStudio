@@ -35,13 +35,10 @@ public sealed class StateConditionTests
         var red = Color("red", "#FF0000");
         var green = Color("green", "#00FF00");
         var evaluator = new StateConditionEvaluator(new StateDetectorService([new ColorStateDetector()]), capture);
-        var rules = new List<StateDetectorRule> { new() { DetectorId = "red", State = 1 }, new() { DetectorId = "green", State = 1 } };
-
-        var matched = await evaluator.EvaluateAsync([red, green], rules, [], CancellationToken.None);
+        var matched = await evaluator.EvaluateAsync([red, green], [], CancellationToken.None);
         Assert.True(matched.Matched);
 
-        rules[1].State = 0;
-        var notMatched = await evaluator.EvaluateAsync([red, green], rules, [], CancellationToken.None);
+        var notMatched = await evaluator.EvaluateAsync([red, Color("green", "#0000FF")], [], CancellationToken.None);
         Assert.False(notMatched.Matched);
     }
 
@@ -92,7 +89,6 @@ public sealed class StateConditionTests
                     ["targetColor"] = ProjectJson.Element("#FF0000"),
                     ["tolerance"] = ProjectJson.Element(10),
                     ["minMatchRatio"] = ProjectJson.Element(1d),
-                    ["state"] = ProjectJson.Element(1)
                 }
             }
         };
@@ -126,8 +122,7 @@ public sealed class StateConditionTests
                 DisplayName = "联合判断",
                 Parameters = new Dictionary<string, System.Text.Json.JsonElement>
                 {
-                    ["detectors"] = ProjectJson.Element(new[] { detector }),
-                    ["detectorRules"] = ProjectJson.Element(new[] { new StateDetectorRule { DetectorId = "red", State = 1 } })
+                    ["detectors"] = ProjectJson.Element(new[] { detector })
                 }
             }
         };

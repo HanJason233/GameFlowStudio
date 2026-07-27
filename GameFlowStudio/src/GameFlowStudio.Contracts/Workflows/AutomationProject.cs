@@ -7,7 +7,7 @@ namespace GameFlowStudio.Contracts.Workflows;
 /// <summary>一个可保存和执行的 GameFlow 项目。</summary>
 public sealed class AutomationProject
 {
-    public string SchemaVersion { get; set; } = "1.3";
+    public string SchemaVersion { get; set; } = "1.4";
     public ProjectMetadata Project { get; set; } = new();
     public List<AutomationScript> Scripts { get; set; } = [];
 
@@ -47,7 +47,7 @@ public sealed class ScriptWindowScope
 /// <summary>当前脚本与 React 编辑器之间传输的平面工作流快照。</summary>
 public sealed class WorkflowDocument
 {
-    public string SchemaVersion { get; set; } = "1.3";
+    public string SchemaVersion { get; set; } = "1.4";
     public ProjectMetadata Project { get; set; } = new();
     public Dictionary<string, ProjectVariable> Variables { get; set; } = new(StringComparer.Ordinal);
     public List<WorkflowNode> Nodes { get; set; } = [];

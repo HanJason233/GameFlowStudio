@@ -11,7 +11,7 @@ import {
 } from '../types/workflow'
 
 const createEmptyProject = (): AutomationProject => ({
-  schemaVersion: '1.3',
+  schemaVersion: '1.4',
   project: { id: `project-${crypto.randomUUID()}`, name: '未命名项目', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
   variables: {}, nodes: [], edges: [],
 })

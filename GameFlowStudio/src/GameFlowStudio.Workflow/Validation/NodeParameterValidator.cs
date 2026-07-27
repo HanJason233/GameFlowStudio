@@ -44,9 +44,9 @@ internal sealed class NodeParameterValidator
             case NodeTypes.ColorCondition:
             case NodeTypes.ImageCondition:
             case NodeTypes.OcrCondition:
-                CoordinateMode(node); ValidateSingleStateCondition(node); break;
+                CoordinateMode(node); break;
             case NodeTypes.StateCondition:
-                _ = StateRuleReader.Read(node); break;
+                _ = StateDetectorReader.Read(node); break;
             case NodeTypes.Jump:
                 RequiredText(node, "scriptId"); RequiredText(node, "actionId"); break;
             case NodeTypes.RunProgram:
@@ -93,12 +93,6 @@ internal sealed class NodeParameterValidator
         var minimum = NonNegative(node, "randomMinMs", 0);
         var maximum = NonNegative(node, "randomMaxMs", 0);
         if (minimum > maximum) throw new InvalidOperationException("随机等待最小值不能大于最大值。");
-    }
-
-    private static void ValidateSingleStateCondition(WorkflowNode node)
-    {
-        var state = NodeParameterReader.Int(node, "state", 1);
-        if (state is not (0 or 1)) throw new InvalidOperationException("检测器期望状态只能是 0 或 1。");
     }
 
     private static void WindowTarget(WorkflowNode node)

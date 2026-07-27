@@ -61,7 +61,6 @@ public interface IStateConditionEvaluator
 {
     Task<StateConditionEvaluation> EvaluateAsync(
         IReadOnlyList<DetectorDefinition> detectors,
-        IReadOnlyList<StateDetectorRule> rules,
         IReadOnlyList<nint> windowHandles,
         CancellationToken cancellationToken);
 }

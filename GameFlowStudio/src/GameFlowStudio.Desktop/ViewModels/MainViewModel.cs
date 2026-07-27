@@ -165,36 +165,6 @@ public sealed class DetectorEditorItem : ObservableObject
     }
 }
 
-public sealed class DetectorRuleEditorItem : ObservableObject
-{
-    private readonly Action _changed;
-    private string _detectorId;
-    private int _state;
-
-    public string DetectorId { get => _detectorId; set { if (Set(ref _detectorId, value)) _changed(); } }
-    public int State
-    {
-        get => _state;
-        set
-        {
-            var normalized = value == 0 ? 0 : 1;
-            if (Set(ref _state, normalized))
-            {
-                Raise(nameof(StateLabel));
-                _changed();
-            }
-        }
-    }
-    public string StateLabel => State == 1 ? "1 · 命中" : "0 · 未命中";
-
-    public DetectorRuleEditorItem(StateDetectorRule rule, Action changed)
-    {
-        _changed = changed; _detectorId = rule.DetectorId; _state = rule.State is 0 ? 0 : 1;
-    }
-
-    public StateDetectorRule ToRule() => new() { DetectorId = DetectorId, State = State };
-}
-
 public sealed class SelectedNodeViewModel : ObservableObject
 {
     private string _displayName = string.Empty;
@@ -211,19 +181,17 @@ public sealed class SelectedNodeViewModel : ObservableObject
     }
     public ObservableCollection<NodeParameterItem> Parameters { get; } = [];
     public ObservableCollection<DetectorEditorItem> Detectors { get; } = [];
-    public ObservableCollection<DetectorRuleEditorItem> StateRules { get; } = [];
     public bool IsStateCondition => Type == NodeTypes.StateCondition;
     public bool IsSingleStateCondition => Type is NodeTypes.ColorCondition or NodeTypes.ImageCondition or NodeTypes.OcrCondition;
     public bool SupportsCoordinateMode => Type is NodeTypes.ColorCondition or NodeTypes.ImageCondition or NodeTypes.OcrCondition
         or NodeTypes.MouseClick or NodeTypes.MouseMove or NodeTypes.MouseDrag or NodeTypes.MouseScroll;
     public IEnumerable<NodeParameterItem> NumericParameters => Parameters.Where(parameter => parameter.Kind == JsonValueKind.Number
-        && parameter.Name is not ("state" or "minMatchRatio" or "matchThreshold"));
+        && parameter.Name is not ("minMatchRatio" or "matchThreshold"));
     public IEnumerable<NodeParameterItem> TextParameters => Parameters.Where(parameter => parameter.Kind == JsonValueKind.String && !IsChoiceParameter(parameter.Name) && parameter.Name != "coordinateMode");
     public IEnumerable<NodeParameterItem> ChoiceParameters => Parameters.Where(parameter => parameter.Kind == JsonValueKind.String && IsChoiceParameter(parameter.Name) && parameter.Name != "coordinateMode");
     public IEnumerable<NodeParameterItem> CoordinateParameters => Parameters.Where(parameter => parameter.Name == "coordinateMode");
     public IEnumerable<NodeParameterItem> BooleanParameters => Parameters.Where(parameter => parameter.Kind is JsonValueKind.True or JsonValueKind.False);
-    public IEnumerable<NodeParameterItem> OtherParameters => Parameters.Where(parameter => parameter.Kind is not (JsonValueKind.Number or JsonValueKind.String or JsonValueKind.True or JsonValueKind.False) && parameter.Name != "state");
-    public IEnumerable<NodeParameterItem> StateParameters => Parameters.Where(parameter => parameter.Name == "state");
+    public IEnumerable<NodeParameterItem> OtherParameters => Parameters.Where(parameter => parameter.Kind is not (JsonValueKind.Number or JsonValueKind.String or JsonValueKind.True or JsonValueKind.False));
     public bool HasNumericParameters => NumericParameters.Any();
     public bool HasTextParameters => TextParameters.Any();
     public bool HasChoiceParameters => ChoiceParameters.Any();
@@ -257,12 +225,6 @@ public sealed class SelectedNodeViewModel : ObservableObject
         NodeTypes.OcrCondition => "OCR判断",
         _ => "联合判断"
     };
-    public string StateRuleSummary => StateRules.Count switch
-    {
-        0 => "未配置检测器",
-        1 => "单一判断",
-        _ => $"{StateRules.Count} 个检测器 · 联合满足"
-    };
     public bool CanPickCoordinate => Type is NodeTypes.ColorCondition or NodeTypes.ImageCondition or NodeTypes.OcrCondition or NodeTypes.MouseClick or NodeTypes.MouseMove or NodeTypes.MouseDrag or NodeTypes.MouseScroll;
     public string CoordinatePickButtonLabel => Type switch
     {
@@ -283,8 +245,6 @@ public sealed class SelectedNodeViewModel : ObservableObject
         Parameters.FirstOrDefault(parameter => parameter.Name == name)?.Value ?? fallback;
 
     public void SetChangedHandler(Action changed) => _changed = changed;
-    public void RefreshStateSummary() => Raise(nameof(StateRuleSummary));
-
     public int GetParameterInt(string name, int fallback) =>
         int.TryParse(GetParameterValue(name, fallback.ToString(CultureInfo.InvariantCulture)), NumberStyles.Integer, CultureInfo.InvariantCulture, out var value)
             ? value
@@ -508,8 +468,6 @@ public sealed class MainViewModel : ObservableObject
     public ICommand ToggleOutputPaneCommand { get; private set; } = null!;
     public ICommand AddStateDetectorCommand { get; private set; } = null!;
     public ICommand RemoveStateDetectorCommand { get; private set; } = null!;
-    public ICommand AddStateRuleCommand { get; private set; } = null!;
-    public ICommand RemoveStateRuleCommand { get; private set; } = null!;
 
     public async Task InitializeAsync()
     {
@@ -581,14 +539,6 @@ public sealed class MainViewModel : ObservableObject
                     foreach (var detector in detectors) selected.Detectors.Add(new DetectorEditorItem(detector, OnSelectedNodeEditorChanged));
                 }
 
-                if (!parameters.TryGetProperty("detectorRules", out var rulesElement))
-                {
-                    SelectedNode = selected;
-                    return;
-                }
-
-                var rules = rulesElement.Deserialize<List<StateDetectorRule>>(ProjectJson.Options) ?? [];
-                foreach (var rule in rules) selected.StateRules.Add(new DetectorRuleEditorItem(rule, OnSelectedNodeEditorChanged));
             }
         }
         if (selected.SupportsCoordinateMode && !selected.Parameters.Any(parameter => parameter.Name == "coordinateMode"))
@@ -612,7 +562,6 @@ public sealed class MainViewModel : ObservableObject
 
     private void OnSelectedNodeEditorChanged()
     {
-        SelectedNode?.RefreshStateSummary();
         _ = UpdateSelectedNodeAsync();
     }
 
@@ -624,30 +573,10 @@ public sealed class MainViewModel : ObservableObject
         if (SelectedNode.IsStateCondition)
         {
             if (!ValidateStateDetectors(SelectedNode.Detectors, out _)) return;
-            if (!ValidateStateRules(SelectedNode.StateRules, out _)) return;
 
             parameters["detectors"] = ProjectJson.Element(SelectedNode.Detectors.Select(detector => detector.Definition).ToList());
-            parameters["detectorRules"] = ProjectJson.Element(SelectedNode.StateRules.Select(rule => rule.ToRule()).ToList());
         }
         await _editor.SendAsync("update_node_data", new { nodeId = SelectedNode.Id, data = new { displayName = SelectedNode.DisplayName, parameters } });
-    }
-
-    private bool ValidateStateRules(IReadOnlyList<DetectorRuleEditorItem> rules, out string error)
-    {
-        if (rules.Count == 0)
-        {
-            error = "联合判断至少需要一个检测器规则。";
-            return false;
-        }
-
-        if (rules.Any(rule => SelectedNode!.Detectors.All(detector => detector.Id != rule.DetectorId)))
-        {
-            error = "联合判断包含不存在的检测器，请重新选择。";
-            return false;
-        }
-
-        error = string.Empty;
-        return true;
     }
 
     private static bool ValidateStateDetectors(IReadOnlyList<DetectorEditorItem> detectors, out string error)
@@ -1055,34 +984,7 @@ public sealed class MainViewModel : ObservableObject
     private void RemoveStateDetector(DetectorEditorItem? item)
     {
         if (SelectedNode is not { IsStateCondition: true } || item is null) return;
-        if (SelectedNode.StateRules.Any(rule => rule.DetectorId == item.Id))
-        {
-            _dialogs.ShowError("检测器仍被联合判断规则使用，请先移除对应规则。");
-            return;
-        }
-
         SelectedNode.Detectors.Remove(item);
-        OnSelectedNodeEditorChanged();
-    }
-
-    private void AddStateRule()
-    {
-        if (SelectedNode is not { IsStateCondition: true }) return;
-        var detector = SelectedNode.Detectors.FirstOrDefault();
-        if (detector is null)
-        {
-            _dialogs.ShowError("请先添加检测器，再添加联合判断规则。");
-            return;
-        }
-
-        SelectedNode.StateRules.Add(new DetectorRuleEditorItem(new StateDetectorRule { DetectorId = detector.Id, State = 1 }, OnSelectedNodeEditorChanged));
-        OnSelectedNodeEditorChanged();
-    }
-
-    private void RemoveStateRule(DetectorRuleEditorItem? rule)
-    {
-        if (SelectedNode is not { IsStateCondition: true } || rule is null) return;
-        SelectedNode.StateRules.Remove(rule);
         OnSelectedNodeEditorChanged();
     }
 
@@ -1214,8 +1116,6 @@ public sealed class MainViewModel : ObservableObject
         DeleteScriptCommand = new AsyncRelayCommand(item => DeleteScriptAsync(item as ScriptListItem));
         AddStateDetectorCommand = new RelayCommand(_ => AddStateDetector());
         RemoveStateDetectorCommand = new RelayCommand(item => RemoveStateDetector(item as DetectorEditorItem));
-        AddStateRuleCommand = new RelayCommand(_ => AddStateRule());
-        RemoveStateRuleCommand = new RelayCommand(item => RemoveStateRule(item as DetectorRuleEditorItem));
         SettingsCommand = new AsyncRelayCommand(_ => EditSettingsAsync());
         ToggleProjectFilesPaneCommand = new RelayCommand(_ => ToggleProjectFilesPane());
         ToggleScriptListPaneCommand = new RelayCommand(_ => ToggleScriptListPane());

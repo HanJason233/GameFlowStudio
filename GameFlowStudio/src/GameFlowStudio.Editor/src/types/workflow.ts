@@ -27,7 +27,7 @@ export interface ProjectMetadata {
 }
 
 export interface AutomationProject {
-  schemaVersion: '1.1' | '1.2' | '1.3'
+  schemaVersion: '1.4'
   project: ProjectMetadata
   variables: Record<string, { type: 'string' | 'number' | 'boolean'; value: unknown }>
   nodes: Array<{ id: string; type: NodeType; position: { x: number; y: number }; data: GameNodeData }>
@@ -46,10 +46,10 @@ export const nodeLabels: Record<NodeType, string> = {
 }
 
 export const defaultParameters: Record<NodeType, Record<string, unknown>> = {
-  colorCondition: { coordinateMode: 'followScript', x: 0, y: 0, width: 1, height: 1, targetColor: '#FFFFFF', tolerance: 10, minMatchRatio: 1, state: 1 },
-  imageCondition: { coordinateMode: 'followScript', templatePath: '', x: 0, y: 0, tolerance: 10, matchThreshold: 0.95, state: 1 },
-  ocrCondition: { coordinateMode: 'followScript', x: 0, y: 0, width: 1, height: 1, targetText: '', matchThreshold: 0.8, state: 1 },
-  stateCondition: { detectors: [], detectorRules: [] },
+  colorCondition: { coordinateMode: 'followScript', x: 0, y: 0, width: 1, height: 1, targetColor: '#FFFFFF', tolerance: 10, minMatchRatio: 1 },
+  imageCondition: { coordinateMode: 'followScript', templatePath: '', x: 0, y: 0, tolerance: 10, matchThreshold: 0.95 },
+  ocrCondition: { coordinateMode: 'followScript', x: 0, y: 0, width: 1, height: 1, targetText: '', matchThreshold: 0.8 },
+  stateCondition: { detectors: [] },
   jump: { scriptId: '', actionId: '' },
   start: {}, end: {},
   windowScope: { titlePattern: '.*', outputVariable: 'windowHandles' },

@@ -16,7 +16,7 @@ internal sealed class ProjectStructureRule(NodeParameterValidator parameterValid
     public void Validate(WorkflowValidationContext context, WorkflowValidationResult result)
     {
         var workflow = context.Workflow;
-        if (workflow.SchemaVersion is not ("1.1" or "1.2" or "1.3")) result.Add("schema", $"不支持的架构版本：{workflow.SchemaVersion}。");
+        if (workflow.SchemaVersion is not "1.4") result.Add("schema", $"不支持的架构版本：{workflow.SchemaVersion}。");
         foreach (var group in workflow.Nodes.GroupBy(node => node.Id).Where(group => string.IsNullOrWhiteSpace(group.Key) || group.Count() > 1))
             result.Add("node_id", "节点 ID 不能为空且必须唯一。", group.Key);
         if (context.StartNodes.Count == 0) result.Add("start_missing", "工作流必须包含一个开始节点。");
@@ -174,13 +174,11 @@ internal sealed class StateConfigurationRule : IWorkflowValidationRule
             try
             {
                 var detectors = StateDetectorReader.Read(node);
-                var rules = StateRuleReader.Read(node);
                 ValidateDetectors(detectors, result, node.Id);
-                if (rules.Count == 0) result.Add("state_rules", "联合判断至少需要一个检测器规则。", node.Id);
-                if (rules.Count > 0) ValidateRules(rules, detectors.Select(detector => detector.Id).ToHashSet(StringComparer.Ordinal), result, node.Id);
+                if (detectors.Count == 0) result.Add("state_detectors", "联合判断至少需要一个检测器。", node.Id);
             }
             catch (Exception exception) when (exception is InvalidOperationException or JsonException)
-            { result.Add("state_rules", exception.Message, node.Id); }
+            { result.Add("state_detectors", exception.Message, node.Id); }
         }
 
         foreach (var node in context.Workflow.Nodes.Where(node => node.Type is NodeTypes.ColorCondition or NodeTypes.ImageCondition or NodeTypes.OcrCondition))
@@ -197,13 +195,9 @@ internal sealed class StateConfigurationRule : IWorkflowValidationRule
                         NodeTypes.ImageCondition => DetectorType.Image,
                         _ => DetectorType.Ocr
                     },
-                    Parameters = node.Data.Parameters
-                        .Where(pair => pair.Key != "state")
-                        .ToDictionary(pair => pair.Key, pair => pair.Value.Clone(), StringComparer.Ordinal)
+                    Parameters = node.Data.Parameters.ToDictionary(pair => pair.Key, pair => pair.Value.Clone(), StringComparer.Ordinal)
                 };
                 ValidateDetectorParameters(detector, result, node.Id);
-                var state = NodeParameterReader.Int(node, "state", 1);
-                if (state is not (0 or 1)) result.Add("detector_state", "检测器期望状态只能是 0 或 1。", node.Id);
             }
             catch (Exception exception) when (exception is InvalidOperationException or JsonException)
             { result.Add("state_parameters", exception.Message, node.Id); }
@@ -220,15 +214,6 @@ internal sealed class StateConfigurationRule : IWorkflowValidationRule
             if (string.IsNullOrWhiteSpace(detector.Name)) result.Add("detector_name", "检测器名称不能为空。", nodeId);
             if (!Enum.IsDefined(detector.Type)) result.Add("detector_type", "检测器类型无效。", nodeId);
             ValidateDetectorParameters(detector, result, nodeId);
-        }
-    }
-
-    private static void ValidateRules(IReadOnlyList<StateDetectorRule> rules, HashSet<string> detectorIds, WorkflowValidationResult result, string ownerId)
-    {
-        foreach (var rule in rules)
-        {
-            if (!detectorIds.Contains(rule.DetectorId)) result.Add("detector_reference", $"找不到检测器 {rule.DetectorId}。", nodeId: ownerId);
-            if (rule.State is not (0 or 1)) result.Add("detector_state", "检测器期望状态只能是 0 或 1。", nodeId: ownerId);
         }
     }
 

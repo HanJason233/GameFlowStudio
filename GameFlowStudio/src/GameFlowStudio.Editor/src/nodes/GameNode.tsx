@@ -15,19 +15,17 @@ export function GameNodeView({ data, selected }: NodeProps<GameFlowNode>) {
   const status = data.executionStatus ?? 'none'
   const isCondition = nodeType === 'colorCondition' || nodeType === 'imageCondition' || nodeType === 'ocrCondition' || nodeType === 'stateCondition'
   const outputs = isCondition ? ['true', 'false'] : nodeType === 'end' ? [] : ['output']
-  const stateRules = nodeType === 'stateCondition' && Array.isArray(data.parameters?.detectorRules)
-    ? data.parameters.detectorRules
+  const detectors = nodeType === 'stateCondition' && Array.isArray(data.parameters?.detectors)
+    ? data.parameters.detectors
     : []
-  const stateRuleSummary = stateRules.length === 0
+  const detectorSummary = detectors.length === 0
     ? '未配置检测器'
-    : stateRules.length === 1
-      ? '单一判断'
-      : `${stateRules.length} 个检测器 · 联合判断`
+    : `${detectors.length} 个检测器 · 全部命中`
   return <div className={`game-node status-${status} ${selected ? 'selected' : ''}`} style={{ '--node-color': colors[nodeType] } as React.CSSProperties}>
     {nodeType !== 'start' && <Handle type="target" id="input" position={Position.Left} />}
     <div className="node-heading">{data.displayName || nodeLabels[nodeType]}</div>
     <div className="node-type">{nodeLabels[nodeType]}</div>
-    {nodeType === 'stateCondition' && <div className="node-rule-summary">{stateRuleSummary}</div>}
+    {nodeType === 'stateCondition' && <div className="node-rule-summary">{detectorSummary}</div>}
     {outputs.map((handle, index) => <Handle key={handle} type="source" id={handle} position={Position.Right} style={{ top: outputs.length === 1 ? '50%' : `${35 + index * 30}%` }}>
       {outputs.length > 1 && <span className="handle-label">{handle}</span>}
     </Handle>)}
