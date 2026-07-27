@@ -50,7 +50,6 @@
 | `stateCondition` | `detectors`（多个检测器定义，全部命中才算命中） | `true`, `false` |
 | `runProgram` | `path`, `arguments`, `workingDirectory`, `waitForExit` | `output` |
 | `closeProgram` | `windowHandleVariable`, `windowHandleIndex` | `output` |
-| `resizeWindow` | `windowHandleVariable`, `windowHandleIndex`, `width`, `height` | `output` |
 | `minimizeWindow` | `windowHandleVariable`, `windowHandleIndex` | `output` |
 | `arrangeWindows` | `windowHandleVariable`, `x`, `y`, `width`, `height`, `columns`, `gapX`, `gapY` | `output` |
 | `setWindowResolution` | `windowHandleVariable`, `windowHandleIndex`, `width`, `height` | `output` |

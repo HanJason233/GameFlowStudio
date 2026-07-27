@@ -1,7 +1,7 @@
 import type { Edge, Node } from '@xyflow/react'
 
 export type NodeType = 'start' | 'windowScope' | 'mouseClick' | 'mouseMove' | 'mouseDrag' | 'mouseScroll' | 'keyPress' | 'textInput' | 'wait' |
-  'colorCondition' | 'imageCondition' | 'ocrCondition' | 'stateCondition' | 'jump' | 'runProgram' | 'closeProgram' | 'resizeWindow' |
+  'colorCondition' | 'imageCondition' | 'ocrCondition' | 'stateCondition' | 'jump' | 'runProgram' | 'closeProgram' |
   'minimizeWindow' | 'arrangeWindows' | 'setWindowResolution' | 'end'
 
 export type ExecutionStatus = 'none' | 'running' | 'success' | 'error'
@@ -41,7 +41,7 @@ export const nodeLabels: Record<NodeType, string> = {
   stateCondition: '联合判断', jump: '跳转',
   start: '开始', windowScope: '窗口作用域', mouseClick: '点击', mouseMove: '鼠标移动', mouseDrag: '鼠标拖动', mouseScroll: '鼠标滑动', keyPress: '键盘按键',
   textInput: '输入文本', wait: '等待', runProgram: '启动程序', closeProgram: '关闭程序',
-  resizeWindow: '设置窗口大小', minimizeWindow: '最小化窗口', arrangeWindows: '窗口整理',
+  minimizeWindow: '最小化窗口', arrangeWindows: '窗口整理',
   setWindowResolution: '设置窗口分辨率', end: '结束',
 }
 
@@ -62,7 +62,6 @@ export const defaultParameters: Record<NodeType, Record<string, unknown>> = {
   wait: { durationMs: 1000 },
   runProgram: { path: '', arguments: '', workingDirectory: '', waitForExit: false },
   closeProgram: { windowHandleVariable: 'windowHandles', windowHandleIndex: 0 },
-  resizeWindow: { windowHandleVariable: 'windowHandles', windowHandleIndex: 0, width: 1280, height: 720 },
   minimizeWindow: { windowHandleVariable: 'windowHandles', windowHandleIndex: 0 },
   arrangeWindows: { windowHandleVariable: 'windowHandles', x: 0, y: 0, width: 800, height: 600, columns: 2, gapX: 20, gapY: 20 },
   setWindowResolution: { windowHandleVariable: 'windowHandles', windowHandleIndex: 0, width: 1280, height: 720 },

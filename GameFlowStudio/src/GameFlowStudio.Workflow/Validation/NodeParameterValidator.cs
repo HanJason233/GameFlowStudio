@@ -54,7 +54,6 @@ internal sealed class NodeParameterValidator
             case NodeTypes.CloseProgram:
             case NodeTypes.MinimizeWindow:
                 WindowTarget(node); break;
-            case NodeTypes.ResizeWindow:
             case NodeTypes.SetWindowResolution:
                 WindowTarget(node); Positive(node, "width", 0); Positive(node, "height", 0); break;
             case NodeTypes.ArrangeWindows:

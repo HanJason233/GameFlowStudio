@@ -32,20 +32,6 @@ public sealed class CloseProgramNodeExecutor(IWindowAutomationService windows) :
     }
 }
 
-public sealed class ResizeWindowNodeExecutor(IWindowAutomationService windows) : NodeExecutorBase(Contracts.Nodes.NodeTypes.ResizeWindow)
-{
-    public override Task<NodeExecutionResult> ExecuteAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        var handle = WindowActionParameters.SelectTarget(node, context);
-        var width = NodeParameterReader.Int(node, "width");
-        var height = NodeParameterReader.Int(node, "height");
-        var result = WindowActionParameters.ActivateAndExecute(windows, handle, target => windows.ResizeWindow(target, width, height), "设置窗口大小失败。");
-        if (result.Success) ActionExecutionLogging.Write(context, node, $"设置窗口句柄 {handle} 大小为 {width}×{height}。");
-        return Task.FromResult(result);
-    }
-}
-
 public sealed class MinimizeWindowNodeExecutor(IWindowAutomationService windows) : NodeExecutorBase(Contracts.Nodes.NodeTypes.MinimizeWindow)
 {
     public override Task<NodeExecutionResult> ExecuteAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken cancellationToken)

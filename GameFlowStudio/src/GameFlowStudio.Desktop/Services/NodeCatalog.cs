@@ -22,7 +22,6 @@ internal static class NodeCatalog
         new(NodeTypes.MouseScroll, "鼠标滑动", "鼠标操作"),
         new(NodeTypes.RunProgram, "启动程序", "窗口与程序"),
         new(NodeTypes.CloseProgram, "关闭程序", "窗口与程序"),
-        new(NodeTypes.ResizeWindow, "设置窗口大小", "窗口与程序"),
         new(NodeTypes.MinimizeWindow, "最小化窗口", "窗口与程序"),
         new(NodeTypes.ArrangeWindows, "窗口整理", "窗口与程序"),
         new(NodeTypes.SetWindowResolution, "设置窗口分辨率", "窗口与程序"),

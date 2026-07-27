@@ -82,7 +82,6 @@ public sealed class MouseClickExecutionTests
         public IReadOnlyList<WindowInfo> GetOpenWindows() => [];
         public bool ActivateWindow(nint handle) { ActivatedHandle = handle; return true; }
         public bool CloseWindow(nint handle) => true;
-        public bool ResizeWindow(nint handle, int width, int height) => true;
         public bool MinimizeWindow(nint handle) => true;
         public bool ArrangeWindows(IReadOnlyList<nint> handles, int x, int y, int width, int height, int columns, int gapX, int gapY) => true;
         public bool SetWindowResolution(nint handle, int width, int height) => true;

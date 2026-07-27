@@ -56,7 +56,6 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<INodeExecutor, JumpNodeExecutor>();
         services.AddSingleton<INodeExecutor, RunProgramNodeExecutor>();
         services.AddSingleton<INodeExecutor, CloseProgramNodeExecutor>();
-        services.AddSingleton<INodeExecutor, ResizeWindowNodeExecutor>();
         services.AddSingleton<INodeExecutor, MinimizeWindowNodeExecutor>();
         services.AddSingleton<INodeExecutor, ArrangeWindowsNodeExecutor>();
         services.AddSingleton<INodeExecutor, SetWindowResolutionNodeExecutor>();

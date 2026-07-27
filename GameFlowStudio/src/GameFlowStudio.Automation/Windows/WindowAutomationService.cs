@@ -34,12 +34,6 @@ public sealed class WindowAutomationService : IWindowAutomationService
 
     public bool CloseWindow(nint handle) => handle != nint.Zero && NativeMethods.PostMessage(handle, NativeMethods.WmClose, 0, 0);
 
-    public bool ResizeWindow(nint handle, int width, int height)
-    {
-        if (!TryGetPosition(handle, out var bounds)) return false;
-        return NativeMethods.SetWindowPos(handle, 0, bounds.Left, bounds.Top, width, height, NativeMethods.SwpNoZOrder | NativeMethods.SwpNoActivate | NativeMethods.SwpShowWindow);
-    }
-
     public bool MinimizeWindow(nint handle) => handle != nint.Zero && NativeMethods.ShowWindow(handle, NativeMethods.SwMinimize);
 
     public bool ArrangeWindows(IReadOnlyList<nint> handles, int x, int y, int width, int height, int columns, int gapX, int gapY)
