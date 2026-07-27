@@ -2,9 +2,12 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:GameFlowStudio.Desktop.Controls"
-        WindowStyle="None" AllowsTransparency="True" Background="Transparent" Topmost="True" ShowInTaskbar="False" Cursor="Cross"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent" Topmost="True" ShowInTaskbar="False" Cursor="Cross" Focusable="True"
         PreviewKeyDown="OnKeyDown" PreviewMouseLeftButtonDown="OnMouseDown">
     <Canvas x:Name="OverlayCanvas" Background="Transparent">
+        <Rectangle x:Name="HitTestSurface" Fill="#01000000"
+                   Width="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=ActualWidth}"
+                   Height="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=ActualHeight}"/>
         <Border x:Name="MagnifierPanel" Width="220" Background="#F0111827" BorderBrush="#60A5FA" BorderThickness="1" CornerRadius="8" Padding="8">
             <StackPanel>
                 <Grid Width="180" Height="180" Background="#0F172A" ClipToBounds="True">

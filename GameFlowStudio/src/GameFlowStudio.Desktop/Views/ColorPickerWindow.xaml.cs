@@ -20,6 +20,7 @@ public partial class ColorPickerWindow : Window
     private readonly DispatcherTimer _timer;
     private bool _isUpdating;
     private bool _isClosed;
+    private bool _isCompleting;
     private string? _lastColor;
 
     public CoordinatePickResult? SelectedResult { get; private set; }
@@ -35,7 +36,7 @@ public partial class ColorPickerWindow : Window
         Width = SystemParameters.VirtualScreenWidth;
         Height = SystemParameters.VirtualScreenHeight;
         _timer = new(TimeSpan.FromMilliseconds(50), DispatcherPriority.Render, async (_, _) => await UpdatePreviewAsync(), Dispatcher);
-        Loaded += async (_, _) => { Activate(); Focus(); await UpdatePreviewAsync(); _timer.Start(); };
+        Loaded += async (_, _) => { Activate(); Focus(); Keyboard.Focus(this); await UpdatePreviewAsync(); _timer.Start(); };
         Closed += (_, _) => { _isClosed = true; _timer.Stop(); };
     }
 
@@ -48,6 +49,7 @@ public partial class ColorPickerWindow : Window
         {
             var region = CreateSampleRegion(point, _capture.VirtualScreenBounds);
             PositionMagnifier(point);
+            HitTestSurface.Visibility = Visibility.Hidden;
             await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Render);
             var frame = await Task.Run(() => _capture.CaptureAsync(region, CancellationToken.None));
             var pixelX = Math.Clamp(point.X - region.X, 0, frame.Width - 1);
@@ -70,24 +72,27 @@ public partial class ColorPickerWindow : Window
         }
         finally
         {
+            if (!_isClosed) HitTestSurface.Visibility = Visibility.Visible;
             _isUpdating = false;
         }
     }
 
     private void OnMouseDown(object sender, MouseButtonEventArgs e)
     {
-        if (e.ChangedButton != MouseButton.Left) return;
+        if (e.ChangedButton != MouseButton.Left || _isCompleting) return;
+        _isCompleting = true;
         var point = _cursor.GetPosition();
         SelectedResult = new CoordinatePickResult(point.X, point.Y, _lastColor);
-        DialogResult = true;
+        Close();
         e.Handled = true;
     }
 
     private void OnKeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key != Key.Escape) return;
+        if (e.Key != Key.Escape || _isCompleting) return;
+        _isCompleting = true;
         SelectedResult = null;
-        DialogResult = false;
+        Close();
         e.Handled = true;
     }
 
