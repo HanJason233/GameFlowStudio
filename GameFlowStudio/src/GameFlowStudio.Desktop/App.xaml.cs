@@ -1,3 +1,4 @@
+using System.Net.Http;
 using System.Windows;
 using GameFlowStudio.Desktop.Services;
 using GameFlowStudio.Desktop.ViewModels;
@@ -20,10 +21,14 @@ public partial class App : Application
         var logProvider = new GameFlowLogProvider();
         _host = Host.CreateDefaultBuilder()
             .ConfigureLogging(logging => { logging.ClearProviders(); logging.SetMinimumLevel(LogLevel.Debug); logging.AddProvider(logProvider); })
-            .ConfigureServices(services =>
+            .ConfigureServices((context, services) =>
             {
                 services.AddGameFlowCore();
                 services.AddSingleton<IImageTemplateProvider, WpfImageTemplateProvider>();
+                var geminiOptions = GeminiOcrOptions.FromConfiguration(context.Configuration);
+                services.AddSingleton(geminiOptions);
+                services.AddSingleton(new HttpClient { Timeout = geminiOptions.Timeout });
+                services.AddSingleton<IOcrService, GeminiOcrService>();
                 services.AddSingleton<IImageCaptureService, ImageCaptureService>();
                 services.AddSingleton<IColorPickerService, ColorPickerService>();
                 services.AddSingleton(logProvider);

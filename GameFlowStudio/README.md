@@ -4,7 +4,7 @@ GameFlow Studio 是一个 Windows 无代码键盘鼠标自动化 MVP。桌面外
 
 ## 当前能力
 
-- 脚本内逻辑判断：色检测、图检测、OCR 文本检测；OCR 节点和配置已保留，当前桌面端暂未配置 OCR 引擎，待接入云端服务后启用；AI 识别仍保留 TODO。检测器只属于当前脚本，逻辑节点到达时检测并通过 `true/false` 分支继续执行。
+- 脚本内逻辑判断：色检测、图检测、OCR 文本检测；OCR 默认通过 Gemini 云端接口识别截图，模型为 `gemini-flash-lite-latest`；AI 识别仍保留 TODO。检测器只属于当前脚本，逻辑节点到达时检测并通过 `true/false` 分支继续执行。
 
 - 十八种原子动作：开始、点击、鼠标拖动、鼠标滑动、键盘按键、输入文本、等待、色判断、图判断、OCR判断、联合判断、启动程序、关闭程序、设置窗口大小、最小化窗口、窗口整理、设置窗口分辨率、结束。每个动作执行成功或失败都会自动写入运行日志。启用脚本窗口作用域后，针对窗口的操作会自动激活对应窗口；匹配多个窗口时支持只操作第一个、窗口优先和动作优先三种执行方式。
 - React Flow 节点添加、拖动、连接、选择、Delete 删除、Ctrl+C/Ctrl+V 复制粘贴、缩放和平移。
@@ -54,6 +54,10 @@ dotnet test GameFlowStudio.sln -c Release
 ```
 
 首次启动可点击“打开示例项目”。创建新项目时会得到一个已连接的开始和结束节点；从节点编辑区下方的步骤面板添加节点，重新连接后即可保存和运行。
+
+## Gemini OCR 配置
+
+桌面端默认使用 `https://gemini.11145149.xyz/` 的 Gemini `generateContent` 接口和 `gemini-flash-lite-latest` 模型，默认提示词为“你当前是ocr识别助手，只输出识别到的文字，字母，数字，符号等”。API 密钥不会写入项目文件，请在启动前设置 `GEMINI_API_KEY` 环境变量；也可以使用 `GeminiOcr__ApiBaseUrl`、`GeminiOcr__EndpointPath`、`GeminiOcr__Model`、`GeminiOcr__Prompt` 和 `GeminiOcr__TimeoutSeconds` 覆盖默认配置。
 
 ## 目录结构
 
