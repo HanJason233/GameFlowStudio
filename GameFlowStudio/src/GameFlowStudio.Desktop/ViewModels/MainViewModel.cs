@@ -626,6 +626,7 @@ public sealed class MainViewModel : ObservableObject
 
         var first = await PickCoordinateAsync(mode.Value, window);
         if (first is null) return;
+        SetParameter("coordinateMode", mode == CoordinatePickMode.Screen ? "absolute" : "relative");
 
         if (SelectedNode.Type == NodeTypes.MouseDrag)
         {
@@ -652,6 +653,12 @@ public sealed class MainViewModel : ObservableObject
     {
         var item = SelectedNode!.Parameters.FirstOrDefault(p => p.Name == name);
         if (item is null) SelectedNode.Parameters.Add(new(name, value.ToString(CultureInfo.InvariantCulture), JsonValueKind.Number)); else item.Value = value.ToString(CultureInfo.InvariantCulture);
+    }
+
+    private void SetParameter(string name, string value)
+    {
+        var item = SelectedNode!.Parameters.FirstOrDefault(p => p.Name == name);
+        if (item is null) SelectedNode.Parameters.Add(new(name, value, JsonValueKind.String)); else item.Value = value;
     }
 
     private async Task NewAsync()

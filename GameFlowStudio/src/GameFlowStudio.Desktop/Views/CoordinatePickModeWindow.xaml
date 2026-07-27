@@ -14,7 +14,7 @@
 
         <StackPanel>
             <controls:SelectableTextBlock Text="选择坐标拾取模式" FontSize="16" FontWeight="SemiBold"/>
-            <controls:SelectableTextBlock Text="屏幕模式直接记录屏幕坐标；窗口模式会先选择窗口，再换算为窗口内坐标。"
+            <controls:SelectableTextBlock Text="屏幕模式记录绝对坐标；窗口模式先选择窗口，再记录窗口相对坐标。拾取后会同步更新动作坐标基准。"
                                           Foreground="#94A3B8" TextWrapping="Wrap" Margin="0,6,0,0"/>
         </StackPanel>
 
