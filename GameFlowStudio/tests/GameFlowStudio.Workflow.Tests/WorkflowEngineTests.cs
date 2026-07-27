@@ -130,7 +130,7 @@ public sealed class WorkflowEngineTests
         var executor = new WindowScopeTrackingExecutor();
         var runner = Runner(executor, new FixedWindowScopeService([(nint)101, (nint)202]));
         var project = Chain(Log("one"), Log("two"));
-        project.WindowScope = new() { Enabled = true, TitlePattern = "^Game", OutputVariable = "targets", ExecutionMode = WindowExecutionMode.FirstOnly };
+        project.WindowScope = new() { Enabled = true, TitlePattern = "^Game", ExecutionMode = WindowExecutionMode.FirstOnly };
 
         await runner.RunAsync(project, CancellationToken.None);
 
@@ -236,7 +236,7 @@ public sealed class WorkflowEngineTests
         public override Task<NodeExecutionResult> ExecuteAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken cancellationToken)
         {
             Handles = context.WindowHandles;
-            OutputValue = context.Variables["targets"];
+            OutputValue = context.Variables["windowHandles"];
             return Task.FromResult(NodeExecutionResult.Ok());
         }
     }

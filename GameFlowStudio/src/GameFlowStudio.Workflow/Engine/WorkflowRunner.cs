@@ -375,8 +375,7 @@ public sealed class WorkflowRunner : IWorkflowRunner
         if (handles is null || handles.Count == 0) throw new InvalidOperationException("窗口作用域没有找到匹配的窗口。");
         if (_windows is not null && !_windows.ActivateWindow(handles[0])) throw new InvalidOperationException("无法激活窗口作用域中的目标窗口。");
         context.WindowHandles = handles;
-        var outputVariable = string.IsNullOrWhiteSpace(scope.OutputVariable) ? "windowHandles" : scope.OutputVariable;
-        context.Variables[outputVariable] = handles.Select(handle => handle.ToInt64()).ToArray();
+        context.Variables["windowHandles"] = handles.Select(handle => handle.ToInt64()).ToArray();
     }
 
     private static object? ConvertElement(JsonElement element) => element.ValueKind switch

@@ -10,7 +10,7 @@
     {
       "id": "script-id",
       "name": "主流程",
-      "windowScope": { "enabled": false, "titlePattern": ".*", "outputVariable": "windowHandles" },
+      "windowScope": { "enabled": false, "titlePattern": ".*", "executionMode": "firstOnly" },
       "defaultNodeDelayMs": 0,
       "variables": { "counter": { "type": "number", "value": 0 } },
       "detectors": [],
@@ -29,7 +29,7 @@
 
 `stateCondition`（联合判断）到达节点时检测一次；只有一个规则时直接作为单一判断，多个规则时按 AND 联合判断，并按 `true`/`false` 输出继续流程。`colorCondition` 和 `imageCondition` 直接在节点参数中保存检测内容，不引用脚本检测器。
 
-一个项目文件可以包含多个脚本，每个脚本独立保存窗口作用域、节点默认等待时间、变量、检测器、节点和连接。运行时执行当前脚本的节点图。启用脚本的窗口作用域后，运行开始时会按 `titlePattern` 查找窗口，并将句柄数组写入 `outputVariable`。`executionMode` 支持 `firstOnly`（只操作第一个窗口）、`windowPriority`（窗口优先，逐窗口完整执行）和 `actionPriority`（动作优先，每轮让每个窗口执行一个当前动作）；匹配到单个窗口时三者效果相同。`defaultNodeDelayMs` 只对当前脚本的普通节点间隔生效，显式等待节点仍使用自身等待时间。节点包含 `id`、稳定的 `type`、React Flow `position` 以及 `data.displayName`、`data.parameters`。边包含 `source`、`sourceHandle`、`target`、`targetHandle`。
+一个项目文件可以包含多个脚本，每个脚本独立保存窗口作用域、节点默认等待时间、变量、检测器、节点和连接。运行时执行当前脚本的节点图。启用脚本的窗口作用域后，运行开始时会按 `titlePattern` 查找窗口，匹配结果由运行器作为当前窗口上下文使用。`executionMode` 支持 `firstOnly`（只操作第一个窗口）、`windowPriority`（窗口优先，逐窗口完整执行）和 `actionPriority`（动作优先，每轮让每个窗口执行一个当前动作）；匹配到单个窗口时三者效果相同。`defaultNodeDelayMs` 只对当前脚本的普通节点间隔生效，显式等待节点仍使用自身等待时间。节点包含 `id`、稳定的 `type`、React Flow `position` 以及 `data.displayName`、`data.parameters`。边包含 `source`、`sourceHandle`、`target`、`targetHandle`。
 
 ## 类型和参数
 

@@ -295,7 +295,6 @@ public sealed class MainViewModel : ObservableObject
     private bool _isScriptPropertiesVisible;
     private bool _scriptWindowScopeEnabled;
     private string _scriptWindowTitlePattern = ".*";
-    private string _scriptWindowOutputVariable = "windowHandles";
     private WindowExecutionMode _scriptWindowExecutionMode = WindowExecutionMode.FirstOnly;
     private string _activeScriptName = string.Empty;
     private int _scriptDefaultNodeDelayMs;
@@ -399,11 +398,6 @@ public sealed class MainViewModel : ObservableObject
     {
         get => _scriptWindowTitlePattern;
         set { if (Set(ref _scriptWindowTitlePattern, value)) { ActiveScript.WindowScope.TitlePattern = value; MarkScriptSettingsChanged(); } }
-    }
-    public string ScriptWindowOutputVariable
-    {
-        get => _scriptWindowOutputVariable;
-        set { if (Set(ref _scriptWindowOutputVariable, value)) { ActiveScript.WindowScope.OutputVariable = value; MarkScriptSettingsChanged(); } }
     }
     public WindowExecutionMode ScriptWindowExecutionMode
     {
@@ -837,7 +831,6 @@ public sealed class MainViewModel : ObservableObject
         _activeScriptName = script.Name;
         _scriptWindowScopeEnabled = script.WindowScope.Enabled;
         _scriptWindowTitlePattern = script.WindowScope.TitlePattern;
-        _scriptWindowOutputVariable = script.WindowScope.OutputVariable;
         _scriptWindowExecutionMode = script.WindowScope.ExecutionMode;
         _scriptDefaultNodeDelayMs = Math.Clamp(script.DefaultNodeDelayMs, 0, 60000);
         Raise(nameof(ActiveScriptName));
@@ -845,7 +838,6 @@ public sealed class MainViewModel : ObservableObject
         Raise(nameof(UseWholeScreen));
         Raise(nameof(ScriptWindowScopeEnabled));
         Raise(nameof(ScriptWindowTitlePattern));
-        Raise(nameof(ScriptWindowOutputVariable));
         Raise(nameof(ScriptWindowExecutionMode));
         Raise(nameof(ScriptWindowExecutionModeDescription));
         Raise(nameof(ScriptDefaultNodeDelayMs));
