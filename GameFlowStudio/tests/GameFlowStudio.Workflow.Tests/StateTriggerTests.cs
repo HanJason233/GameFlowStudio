@@ -75,6 +75,7 @@ public sealed class StateConditionTests
     {
         var capture = new FakeCapture(new CapturedFrame(0, 0, 1, 1, [0, 0, 255, 255]));
         var evaluator = new StateConditionEvaluator(new StateDetectorService([new ColorStateDetector()]), capture);
+        var logs = new List<WorkflowLogEntry>();
         var node = new WorkflowNode
         {
             Id = "color-condition",
@@ -99,7 +100,7 @@ public sealed class StateConditionTests
         {
             Workflow = new AutomationProject(),
             WaitIfPausedAsync = _ => Task.CompletedTask,
-            Log = _ => { }
+            Log = logs.Add
         };
 
         var result = await new SingleStateConditionNodeExecutor(NodeTypes.ColorCondition, DetectorType.Color, evaluator)
@@ -107,6 +108,7 @@ public sealed class StateConditionTests
 
         Assert.True(result.Success);
         Assert.Equal("true", result.NextHandle);
+        Assert.Contains(logs, entry => entry.Message.Contains("实际色值") && entry.Message.Contains("匹配比例"));
     }
 
     [Fact]
@@ -153,6 +155,8 @@ public sealed class StateConditionTests
         var result = await service.EvaluateAsync(detector, new DetectorEvaluationContext { Capture = capture, Images = images }, CancellationToken.None);
 
         Assert.Equal(1, result.State);
+        Assert.Contains("最佳匹配置信度", result.Message);
+        Assert.Contains("结果 匹配", result.Message);
     }
 
     [Fact]
@@ -173,6 +177,9 @@ public sealed class StateConditionTests
 
         Assert.True(result.Supported);
         Assert.Equal(1, result.State);
+        Assert.Contains("识别文本", result.Message);
+        Assert.Contains("目标文本", result.Message);
+        Assert.Contains("结果 匹配", result.Message);
         Assert.Equal(new CaptureRegion(12, 23, 2, 1), capture.LastRegion);
     }
 

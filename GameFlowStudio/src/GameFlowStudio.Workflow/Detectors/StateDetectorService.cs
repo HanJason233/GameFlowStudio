@@ -51,7 +51,12 @@ public sealed class ColorStateDetector : IStateDetector
         }
 
         var ratio = total == 0 ? 0 : (double)matching / total;
-        return StateDetectorService.Result(detector, ratio >= minimumRatio ? 1 : 0, true, $"匹配比例 {ratio:P1}。");
+        var state = ratio >= minimumRatio ? 1 : 0;
+        var sample = frame.Pixel(0, 0);
+        var sampledColor = sample.Length == 4 ? $"#{sample[2]:X2}{sample[1]:X2}{sample[0]:X2}" : "无有效像素";
+        var targetColor = $"#{target.R:X2}{target.G:X2}{target.B:X2}";
+        return StateDetectorService.Result(detector, state, true,
+            $"实际色值（首像素）{sampledColor}；目标色值 {targetColor}；容差 ±{tolerance}；匹配比例 {ratio:P1} / 要求 {minimumRatio:P1}；结果 {DetectorLogFormatting.Outcome(state == 1)}。");
     }
 
     private static CaptureRegion ReadRegion(DetectorDefinition detector, CaptureRegion fallback, CoordinateOrigin origin, int defaultWidth, int defaultHeight)
@@ -91,7 +96,9 @@ public sealed class ImageStateDetector : IStateDetector
         var tolerance = Math.Clamp(DetectorParameterReader.Int(detector, "tolerance", 10), 0, 255);
         var threshold = Math.Clamp(DetectorParameterReader.Double(detector, "matchThreshold", 0.95), 0, 1);
         var best = FindBestMatch(frame, template, tolerance, cancellationToken);
-        return StateDetectorService.Result(detector, best >= threshold ? 1 : 0, true, $"最佳匹配 {best:P1}。");
+        var state = best >= threshold ? 1 : 0;
+        return StateDetectorService.Result(detector, state, true,
+            $"最佳匹配置信度 {best:P1} / 要求 {threshold:P1}；容差 ±{tolerance}；搜索区域 ({search.X},{search.Y},{search.Width}×{search.Height})；结果 {DetectorLogFormatting.Outcome(state == 1)}。");
     }
 
     private static CaptureRegion ReadSearchRegion(DetectorDefinition detector, CaptureRegion fallback, CoordinateOrigin origin)
@@ -156,7 +163,8 @@ public sealed class OcrStateDetector(IOcrService ocr) : IStateDetector
         var score = recognition.Confidence is { } engineConfidence ? Math.Min(textScore, Math.Clamp(engineConfidence, 0, 1)) : textScore;
         var state = score >= threshold ? 1 : 0;
         var confidence = recognition.Confidence is { } reportedConfidence ? $"，引擎置信度 {reportedConfidence:P1}" : string.Empty;
-        return StateDetectorService.Result(detector, state, true, $"识别文本：{recognition.Text}，匹配得分 {score:P1}{confidence}");
+        return StateDetectorService.Result(detector, state, true,
+            $"识别文本「{DetectorLogFormatting.DisplayText(recognition.Text)}」；目标文本「{DetectorLogFormatting.DisplayText(targetText)}」；匹配得分 {score:P1} / 要求 {threshold:P1}{confidence}；识别区域 ({region.X},{region.Y},{region.Width}×{region.Height})；结果 {DetectorLogFormatting.Outcome(state == 1)}。");
     }
 
     private static CaptureRegion ReadRegion(DetectorDefinition detector, CaptureRegion fallback, CoordinateOrigin origin)
@@ -201,6 +209,14 @@ public sealed class OcrStateDetector(IOcrService ocr) : IStateDetector
         detector.Parameters.ContainsKey("matchThreshold")
             ? DetectorParameterReader.Double(detector, "matchThreshold", 0.8)
             : DetectorParameterReader.Double(detector, "confidenceThreshold", 0.8);
+}
+
+internal static class DetectorLogFormatting
+{
+    public static string Outcome(bool matched) => matched ? "匹配" : "不匹配";
+
+    public static string DisplayText(string value) =>
+        value.Replace('\r', ' ').Replace('\n', ' ').Trim();
 }
 
 internal sealed record CoordinateOrigin(bool IsWindow, int X, int Y, int? Width = null, int? Height = null)

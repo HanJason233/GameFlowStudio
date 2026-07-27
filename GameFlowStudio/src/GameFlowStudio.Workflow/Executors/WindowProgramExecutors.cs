@@ -6,17 +6,16 @@ namespace GameFlowStudio.Workflow.Executors;
 
 public sealed class RunProgramNodeExecutor(IProgramAutomationService programs) : NodeExecutorBase(Contracts.Nodes.NodeTypes.RunProgram)
 {
-    public override Task<NodeExecutionResult> ExecuteAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken cancellationToken) =>
-        RunAsync(node, cancellationToken);
-
-    private async Task<NodeExecutionResult> RunAsync(WorkflowNode node, CancellationToken cancellationToken)
+    public override async Task<NodeExecutionResult> ExecuteAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken cancellationToken)
     {
+        var path = NodeParameterReader.String(node, "path");
+        var arguments = NodeParameterReader.String(node, "arguments", string.Empty);
+        var workingDirectory = NodeParameterReader.String(node, "workingDirectory", string.Empty);
+        var waitForExit = NodeParameterReader.Bool(node, "waitForExit", false);
         await programs.StartAsync(
-            NodeParameterReader.String(node, "path"),
-            NodeParameterReader.String(node, "arguments", string.Empty),
-            NodeParameterReader.String(node, "workingDirectory", string.Empty),
-            NodeParameterReader.Bool(node, "waitForExit", false),
+            path, arguments, workingDirectory, waitForExit,
             cancellationToken).ConfigureAwait(false);
+        ActionExecutionLogging.Write(context, node, $"启动程序「{path}」{(string.IsNullOrWhiteSpace(arguments) ? string.Empty : $"，参数：{arguments}")}，等待退出：{(waitForExit ? "是" : "否")}。");
         return NodeExecutionResult.Ok();
     }
 }
@@ -27,7 +26,9 @@ public sealed class CloseProgramNodeExecutor(IWindowAutomationService windows) :
     {
         cancellationToken.ThrowIfCancellationRequested();
         var handle = WindowActionParameters.SelectTarget(node, context);
-        return Task.FromResult(WindowActionParameters.ActivateAndExecute(windows, handle, windows.CloseWindow, "关闭目标窗口失败。"));
+        var result = WindowActionParameters.ActivateAndExecute(windows, handle, windows.CloseWindow, "关闭目标窗口失败。");
+        if (result.Success) ActionExecutionLogging.Write(context, node, $"关闭窗口句柄 {handle}。");
+        return Task.FromResult(result);
     }
 }
 
@@ -39,7 +40,9 @@ public sealed class ResizeWindowNodeExecutor(IWindowAutomationService windows) :
         var handle = WindowActionParameters.SelectTarget(node, context);
         var width = NodeParameterReader.Int(node, "width");
         var height = NodeParameterReader.Int(node, "height");
-        return Task.FromResult(WindowActionParameters.ActivateAndExecute(windows, handle, target => windows.ResizeWindow(target, width, height), "设置窗口大小失败。"));
+        var result = WindowActionParameters.ActivateAndExecute(windows, handle, target => windows.ResizeWindow(target, width, height), "设置窗口大小失败。");
+        if (result.Success) ActionExecutionLogging.Write(context, node, $"设置窗口句柄 {handle} 大小为 {width}×{height}。");
+        return Task.FromResult(result);
     }
 }
 
@@ -49,7 +52,9 @@ public sealed class MinimizeWindowNodeExecutor(IWindowAutomationService windows)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var handle = WindowActionParameters.SelectTarget(node, context);
-        return Task.FromResult(WindowActionParameters.ActivateAndExecute(windows, handle, windows.MinimizeWindow, "最小化目标窗口失败。"));
+        var result = WindowActionParameters.ActivateAndExecute(windows, handle, windows.MinimizeWindow, "最小化目标窗口失败。");
+        if (result.Success) ActionExecutionLogging.Write(context, node, $"最小化窗口句柄 {handle}。");
+        return Task.FromResult(result);
     }
 }
 
@@ -63,6 +68,7 @@ public sealed class ArrangeWindowsNodeExecutor(IWindowAutomationService windows)
             NodeParameterReader.Int(node, "x", 0), NodeParameterReader.Int(node, "y", 0),
             NodeParameterReader.Int(node, "width", 800), NodeParameterReader.Int(node, "height", 600),
             NodeParameterReader.Int(node, "columns", 2), NodeParameterReader.Int(node, "gapX", 20), NodeParameterReader.Int(node, "gapY", 20));
+        if (arranged) ActionExecutionLogging.Write(context, node, $"整理 {handles.Count} 个窗口，区域起点 ({NodeParameterReader.Int(node, "x", 0)},{NodeParameterReader.Int(node, "y", 0)})，大小 {NodeParameterReader.Int(node, "width", 800)}×{NodeParameterReader.Int(node, "height", 600)}。");
         return Task.FromResult(arranged ? NodeExecutionResult.Ok() : NodeExecutionResult.Fail("窗口整理失败，或没有可整理的目标窗口。"));
     }
 }
@@ -75,7 +81,9 @@ public sealed class SetWindowResolutionNodeExecutor(IWindowAutomationService win
         var handle = WindowActionParameters.SelectTarget(node, context);
         var width = NodeParameterReader.Int(node, "width");
         var height = NodeParameterReader.Int(node, "height");
-        return Task.FromResult(WindowActionParameters.ActivateAndExecute(windows, handle, target => windows.SetWindowResolution(target, width, height), "设置窗口分辨率失败。"));
+        var result = WindowActionParameters.ActivateAndExecute(windows, handle, target => windows.SetWindowResolution(target, width, height), "设置窗口分辨率失败。");
+        if (result.Success) ActionExecutionLogging.Write(context, node, $"设置窗口句柄 {handle} 分辨率为 {width}×{height}。");
+        return Task.FromResult(result);
     }
 }
 
