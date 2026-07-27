@@ -231,19 +231,21 @@
                                 </ItemsControl>
                             </StackPanel>
                             <controls:SelectableTextBlock Text="数值参数" Foreground="#94A3B8" Margin="0,0,0,3"/>
-                            <ItemsControl ItemsSource="{Binding NumericParameters}">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <StackPanel Width="136" Margin="0,3,6,3">
-                                            <controls:SelectableTextBlock Text="{Binding Path=DisplayName, Mode=OneWay}" Foreground="#94A3B8" ToolTip="{Binding Description}"/>
-                                            <TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"/>
-                                        </StackPanel>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
+                            <Border BorderBrush="#334155" BorderThickness="1" CornerRadius="4" Padding="6" Margin="0,0,0,4">
+                                <ItemsControl ItemsSource="{Binding NumericParameters}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Width="112" Margin="0,2,6,2">
+                                                <controls:SelectableTextBlock Text="{Binding Name}" Foreground="#94A3B8" ToolTip="{Binding Description}"/>
+                                                <TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"/>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Border>
                             <controls:SelectableTextBlock Text="文本参数" Foreground="#94A3B8" Margin="0,8,0,3"/>
                             <ItemsControl ItemsSource="{Binding TextParameters}">
                                 <ItemsControl.ItemsPanel>
@@ -348,19 +350,21 @@
                             </StackPanel>
                             <StackPanel Visibility="{Binding HasNumericParameters, Converter={StaticResource BoolVisibility}}">
                                 <controls:SelectableTextBlock Text="数值参数" Foreground="#94A3B8" Margin="0,0,0,3"/>
-                                <ItemsControl ItemsSource="{Binding NumericParameters}">
-                                    <ItemsControl.ItemsPanel>
-                                        <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
-                                    </ItemsControl.ItemsPanel>
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <StackPanel Width="136" Margin="0,3,6,3">
-                                                <controls:SelectableTextBlock Text="{Binding Path=DisplayName, Mode=OneWay}" Foreground="#94A3B8" ToolTip="{Binding Description}"/>
-                                                <TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"/>
-                                            </StackPanel>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
+                                <Border BorderBrush="#334155" BorderThickness="1" CornerRadius="4" Padding="6" Margin="0,0,0,4">
+                                    <ItemsControl ItemsSource="{Binding NumericParameters}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Width="112" Margin="0,2,6,2">
+                                                    <controls:SelectableTextBlock Text="{Binding Name}" Foreground="#94A3B8" ToolTip="{Binding Description}"/>
+                                                    <TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"/>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </Border>
                             </StackPanel>
                             <StackPanel Visibility="{Binding HasTextParameters, Converter={StaticResource BoolVisibility}}">
                                 <controls:SelectableTextBlock Text="文本参数" Foreground="#94A3B8" Margin="0,8,0,3"/>
