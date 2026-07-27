@@ -3,16 +3,24 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using GameFlowStudio.Contracts.Results;
 using GameFlowStudio.Contracts.Services;
+using GameFlowStudio.Storage.Serialization;
 
 namespace GameFlowStudio.Desktop.Services;
 
 public interface IImageCaptureService
 {
+    string CreatePrivateTemplatePath();
     Task SaveAsync(CaptureRegion region, string path, CancellationToken cancellationToken = default);
 }
 
 public sealed class ImageCaptureService(IDesktopCaptureService capture) : IImageCaptureService
 {
+    public string CreatePrivateTemplatePath()
+    {
+        Directory.CreateDirectory(StoragePaths.ImageTemplatesDirectory);
+        return Path.Combine(StoragePaths.ImageTemplatesDirectory, $"template-{DateTime.UtcNow:yyyyMMdd-HHmmssfff}-{Guid.NewGuid():N}.png");
+    }
+
     public async Task SaveAsync(CaptureRegion region, string path, CancellationToken cancellationToken = default)
     {
         if (!region.IsValid) throw new ArgumentException("截图区域无效。", nameof(region));

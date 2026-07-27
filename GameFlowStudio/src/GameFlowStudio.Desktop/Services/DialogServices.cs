@@ -11,7 +11,6 @@ public interface IFileDialogService
 {
     string? OpenProject(string? initialDirectory = null);
     string? SaveProject(string? currentPath = null);
-    string? SaveImageTemplate(string? initialDirectory = null);
     bool ConfirmDiscardChanges();
     void ShowError(string message);
     bool EditSettings(AppSettings settings);
@@ -21,21 +20,6 @@ public sealed class FileDialogService : IFileDialogService
 {
     public string? OpenProject(string? initialDirectory = null) { var dialog = new OpenFileDialog { Filter = "GameFlow 项目 (*.gflow)|*.gflow|JSON 文件 (*.json)|*.json", InitialDirectory = initialDirectory }; return dialog.ShowDialog() == true ? dialog.FileName : null; }
     public string? SaveProject(string? currentPath = null) { var dialog = new SaveFileDialog { Filter = "GameFlow 项目 (*.gflow)|*.gflow", DefaultExt = ".gflow", AddExtension = true, FileName = currentPath is null ? null : Path.GetFileName(currentPath), InitialDirectory = currentPath is null ? null : Path.GetDirectoryName(currentPath) }; return dialog.ShowDialog() == true ? dialog.FileName : null; }
-    public string? SaveImageTemplate(string? initialDirectory = null)
-    {
-        var dialog = new SaveFileDialog
-        {
-            Filter = "PNG 图片 (*.png)|*.png",
-            DefaultExt = ".png",
-            AddExtension = true,
-            FileName = "image-template.png",
-            InitialDirectory = initialDirectory
-        };
-        if (dialog.ShowDialog() != true) return null;
-        return Path.GetExtension(dialog.FileName).Equals(".png", StringComparison.OrdinalIgnoreCase)
-            ? dialog.FileName
-            : Path.ChangeExtension(dialog.FileName, ".png");
-    }
     public bool ConfirmDiscardChanges() => MessageBox.Show("当前项目有未保存的更改，是否放弃？", "GameFlow Studio", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes;
     public void ShowError(string message) => MessageBox.Show(message, "GameFlow Studio", MessageBoxButton.OK, MessageBoxImage.Error);
     public bool EditSettings(AppSettings settings)

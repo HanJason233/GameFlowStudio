@@ -715,9 +715,7 @@ public sealed class MainViewModel : ObservableObject
         var region = await _rectanglePicker.PickAsync(bounds);
         if (region is null) return;
 
-        var initialDirectory = _currentPath is null ? null : Path.GetDirectoryName(_currentPath);
-        var path = _dialogs.SaveImageTemplate(initialDirectory);
-        if (path is null) return;
+        var path = _imageCapture.CreatePrivateTemplatePath();
 
         try
         {
