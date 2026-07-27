@@ -1,5 +1,6 @@
 using System.IO;
 using System.Windows;
+using GameFlowStudio.Contracts.Results;
 using GameFlowStudio.Contracts.Services;
 using GameFlowStudio.Desktop.Views;
 using Microsoft.Win32;
@@ -31,14 +32,14 @@ public sealed class FileDialogService : IFileDialogService
     }
 }
 
-public interface ICoordinatePickerService { Task<(int X, int Y)?> PickAsync(); }
+public interface ICoordinatePickerService { Task<(int X, int Y)?> PickAsync(WindowBounds? relativeTo = null); }
 public sealed class CoordinatePickerService(Automation.Coordinates.CursorPositionService cursor) : ICoordinatePickerService
 {
-    public Task<(int X, int Y)?> PickAsync()
+    public Task<(int X, int Y)?> PickAsync(WindowBounds? relativeTo = null)
     {
         var main = Application.Current.MainWindow; var previous = main.WindowState;
         main.WindowState = WindowState.Minimized;
-        var picker = new CoordinatePickerWindow(cursor); picker.ShowDialog();
+        var picker = new CoordinatePickerWindow(cursor, relativeTo); picker.ShowDialog();
         main.WindowState = previous; main.Activate();
         return Task.FromResult(picker.SelectedPosition);
     }

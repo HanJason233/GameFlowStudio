@@ -15,9 +15,9 @@ public sealed class RelativeCoordinatePickerService(
 {
     public async Task<(int X, int Y)?> PickAsync(WindowInfo window)
     {
-        var screenPosition = await picker.PickAsync().ConfigureAwait(true);
-        if (screenPosition is null) return null;
         var bounds = windows.GetWindowBounds(window.Handle);
+        var screenPosition = await picker.PickAsync(bounds).ConfigureAwait(true);
+        if (screenPosition is null) return null;
         return WindowCoordinateCalculator.ToRelative(bounds, screenPosition.Value.X, screenPosition.Value.Y);
     }
 }
