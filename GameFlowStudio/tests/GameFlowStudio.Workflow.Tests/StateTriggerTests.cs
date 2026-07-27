@@ -155,6 +155,27 @@ public sealed class StateConditionTests
         Assert.Equal(1, result.State);
     }
 
+    [Fact]
+    public async Task OcrDetectorMatchesTextAtConfiguredThreshold()
+    {
+        var capture = new FakeCapture(new CapturedFrame(10, 20, 4, 3, new byte[4 * 3 * 4]));
+        var detector = new DetectorDefinition { Id = "ocr", Type = DetectorType.Ocr };
+        detector.Parameters["coordinateMode"] = ProjectJson.Element("absolute");
+        detector.Parameters["x"] = ProjectJson.Element(12);
+        detector.Parameters["y"] = ProjectJson.Element(23);
+        detector.Parameters["width"] = ProjectJson.Element(2);
+        detector.Parameters["height"] = ProjectJson.Element(1);
+        detector.Parameters["targetText"] = ProjectJson.Element("Game Start");
+        detector.Parameters["matchThreshold"] = ProjectJson.Element(.9d);
+
+        var result = await new StateDetectorService([new OcrStateDetector(new FakeOcr("GameStart"))])
+            .EvaluateAsync(detector, Context(capture), CancellationToken.None);
+
+        Assert.True(result.Supported);
+        Assert.Equal(1, result.State);
+        Assert.Equal(new CaptureRegion(12, 23, 2, 1), capture.LastRegion);
+    }
+
     [Theory]
     [InlineData(DetectorType.Ocr)]
     [InlineData(DetectorType.AiRecognition)]
@@ -206,5 +227,11 @@ public sealed class StateConditionTests
     private sealed class FakeImages(DetectorImage image) : IImageTemplateProvider
     {
         public Task<DetectorImage> LoadAsync(string path, CancellationToken cancellationToken) => Task.FromResult(image);
+    }
+
+    private sealed class FakeOcr(string text) : IOcrService
+    {
+        public Task<OcrRecognitionResult> RecognizeAsync(CapturedFrame frame, CancellationToken cancellationToken) =>
+            Task.FromResult(new OcrRecognitionResult(text));
     }
 }

@@ -80,6 +80,8 @@ public sealed class NodeParameterItem(string name, string value, JsonValueKind k
         ["width"] = "宽度",
         ["height"] = "高度",
         ["targetColor"] = "目标颜色（#RRGGBB）",
+        ["targetText"] = "OCR 目标文本",
+        ["expectedText"] = "OCR 目标文本（兼容字段）",
         ["tolerance"] = "检测容差",
         ["minMatchRatio"] = "最低匹配比例",
         ["templatePath"] = "图片模板路径",
@@ -211,8 +213,8 @@ public sealed class SelectedNodeViewModel : ObservableObject
     public ObservableCollection<DetectorEditorItem> Detectors { get; } = [];
     public ObservableCollection<DetectorRuleEditorItem> StateRules { get; } = [];
     public bool IsStateCondition => Type == NodeTypes.StateCondition;
-    public bool IsSingleStateCondition => Type is NodeTypes.ColorCondition or NodeTypes.ImageCondition;
-    public bool SupportsCoordinateMode => Type is NodeTypes.ColorCondition or NodeTypes.ImageCondition
+    public bool IsSingleStateCondition => Type is NodeTypes.ColorCondition or NodeTypes.ImageCondition or NodeTypes.OcrCondition;
+    public bool SupportsCoordinateMode => Type is NodeTypes.ColorCondition or NodeTypes.ImageCondition or NodeTypes.OcrCondition
         or NodeTypes.MouseClick or NodeTypes.MouseMove or NodeTypes.MouseDrag or NodeTypes.MouseScroll;
     public IEnumerable<NodeParameterItem> NumericParameters => Parameters.Where(parameter => parameter.Kind == JsonValueKind.Number
         && parameter.Name is not ("state" or "minMatchRatio" or "matchThreshold"));
@@ -232,17 +234,27 @@ public sealed class SelectedNodeViewModel : ObservableObject
     {
         NodeTypes.ColorCondition => Parameters.FirstOrDefault(parameter => parameter.Name == "minMatchRatio"),
         NodeTypes.ImageCondition => Parameters.FirstOrDefault(parameter => parameter.Name == "matchThreshold"),
+        NodeTypes.OcrCondition => Parameters.FirstOrDefault(parameter => parameter.Name == "matchThreshold"),
         _ => null
     };
     public bool HasConfidenceParameter => ConfidenceParameter is not null;
-    public string ConfidenceLabel => Type == NodeTypes.ColorCondition ? "颜色匹配置信阈值" : "图像匹配置信阈值";
+    public string ConfidenceLabel => Type switch
+    {
+        NodeTypes.ColorCondition => "颜色匹配置信阈值",
+        NodeTypes.ImageCondition => "图像匹配置信阈值",
+        NodeTypes.OcrCondition => "OCR文本匹配阈值",
+        _ => "匹配置信阈值"
+    };
     public string ConfidenceHint => Type == NodeTypes.ColorCondition
         ? "区域内达到此比例的像素匹配目标颜色时判定为命中。"
-        : "模板匹配得分达到此比例时判定为命中。";
+        : Type == NodeTypes.ImageCondition
+            ? "模板匹配得分达到此比例时判定为命中。"
+            : "识别文本与目标文本的相似度达到此比例时判定为命中。";
     public string LogicLabel => Type switch
     {
         NodeTypes.ColorCondition => "色判断",
         NodeTypes.ImageCondition => "图判断",
+        NodeTypes.OcrCondition => "OCR判断",
         _ => "联合判断"
     };
     public string StateRuleSummary => StateRules.Count switch
@@ -251,11 +263,12 @@ public sealed class SelectedNodeViewModel : ObservableObject
         1 => "单一判断",
         _ => $"{StateRules.Count} 个检测器 · 联合满足"
     };
-    public bool CanPickCoordinate => Type is NodeTypes.ColorCondition or NodeTypes.ImageCondition or NodeTypes.MouseClick or NodeTypes.MouseMove or NodeTypes.MouseDrag or NodeTypes.MouseScroll;
+    public bool CanPickCoordinate => Type is NodeTypes.ColorCondition or NodeTypes.ImageCondition or NodeTypes.OcrCondition or NodeTypes.MouseClick or NodeTypes.MouseMove or NodeTypes.MouseDrag or NodeTypes.MouseScroll;
     public string CoordinatePickButtonLabel => Type switch
     {
         NodeTypes.ColorCondition => "拾取色值点",
         NodeTypes.ImageCondition => "取图",
+        NodeTypes.OcrCondition => "拾取区域",
         NodeTypes.MouseDrag => "拾取起止点",
         _ => "拾取坐标"
     };
@@ -263,6 +276,7 @@ public sealed class SelectedNodeViewModel : ObservableObject
     {
         NodeTypes.ColorCondition => "选择拾取模式后点击屏幕，同时记录坐标和颜色值。",
         NodeTypes.ImageCondition => "选择拾取模式后拖动框选矩形截图，同时记录坐标和尺寸。",
+        NodeTypes.OcrCondition => "选择拾取模式后拖动框选 OCR 识别区域，同时记录坐标和尺寸。",
         _ => "先选择基于屏幕或基于窗口的拾取模式。"
     };
     public string GetParameterValue(string name, string fallback) =>
@@ -582,7 +596,7 @@ public sealed class MainViewModel : ObservableObject
         if (selected.IsSingleStateCondition)
         {
             var confidenceName = selected.Type == NodeTypes.ColorCondition ? "minMatchRatio" : "matchThreshold";
-            var defaultConfidence = selected.Type == NodeTypes.ColorCondition ? "1" : "0.95";
+            var defaultConfidence = selected.Type == NodeTypes.ColorCondition ? "1" : selected.Type == NodeTypes.OcrCondition ? "0.8" : "0.95";
             if (!selected.Parameters.Any(parameter => parameter.Name == confidenceName))
                 selected.Parameters.Add(new(confidenceName, defaultConfidence, JsonValueKind.Number, OnSelectedNodeEditorChanged));
         }
@@ -674,6 +688,12 @@ public sealed class MainViewModel : ObservableObject
             return;
         }
 
+        if (SelectedNode.Type == NodeTypes.OcrCondition)
+        {
+            await PickOcrRegionAsync(mode.Value, window);
+            return;
+        }
+
         var first = await PickCoordinateAsync(mode.Value, window);
         if (first is null) return;
         SetParameter("coordinateMode", mode == CoordinatePickMode.Screen ? "absolute" : "relative");
@@ -736,6 +756,22 @@ public sealed class MainViewModel : ObservableObject
         SetParameter("width", region.Width);
         SetParameter("height", region.Height);
         SetParameter("templatePath", path);
+        await UpdateSelectedNodeAsync();
+    }
+
+    private async Task PickOcrRegionAsync(CoordinatePickMode mode, WindowInfo? window)
+    {
+        WindowBounds? bounds = window is null ? null : _windows.GetWindowBounds(window.Handle);
+        var region = await _rectanglePicker.PickAsync(bounds);
+        if (region is null) return;
+
+        SetParameter("coordinateMode", mode == CoordinatePickMode.Screen ? "absolute" : "relative");
+        var x = mode == CoordinatePickMode.Screen ? region.X : region.X - bounds!.Left;
+        var y = mode == CoordinatePickMode.Screen ? region.Y : region.Y - bounds!.Top;
+        SetParameter("x", x);
+        SetParameter("y", y);
+        SetParameter("width", region.Width);
+        SetParameter("height", region.Height);
         await UpdateSelectedNodeAsync();
     }
 

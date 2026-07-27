@@ -314,7 +314,7 @@
                                                 </DockPanel>
                                                 <ComboBox ItemsSource="{Binding DataContext.DetectorTypes, RelativeSource={RelativeSource AncestorType=Window}}" SelectedItem="{Binding Type, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,0"/>
                                                 <CheckBox Content="启用" IsChecked="{Binding Enabled, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,0"/>
-                                                <controls:SelectableTextBlock Text="参数 JSON（颜色：x/y/width/height/targetColor/tolerance；图片：templatePath）" Foreground="#64748B" FontSize="10" Margin="0,4,0,2" TextWrapping="Wrap"/>
+                                                <controls:SelectableTextBlock Text="参数 JSON（颜色：x/y/width/height/targetColor/tolerance；图片：templatePath；OCR：x/y/width/height/targetText/matchThreshold）" Foreground="#64748B" FontSize="10" Margin="0,4,0,2" TextWrapping="Wrap"/>
                                                 <TextBox Text="{Binding ParametersJson, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="48" FontFamily="Consolas"/>
                                                 <controls:SelectableTextBlock Text="{Binding Path=ParametersError, Mode=OneWay}" Foreground="#F87171" FontSize="10" Margin="0,3,0,0" Visibility="{Binding HasParametersError, Converter={StaticResource BoolVisibility}}" TextWrapping="Wrap"/>
                                             </StackPanel>

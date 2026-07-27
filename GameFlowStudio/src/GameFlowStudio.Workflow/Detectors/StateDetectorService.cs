@@ -151,12 +151,12 @@ public sealed class OcrStateDetector(IOcrService ocr) : IStateDetector
         var recognition = await ocr.RecognizeAsync(frame, cancellationToken).ConfigureAwait(false);
         var normalizedTarget = Normalize(targetText);
         var normalizedText = Normalize(recognition.Text);
-        var textMatched = normalizedText.Contains(normalizedTarget, StringComparison.OrdinalIgnoreCase);
         var threshold = Math.Clamp(ReadThreshold(detector), 0, 1);
-        var confidenceMatched = !recognition.Confidence.HasValue || recognition.Confidence.Value >= threshold;
-        var state = textMatched && confidenceMatched ? 1 : 0;
-        var confidence = recognition.Confidence is { } value ? $"，置信度 {value:P1}" : string.Empty;
-        return StateDetectorService.Result(detector, state, true, $"识别文本：{recognition.Text}{confidence}");
+        var textScore = Similarity(normalizedTarget, normalizedText);
+        var score = recognition.Confidence is { } engineConfidence ? Math.Min(textScore, Math.Clamp(engineConfidence, 0, 1)) : textScore;
+        var state = score >= threshold ? 1 : 0;
+        var confidence = recognition.Confidence is { } reportedConfidence ? $"，引擎置信度 {reportedConfidence:P1}" : string.Empty;
+        return StateDetectorService.Result(detector, state, true, $"识别文本：{recognition.Text}，匹配得分 {score:P1}{confidence}");
     }
 
     private static CaptureRegion ReadRegion(DetectorDefinition detector, CaptureRegion fallback, CoordinateOrigin origin)
@@ -170,7 +170,27 @@ public sealed class OcrStateDetector(IOcrService ocr) : IStateDetector
     }
 
     private static string Normalize(string value) =>
-        string.Join(' ', value.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        new string(value.Where(character => !char.IsWhiteSpace(character)).ToArray()).ToUpperInvariant();
+
+    private static double Similarity(string target, string actual)
+    {
+        if (target.Length == 0 || actual.Length == 0) return 0;
+        if (actual.Contains(target, StringComparison.Ordinal)) return 1;
+        var previous = new int[actual.Length + 1];
+        var current = new int[actual.Length + 1];
+        for (var column = 0; column <= actual.Length; column++) previous[column] = column;
+        for (var row = 1; row <= target.Length; row++)
+        {
+            current[0] = row;
+            for (var column = 1; column <= actual.Length; column++)
+            {
+                var substitution = previous[column - 1] + (target[row - 1] == actual[column - 1] ? 0 : 1);
+                current[column] = Math.Min(Math.Min(previous[column] + 1, current[column - 1] + 1), substitution);
+            }
+            (previous, current) = (current, previous);
+        }
+        return 1d - (double)previous[actual.Length] / Math.Max(target.Length, actual.Length);
+    }
 
     private static string ReadText(DetectorDefinition detector) =>
         detector.Parameters.ContainsKey("targetText")

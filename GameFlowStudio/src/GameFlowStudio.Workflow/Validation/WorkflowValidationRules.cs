@@ -78,6 +78,7 @@ internal sealed class NodeConnectionRule : IWorkflowValidationRule
                 break;
             case NodeTypes.ColorCondition:
             case NodeTypes.ImageCondition:
+            case NodeTypes.OcrCondition:
             case NodeTypes.StateCondition:
                 RequireHandles(result, node, outgoing, "true", "false");
                 break;
@@ -262,10 +263,10 @@ internal sealed class StateConfigurationRule : IWorkflowValidationRule
             {
                 ValidateCoordinate(detector, "x", "y");
                 var targetText = OcrTargetText(detector).Trim();
-                if (targetText.Length == 0) throw new InvalidOperationException("OCR target text cannot be empty.");
+                if (targetText.Length == 0) throw new InvalidOperationException("OCR 目标文本不能为空。");
                 if (DetectorParameterReader.Int(detector, "width", 1) <= 0 || DetectorParameterReader.Int(detector, "height", 1) <= 0)
-                    throw new InvalidOperationException("OCR region width and height must be greater than zero.");
-                ValidateRange(OcrThreshold(detector), 0, 1, "OCR match threshold");
+                    throw new InvalidOperationException("OCR 检测区域的宽度和高度必须大于 0。");
+                ValidateRange(OcrThreshold(detector), 0, 1, "OCR 匹配阈值");
             }
         }
         catch (InvalidOperationException exception)

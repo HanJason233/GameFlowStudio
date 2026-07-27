@@ -23,11 +23,11 @@
 
 ## 脚本检测器与逻辑判断
 
-每个脚本独立保存 `detectors`。检测器支持 `color`、`image`，`ocr` 与 `aiRecognition` 当前返回 TODO 未支持结果。检测器只供当前脚本的逻辑判断节点使用。
+每个脚本独立保存 `detectors`。检测器支持 `color`、`image`、`ocr`；`aiRecognition` 当前返回 TODO 未支持结果。检测器只供当前脚本的逻辑判断节点使用。
 
-`color` 参数使用 `coordinateMode`、`x`、`y`、`width`、`height`、`targetColor`、`tolerance` 和可选 `minMatchRatio`；`image` 使用 `coordinateMode`、`templatePath`、可选搜索区域、`tolerance` 与 `matchThreshold`。
+`color` 参数使用 `coordinateMode`、`x`、`y`、`width`、`height`、`targetColor`、`tolerance` 和可选 `minMatchRatio`；`image` 使用 `coordinateMode`、`templatePath`、可选搜索区域、`tolerance` 与 `matchThreshold`；`ocr` 使用 `coordinateMode`、`x`、`y`、`width`、`height`、`targetText` 与 `matchThreshold`。OCR 使用 Windows 当前用户安装的 OCR 语言包识别文本，匹配得分达到阈值时命中。
 
-`stateCondition`（联合判断）到达节点时检测一次；只有一个规则时直接作为单一判断，多个规则时按 AND 联合判断，并按 `true`/`false` 输出继续流程。`colorCondition` 和 `imageCondition` 直接在节点参数中保存检测内容，不引用脚本检测器。
+`stateCondition`（联合判断）到达节点时检测一次；只有一个规则时直接作为单一判断，多个规则时按 AND 联合判断，并按 `true`/`false` 输出继续流程。`colorCondition`、`imageCondition` 和 `ocrCondition` 直接在节点参数中保存检测内容，不引用脚本检测器。
 
 一个项目文件可以包含多个脚本，每个脚本独立保存窗口作用域、节点默认等待时间、变量、检测器、节点和连接。运行时执行当前脚本的节点图。启用脚本的窗口作用域后，运行开始时会按 `titlePattern` 查找窗口，匹配结果由运行器作为当前窗口上下文使用。`executionMode` 支持 `firstOnly`（只操作第一个窗口）、`windowPriority`（窗口优先，逐窗口完整执行）和 `actionPriority`（动作优先，每轮让每个窗口执行一个当前动作）；匹配到单个窗口时三者效果相同。`defaultNodeDelayMs` 只对当前脚本的普通节点间隔生效，显式等待节点仍使用自身等待时间。节点包含 `id`、稳定的 `type`、React Flow `position` 以及 `data.displayName`、`data.parameters`。边包含 `source`、`sourceHandle`、`target`、`targetHandle`。
 
@@ -46,6 +46,7 @@
 | `wait` | `durationMs`，可选 `randomMinMs`/`randomMaxMs` | `output` |
 | `colorCondition` | `coordinateMode`, `x`, `y`, `width`, `height`, `targetColor`, `tolerance`, `minMatchRatio`, `state` | `true`, `false` |
 | `imageCondition` | `coordinateMode`, `templatePath`, `x`, `y`, 可选 `width`/`height`、`tolerance`、`matchThreshold`、`state` | `true`, `false` |
+| `ocrCondition` | `coordinateMode`, `x`, `y`, `width`, `height`, `targetText`, `matchThreshold`, `state` | `true`, `false` |
 | `stateCondition` | `detectorRules`（多个检测器 ID 与期望 `state` 0/1 的数组） | `true`, `false` |
 | `log` | `message`, `level` | `output` |
 | `runProgram` | `path`, `arguments`, `workingDirectory`, `waitForExit` | `output` |
