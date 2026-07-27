@@ -40,6 +40,12 @@ public interface IOcrService
     Task<OcrRecognitionResult> RecognizeAsync(CapturedFrame frame, CancellationToken cancellationToken);
 }
 
+/// <summary>可根据目标文本在多个 OCR 预处理结果中选择更合适结果的 OCR 服务。</summary>
+public interface ITargetAwareOcrService
+{
+    Task<OcrRecognitionResult> RecognizeAsync(CapturedFrame frame, string targetText, CancellationToken cancellationToken);
+}
+
 public interface IStateDetector
 {
     DetectorType Type { get; }

@@ -155,7 +155,9 @@ public sealed class OcrStateDetector(IOcrService ocr) : IStateDetector
         var origin = CoordinateOrigin.Read(detector, context);
         var region = ReadRegion(detector, context.Capture.VirtualScreenBounds, origin);
         var frame = await context.CaptureAsync(region, cancellationToken).ConfigureAwait(false);
-        var recognition = await ocr.RecognizeAsync(frame, cancellationToken).ConfigureAwait(false);
+        var recognition = ocr is ITargetAwareOcrService targetAware
+            ? await targetAware.RecognizeAsync(frame, targetText, cancellationToken).ConfigureAwait(false)
+            : await ocr.RecognizeAsync(frame, cancellationToken).ConfigureAwait(false);
         var normalizedTarget = Normalize(targetText);
         var normalizedText = Normalize(recognition.Text);
         var threshold = Math.Clamp(ReadThreshold(detector), 0, 1);
