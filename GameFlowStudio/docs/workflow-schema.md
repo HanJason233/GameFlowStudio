@@ -25,7 +25,7 @@
 
 每个脚本独立保存 `detectors`。检测器支持 `color`、`image`、`ocr`；`aiRecognition` 当前返回 TODO 未支持结果。检测器只供当前脚本的逻辑判断节点使用。
 
-`color` 参数使用 `coordinateMode`、`x`、`y`、`width`、`height`、`targetColor`、`tolerance` 和可选 `minMatchRatio`；`image` 使用 `coordinateMode`、`templatePath`、可选搜索区域、`tolerance` 与 `matchThreshold`；`ocr` 使用 `coordinateMode`、`x`、`y`、`width`、`height`、`targetText` 与 `matchThreshold`。桌面端 OCR 由宿主注入的 `IOcrService` 调用 Gemini 云端 `generateContent` 接口，匹配得分达到阈值时命中；API 密钥通过 `GEMINI_API_KEY` 环境变量提供。
+`color` 参数使用 `coordinateMode`、`x`、`y`、`width`、`height`、`targetColor`、`tolerance` 和可选 `minMatchRatio`；`image` 使用 `coordinateMode`、`templatePath`、可选搜索区域、`tolerance` 与 `matchThreshold`；`ocr` 使用 `coordinateMode`、`x`、`y`、`width`、`height`、`targetText` 与 `matchThreshold`。桌面端 OCR 由宿主注入的 `IOcrService` 调用 Gemini 云端 `generateContent` 接口，匹配得分达到阈值时命中；API 密钥优先使用全局设置中保存的值，也可使用 `GEMINI_API_KEY` 环境变量。
 
 `stateCondition`（联合判断）到达节点时检测一次；只有一个规则时直接作为单一判断，多个规则时按 AND 联合判断，并按 `true`/`false` 输出继续流程。`colorCondition`、`imageCondition` 和 `ocrCondition` 直接在节点参数中保存检测内容，不引用脚本检测器。
 

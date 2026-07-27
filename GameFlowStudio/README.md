@@ -57,7 +57,7 @@ dotnet test GameFlowStudio.sln -c Release
 
 ## Gemini OCR 配置
 
-桌面端默认使用 `https://gemini.11145149.xyz/` 的 Gemini `generateContent` 接口和 `gemini-flash-lite-latest` 模型，默认提示词为“你当前是ocr识别助手，只输出识别到的文字，字母，数字，符号等”。API 密钥不会写入项目文件，请在启动前设置 `GEMINI_API_KEY` 环境变量；也可以使用 `GeminiOcr__ApiBaseUrl`、`GeminiOcr__EndpointPath`、`GeminiOcr__Model`、`GeminiOcr__Prompt` 和 `GeminiOcr__TimeoutSeconds` 覆盖默认配置。
+桌面端默认使用 `https://gemini.11145149.xyz/` 的 Gemini `generateContent` 接口和 `gemini-flash-lite-latest` 模型，默认提示词为“你当前是ocr识别助手，只输出识别到的文字，字母，数字，符号等”。API 密钥可在“全局设置 → Gemini OCR API 密钥”中保存到本机设置；留空时也可以使用 `GEMINI_API_KEY` 环境变量。也可以使用 `GeminiOcr__ApiBaseUrl`、`GeminiOcr__EndpointPath`、`GeminiOcr__Model`、`GeminiOcr__Prompt` 和 `GeminiOcr__TimeoutSeconds` 覆盖默认配置。
 
 ## 目录结构
 

@@ -16,6 +16,7 @@ namespace GameFlowStudio.Desktop.Services;
 public sealed class GeminiOcrService(
     HttpClient httpClient,
     GeminiOcrOptions options,
+    ISettingsStorageService settingsStorage,
     ILogger<GeminiOcrService> logger) : IOcrService, ITargetAwareOcrService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
@@ -36,8 +37,10 @@ public sealed class GeminiOcrService(
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (!frame.IsValid()) throw new ArgumentException("OCR 截图区域无效。", nameof(frame));
-        if (string.IsNullOrWhiteSpace(options.ApiKey))
-            throw new InvalidOperationException("未配置 Gemini OCR API 密钥，请设置环境变量 GEMINI_API_KEY。");
+        var settings = await settingsStorage.LoadAsync(cancellationToken).ConfigureAwait(false);
+        var apiKey = string.IsNullOrWhiteSpace(settings.GeminiApiKey) ? options.ApiKey : settings.GeminiApiKey.Trim();
+        if (string.IsNullOrWhiteSpace(apiKey))
+            throw new InvalidOperationException("未配置 Gemini OCR API 密钥，请在全局设置中填写，或设置环境变量 GEMINI_API_KEY。");
 
         var endpoint = BuildEndpoint();
         var image = ConvertFrameToPng(frame);
@@ -66,7 +69,7 @@ public sealed class GeminiOcrService(
         };
 
         using var request = new HttpRequestMessage(HttpMethod.Post, endpoint);
-        request.Headers.TryAddWithoutValidation("x-goog-api-key", options.ApiKey);
+        request.Headers.TryAddWithoutValidation("x-goog-api-key", apiKey);
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         request.Content = new StringContent(JsonSerializer.Serialize(requestBody, JsonOptions), Encoding.UTF8, "application/json");
 
