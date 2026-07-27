@@ -43,10 +43,32 @@ public sealed class CoordinatePickerService(
     {
         var main = Application.Current.MainWindow; var previous = main.WindowState;
         main.WindowState = WindowState.Minimized;
-        var picker = new CoordinatePickerWindow(cursor, capture, relativeTo); picker.ShowDialog();
-        main.WindowState = previous; main.Activate();
-        return Task.FromResult(picker.SelectedPosition is { } position
-            ? new CoordinatePickResult(position.X, position.Y, picker.SelectedColor)
-            : null);
+        var picker = new CoordinatePickerWindow(cursor, relativeTo); picker.ShowDialog();
+        CoordinatePickResult? result = null;
+        try
+        {
+            if (picker.SelectedPosition is { } position)
+            {
+                string? color = null;
+                try
+                {
+                    var frame = capture.CaptureAsync(new CaptureRegion(position.X, position.Y, 1, 1), CancellationToken.None)
+                        .GetAwaiter().GetResult();
+                    var pixel = frame.Pixel(0, 0);
+                    if (pixel.Length >= 3) color = $"#{pixel[2]:X2}{pixel[1]:X2}{pixel[0]:X2}";
+                }
+                catch
+                {
+                    // 坐标拾取仍然有效，颜色读取失败时保留空值。
+                }
+                result = new CoordinatePickResult(position.X, position.Y, color);
+            }
+        }
+        finally
+        {
+            main.WindowState = previous;
+            main.Activate();
+        }
+        return Task.FromResult(result);
     }
 }
