@@ -1,6 +1,6 @@
 import { useCallback, useMemo, type MouseEvent as ReactMouseEvent } from 'react'
 import {
-  Background, BackgroundVariant, Controls, ReactFlow, ReactFlowProvider,
+  Background, BackgroundVariant, Controls, Panel, ReactFlow, ReactFlowProvider,
   type Connection, type Edge, type NodeMouseHandler, type OnSelectionChangeParams,
 } from '@xyflow/react'
 import { useEditorBridge } from './hooks/useEditorBridge'
@@ -64,6 +64,11 @@ function EditorCanvas() {
       deleteKeyCode={document.readOnly ? null : ['Backspace', 'Delete']} fitView>
       <Background variant={BackgroundVariant.Dots} gap={22} size={1.2} color="#4b6386" />
       <Controls showInteractive={false} />
+      <Panel position="top-right" className="flow-toolbar">
+        <button type="button" className="organize-button" onClick={document.arrangeNodes} disabled={document.readOnly || document.nodes.length < 2} title="按流程方向自动整理节点">
+          整理流程
+        </button>
+      </Panel>
     </ReactFlow>
   </div>
 }

@@ -4,6 +4,7 @@ import {
   type Connection, type Edge, type EdgeChange, type NodeChange,
 } from '@xyflow/react'
 import { postBridgeMessage } from '../services/bridge'
+import { arrangeWorkflowNodes } from '../workflowLayout'
 import {
   defaultParameters, nodeLabels, toFlowEdges, toFlowNodes,
   nextActionId, type AutomationProject, type GameFlowNode, type NodeType,
@@ -78,9 +79,18 @@ export function useWorkflowDocument() {
     notifyChanged()
   }, [applyEdgeChanges, notifyChanged, readOnly])
 
+  const arrangeNodes = useCallback(() => {
+    if (readOnly || nodes.length < 2) return
+    setNodes(arrangeWorkflowNodes(nodes, edges))
+    setTimeout(() => {
+      postBridgeMessage('workflow_changed')
+      flow.fitView({ padding: .2, duration: 260 })
+    }, 30)
+  }, [edges, flow, nodes, readOnly, setNodes])
+
   return {
     nodes, edges, readOnly, setNodes, setReadOnly, exportProject, importProject, addNode,
     updateNodeData, updateExecutionStatus, clearExecutionState, notifyChanged,
-    onConnect, onNodesChange, onEdgesChange,
+    onConnect, onNodesChange, onEdgesChange, arrangeNodes,
   }
 }
