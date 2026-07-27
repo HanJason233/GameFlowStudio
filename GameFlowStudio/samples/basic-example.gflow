@@ -15,22 +15,18 @@
       "variables": {},
       "nodes": [
         { "id": "start-1", "type": "start", "position": { "x": 50, "y": 200 }, "data": { "displayName": "Start", "parameters": {} } },
-        { "id": "log-start", "type": "log", "position": { "x": 260, "y": 200 }, "data": { "displayName": "Script started", "parameters": { "message": "Script started", "level": "information" } } },
         { "id": "wait-1", "type": "wait", "position": { "x": 470, "y": 200 }, "data": { "displayName": "Wait 1 second", "parameters": { "durationMs": 1000 } } },
         { "id": "move-1", "type": "mouseMove", "position": { "x": 680, "y": 200 }, "data": { "displayName": "Move to 500,300", "parameters": { "x": 500, "y": 300, "durationMs": 0 } } },
         { "id": "click-1", "type": "mouseClick", "position": { "x": 890, "y": 200 }, "data": { "displayName": "Left click", "parameters": { "x": 500, "y": 300, "button": "left", "clickCount": 1, "intervalMs": 100 } } },
         { "id": "key-1", "type": "keyPress", "position": { "x": 1100, "y": 200 }, "data": { "displayName": "Press A", "parameters": { "key": "A", "durationMs": 50, "repeatCount": 1, "intervalMs": 0 } } },
-        { "id": "log-end", "type": "log", "position": { "x": 1310, "y": 200 }, "data": { "displayName": "Script completed", "parameters": { "message": "Script completed", "level": "information" } } },
         { "id": "end-1", "type": "end", "position": { "x": 1520, "y": 200 }, "data": { "displayName": "End", "parameters": {} } }
       ],
       "edges": [
-        { "id": "e1", "source": "start-1", "sourceHandle": "output", "target": "log-start", "targetHandle": "input" },
-        { "id": "e2", "source": "log-start", "sourceHandle": "output", "target": "wait-1", "targetHandle": "input" },
+        { "id": "e1", "source": "start-1", "sourceHandle": "output", "target": "wait-1", "targetHandle": "input" },
         { "id": "e3", "source": "wait-1", "sourceHandle": "output", "target": "move-1", "targetHandle": "input" },
         { "id": "e4", "source": "move-1", "sourceHandle": "output", "target": "click-1", "targetHandle": "input" },
         { "id": "e5", "source": "click-1", "sourceHandle": "output", "target": "key-1", "targetHandle": "input" },
-        { "id": "e6", "source": "key-1", "sourceHandle": "output", "target": "log-end", "targetHandle": "input" },
-        { "id": "e7", "source": "log-end", "sourceHandle": "output", "target": "end-1", "targetHandle": "input" }
+        { "id": "e6", "source": "key-1", "sourceHandle": "output", "target": "end-1", "targetHandle": "input" }
       ]
     }
   ]

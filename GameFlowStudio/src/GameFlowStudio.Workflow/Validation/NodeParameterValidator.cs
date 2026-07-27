@@ -49,8 +49,6 @@ internal sealed class NodeParameterValidator
                 _ = StateRuleReader.Read(node); break;
             case NodeTypes.Jump:
                 RequiredText(node, "scriptId"); RequiredText(node, "actionId"); break;
-            case NodeTypes.Log:
-                NodeParameterReader.String(node, "message"); ValidateLogLevel(node); break;
             case NodeTypes.RunProgram:
                 RequiredText(node, "path"); NodeParameterReader.Bool(node, "waitForExit", false); break;
             case NodeTypes.CloseProgram:
@@ -101,12 +99,6 @@ internal sealed class NodeParameterValidator
     {
         var state = NodeParameterReader.Int(node, "state", 1);
         if (state is not (0 or 1)) throw new InvalidOperationException("检测器期望状态只能是 0 或 1。");
-    }
-
-    private static void ValidateLogLevel(WorkflowNode node)
-    {
-        var level = NodeParameterReader.String(node, "level", "information");
-        if (!Enum.TryParse<WorkflowLogLevel>(level, true, out _)) throw new InvalidOperationException($"不支持的日志级别：{level}。");
     }
 
     private static void WindowTarget(WorkflowNode node)

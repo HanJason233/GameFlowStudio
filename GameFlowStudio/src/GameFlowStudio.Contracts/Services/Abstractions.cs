@@ -130,7 +130,7 @@ public sealed class AppSettings
     public bool IsScriptListPaneVisible { get; set; } = true;
     public bool IsToolboxPaneVisible { get; set; } = true;
     public bool IsPropertiesPaneVisible { get; set; } = false;
-    public bool IsOutputPaneVisible { get; set; } = false;
+    public bool IsOutputPaneVisible { get; set; } = true;
     public string StepCategoryLayout { get; set; } = "vertical";
     public double? WindowLeft { get; set; }
     public double? WindowTop { get; set; }

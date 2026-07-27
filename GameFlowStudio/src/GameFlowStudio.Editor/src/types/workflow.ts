@@ -1,7 +1,7 @@
 import type { Edge, Node } from '@xyflow/react'
 
 export type NodeType = 'start' | 'windowScope' | 'mouseClick' | 'mouseMove' | 'mouseDrag' | 'mouseScroll' | 'keyPress' | 'textInput' | 'wait' |
-  'colorCondition' | 'imageCondition' | 'ocrCondition' | 'stateCondition' | 'jump' | 'log' | 'runProgram' | 'closeProgram' | 'resizeWindow' |
+  'colorCondition' | 'imageCondition' | 'ocrCondition' | 'stateCondition' | 'jump' | 'runProgram' | 'closeProgram' | 'resizeWindow' |
   'minimizeWindow' | 'arrangeWindows' | 'setWindowResolution' | 'end'
 
 export type ExecutionStatus = 'none' | 'running' | 'success' | 'error'
@@ -40,7 +40,7 @@ export const nodeLabels: Record<NodeType, string> = {
   colorCondition: '色判断', imageCondition: '图判断', ocrCondition: 'OCR判断',
   stateCondition: '联合判断', jump: '跳转',
   start: '开始', windowScope: '窗口作用域', mouseClick: '点击', mouseMove: '鼠标移动', mouseDrag: '鼠标拖动', mouseScroll: '鼠标滑动', keyPress: '键盘按键',
-  textInput: '输入文本', wait: '等待', log: '输出日志', runProgram: '启动程序', closeProgram: '关闭程序',
+  textInput: '输入文本', wait: '等待', runProgram: '启动程序', closeProgram: '关闭程序',
   resizeWindow: '设置窗口大小', minimizeWindow: '最小化窗口', arrangeWindows: '窗口整理',
   setWindowResolution: '设置窗口分辨率', end: '结束',
 }
@@ -60,7 +60,6 @@ export const defaultParameters: Record<NodeType, Record<string, unknown>> = {
   keyPress: { key: 'A', durationMs: 50, repeatCount: 1, intervalMs: 100 },
   textInput: { text: 'Hello GameFlow', intervalMs: 30 },
   wait: { durationMs: 1000 },
-  log: { message: '流程运行中', level: 'information' },
   runProgram: { path: '', arguments: '', workingDirectory: '', waitForExit: false },
   closeProgram: { windowHandleVariable: 'windowHandles', windowHandleIndex: 0 },
   resizeWindow: { windowHandleVariable: 'windowHandles', windowHandleIndex: 0, width: 1280, height: 720 },

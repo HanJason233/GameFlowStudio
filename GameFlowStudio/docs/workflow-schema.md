@@ -48,7 +48,6 @@
 | `imageCondition` | `coordinateMode`, `templatePath`, `x`, `y`, 可选 `width`/`height`、`tolerance`、`matchThreshold`、`state` | `true`, `false` |
 | `ocrCondition` | `coordinateMode`, `x`, `y`, `width`, `height`, `targetText`, `matchThreshold`, `state` | `true`, `false` |
 | `stateCondition` | `detectorRules`（多个检测器 ID 与期望 `state` 0/1 的数组） | `true`, `false` |
-| `log` | `message`, `level` | `output` |
 | `runProgram` | `path`, `arguments`, `workingDirectory`, `waitForExit` | `output` |
 | `closeProgram` | `windowHandleVariable`, `windowHandleIndex` | `output` |
 | `resizeWindow` | `windowHandleVariable`, `windowHandleIndex`, `width`, `height` | `output` |

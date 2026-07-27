@@ -1,5 +1,3 @@
-using System.Globalization;
-using System.Text.RegularExpressions;
 using GameFlowStudio.Contracts.Enums;
 using GameFlowStudio.Contracts.Nodes;
 using GameFlowStudio.Contracts.Results;
@@ -61,7 +59,6 @@ public sealed class MouseMoveNodeExecutor(IInputAutomationService input, IMouseC
         return NodeExecutionResult.Ok();
     }
 }
-
 public sealed class MouseDragNodeExecutor(IInputAutomationService input, IMouseCoordinateResolver coordinates) : NodeExecutorBase(NodeTypes.MouseDrag)
 {
     public override async Task<NodeExecutionResult> ExecuteAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken cancellationToken)
@@ -165,15 +162,3 @@ public sealed class SingleStateConditionNodeExecutor(string nodeType, DetectorTy
     }
 }
 
-public sealed partial class LogNodeExecutor() : NodeExecutorBase(NodeTypes.Log)
-{
-    [GeneratedRegex(@"\$\{(?<name>[A-Za-z_][A-Za-z0-9_]*)\}")]
-    private static partial Regex VariablePattern();
-    public override Task<NodeExecutionResult> ExecuteAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken cancellationToken)
-    {
-        var message = VariablePattern().Replace(NodeParameterReader.String(node, "message"), match => context.Variables.TryGetValue(match.Groups["name"].Value, out var value) ? Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty : match.Value);
-        var level = Enum.Parse<WorkflowLogLevel>(NodeParameterReader.String(node, "level", "information"), true);
-        context.Log(new(DateTimeOffset.Now, level, context.Workflow.Project.Id, node.Id, node.Data.DisplayName, message));
-        return Task.FromResult(NodeExecutionResult.Ok());
-    }
-}

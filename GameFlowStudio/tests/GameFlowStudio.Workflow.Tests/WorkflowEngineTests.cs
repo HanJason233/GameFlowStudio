@@ -16,8 +16,8 @@ public sealed class WorkflowEngineTests
     [Fact]
     public async Task SequentialNodesFollowEdges()
     {
-        var tracker = new TrackingLogExecutor();
-        var project = Chain(Log("one"), Log("two"));
+        var tracker = new TrackingActionExecutor();
+        var project = Chain(Action("one"), Action("two"));
         await Runner(tracker).RunAsync(project, CancellationToken.None);
         Assert.Equal(["one", "two"], tracker.Executed);
     }
@@ -25,7 +25,7 @@ public sealed class WorkflowEngineTests
     [Fact]
     public async Task PausePreventsNextNodeUntilResume()
     {
-        var executor = new GatedLogExecutor(); var runner = Runner(executor); var run = runner.RunAsync(Chain(Log("one"), Log("two")), CancellationToken.None);
+        var executor = new GatedActionExecutor(); var runner = Runner(executor); var run = runner.RunAsync(Chain(Action("one"), Action("two")), CancellationToken.None);
         await executor.FirstStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
         await runner.PauseAsync(); executor.ReleaseFirst.SetResult();
         await Task.Delay(80);
@@ -37,7 +37,7 @@ public sealed class WorkflowEngineTests
     [Fact]
     public async Task StopCancelsWorkflow()
     {
-        var executor = new BlockingLogExecutor(); var runner = Runner(executor); var run = runner.RunAsync(Chain(Log("block")), CancellationToken.None);
+        var executor = new BlockingActionExecutor(); var runner = Runner(executor); var run = runner.RunAsync(Chain(Action("block")), CancellationToken.None);
         await executor.Started.Task.WaitAsync(TimeSpan.FromSeconds(2)); await runner.StopAsync(); await run;
         Assert.Equal(WorkflowExecutionState.Idle, runner.State);
     }
@@ -45,37 +45,37 @@ public sealed class WorkflowEngineTests
     [Fact]
     public async Task DuplicateRunIsRejected()
     {
-        var executor = new BlockingLogExecutor(); var runner = Runner(executor); var first = runner.RunAsync(Chain(Log("block")), CancellationToken.None);
+        var executor = new BlockingActionExecutor(); var runner = Runner(executor); var first = runner.RunAsync(Chain(Action("block")), CancellationToken.None);
         await executor.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
-        await Assert.ThrowsAsync<InvalidOperationException>(() => runner.RunAsync(Chain(Log("other")), CancellationToken.None));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => runner.RunAsync(Chain(Action("other")), CancellationToken.None));
         await runner.StopAsync(); await first;
     }
 
     [Fact]
     public async Task ExecutorExceptionMarksRunnerFailedAndRaisesEvent()
     {
-        var runner = Runner(new ThrowingLogExecutor()); string? error = null; runner.NodeFailed += (_, e) => error = e.Error;
-        await Assert.ThrowsAsync<InvalidOperationException>(() => runner.RunAsync(Chain(Log("bad")), CancellationToken.None));
+        var runner = Runner(new ThrowingActionExecutor()); string? error = null; runner.NodeFailed += (_, e) => error = e.Error;
+        await Assert.ThrowsAsync<InvalidOperationException>(() => runner.RunAsync(Chain(Action("bad")), CancellationToken.None));
         Assert.Equal(WorkflowExecutionState.Failed, runner.State); Assert.Contains("测试异常", error);
     }
 
     [Fact]
     public async Task NodeEventsArePublishedInOrder()
     {
-        var events = new List<string>(); var runner = Runner(new TrackingLogExecutor());
+        var events = new List<string>(); var runner = Runner(new TrackingActionExecutor());
         runner.NodeStarted += (_, e) => events.Add($"start:{e.Node.Id}"); runner.NodeCompleted += (_, e) => events.Add($"done:{e.Node.Id}");
-        await runner.RunAsync(Chain(Log("one")), CancellationToken.None);
+        await runner.RunAsync(Chain(Action("one")), CancellationToken.None);
         Assert.Equal(["start:start", "done:start", "start:one", "done:one", "start:end", "done:end"], events);
     }
 
     [Fact]
     public async Task DefaultDelayIsAppliedBetweenRegularNodes()
     {
-        var runner = Runner(new TrackingLogExecutor());
+        var runner = Runner(new TrackingActionExecutor());
         runner.DefaultNodeDelayMs = 30;
         var timer = System.Diagnostics.Stopwatch.StartNew();
 
-        await runner.RunAsync(Chain(Log("one"), Log("two")), CancellationToken.None);
+        await runner.RunAsync(Chain(Action("one"), Action("two")), CancellationToken.None);
 
         timer.Stop();
         Assert.True(timer.ElapsedMilliseconds >= 25, $"Expected default delay between regular nodes, elapsed {timer.ElapsedMilliseconds} ms.");
@@ -84,9 +84,9 @@ public sealed class WorkflowEngineTests
     [Fact]
     public async Task WorkflowDefaultDelayOverridesRunnerDefault()
     {
-        var runner = Runner(new TrackingLogExecutor());
+        var runner = Runner(new TrackingActionExecutor());
         runner.DefaultNodeDelayMs = 0;
-        var project = Chain(Log("one"), Log("two"));
+        var project = Chain(Action("one"), Action("two"));
         project.DefaultNodeDelayMs = 30;
         var timer = System.Diagnostics.Stopwatch.StartNew();
 
@@ -99,19 +99,19 @@ public sealed class WorkflowEngineTests
     [Fact]
     public async Task JumpSwitchesToTargetScriptAction()
     {
-        var tracker = new TrackingLogExecutor();
+        var tracker = new TrackingActionExecutor();
         var source = new AutomationScript { Id = "source", Name = "源脚本" };
         var target = new AutomationScript { Id = "target", Name = "目标脚本" };
         var start = Node("source-start", NodeTypes.Start);
-        var jump = Node("jump", NodeTypes.Jump, ("scriptId", "target"), ("actionId", "target-log"));
+        var jump = Node("jump", NodeTypes.Jump, ("scriptId", "target"), ("actionId", "target-action"));
         var sourceEnd = Node("source-end", NodeTypes.End);
         source.Nodes = [start, jump, sourceEnd];
         source.Edges = [Edge(start, "output", jump), Edge(jump, "output", sourceEnd)];
         var targetStart = Node("target-start", NodeTypes.Start);
-        var targetLog = Log("target-log");
+        var targetAction = Action("target-action");
         var targetEnd = Node("target-end", NodeTypes.End);
-        target.Nodes = [targetStart, targetLog, targetEnd];
-        target.Edges = [Edge(targetStart, "output", targetLog), Edge(targetLog, "output", targetEnd)];
+        target.Nodes = [targetStart, targetAction, targetEnd];
+        target.Edges = [Edge(targetStart, "output", targetAction), Edge(targetAction, "output", targetEnd)];
         var project = NewProject();
         project.Scripts = [source, target];
         project.ActiveScriptId = source.Id;
@@ -120,7 +120,7 @@ public sealed class WorkflowEngineTests
 
         await Runner(tracker).RunAsync(project, CancellationToken.None);
 
-        Assert.Equal(["target-log"], tracker.Executed);
+        Assert.Equal(["target-action"], tracker.Executed);
         Assert.Equal(target.Id, project.ActiveScriptId);
     }
 
@@ -129,7 +129,7 @@ public sealed class WorkflowEngineTests
     {
         var executor = new WindowScopeTrackingExecutor();
         var runner = Runner(executor, new FixedWindowScopeService([(nint)101, (nint)202]));
-        var project = Chain(Log("one"), Log("two"));
+        var project = Chain(Action("one"), Action("two"));
         project.WindowScope = new() { Enabled = true, TitlePattern = "^Game", ExecutionMode = WindowExecutionMode.FirstOnly };
 
         await runner.RunAsync(project, CancellationToken.None);
@@ -143,7 +143,7 @@ public sealed class WorkflowEngineTests
     {
         var executor = new WindowExecutionTrackingExecutor();
         var runner = Runner(executor, new FixedWindowScopeService([(nint)101, (nint)202]));
-        var project = Chain(Log("one"), Log("two"));
+        var project = Chain(Action("one"), Action("two"));
         project.WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.WindowPriority };
 
         await runner.RunAsync(project, CancellationToken.None);
@@ -158,7 +158,7 @@ public sealed class WorkflowEngineTests
     {
         var executor = new WindowExecutionTrackingExecutor();
         var runner = Runner(executor, new FixedWindowScopeService([(nint)101, (nint)202]));
-        var project = Chain(Log("one"), Log("two"));
+        var project = Chain(Action("one"), Action("two"));
         project.WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.ActionPriority };
 
         await runner.RunAsync(project, CancellationToken.None);
@@ -171,7 +171,7 @@ public sealed class WorkflowEngineTests
     [Fact]
     public async Task ExplicitWaitTakesPrecedenceOverDefaultDelay()
     {
-        var runner = Runner(new TrackingLogExecutor());
+        var runner = Runner(new TrackingActionExecutor());
         runner.DefaultNodeDelayMs = 100;
         var project = NewProject();
         var start = Node("start", NodeTypes.Start);
@@ -187,8 +187,8 @@ public sealed class WorkflowEngineTests
         Assert.InRange(timer.ElapsedMilliseconds, 10, 90);
     }
 
-    private static WorkflowRunner Runner(INodeExecutor logExecutor, IWindowScopeService? windowScopes = null) => new(
-        [new StartNodeExecutor(), new EndNodeExecutor(), new WaitNodeExecutor(), new JumpNodeExecutor(), new MouseClickNodeExecutor(new NullInputAutomationService(), new NullCoordinateResolver()), logExecutor],
+    private static WorkflowRunner Runner(INodeExecutor actionExecutor, IWindowScopeService? windowScopes = null) => new(
+        [new StartNodeExecutor(), new EndNodeExecutor(), new WaitNodeExecutor(), new JumpNodeExecutor(), new MouseClickNodeExecutor(new NullInputAutomationService(), new NullCoordinateResolver()), actionExecutor],
         new WorkflowValidator(), NullLogger<WorkflowRunner>.Instance, windowScopes);
 
     private static AutomationProject Chain(params WorkflowNode[] middle)
@@ -199,38 +199,38 @@ public sealed class WorkflowEngineTests
     }
 
     internal static AutomationProject NewProject() => new() { Project = new() { Id = "test", Name = "test" } };
-    internal static WorkflowNode Log(string id) => Node(id, NodeTypes.Log, ("message", id), ("level", "information"));
+    internal static WorkflowNode Action(string id) => Node(id, NodeTypes.TextInput, ("text", id));
     internal static WorkflowNode Node(string id, string type, params (string Name, object Value)[] parameters) => new() { Id = id, Type = type, Position = new() { X = 1, Y = 1 }, Data = new() { DisplayName = id, Parameters = parameters.ToDictionary(p => p.Name, p => ProjectJson.Element(p.Value)) } };
     internal static WorkflowEdge Edge(WorkflowNode source, string handle, WorkflowNode target) => new() { Id = $"{source.Id}-{handle}-{target.Id}", Source = source.Id, SourceHandle = handle, Target = target.Id };
 
-    private sealed class TrackingLogExecutor : NodeExecutorBase
+    private sealed class TrackingActionExecutor : NodeExecutorBase
     {
-        public TrackingLogExecutor() : base(NodeTypes.Log) { }
+        public TrackingActionExecutor() : base(NodeTypes.TextInput) { }
         public List<string> Executed { get; } = [];
         public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public override Task<NodeExecutionResult> ExecuteAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken cancellationToken) { Executed.Add(node.Id); Started.TrySetResult(); return Task.FromResult(NodeExecutionResult.Ok()); }
     }
-    private sealed class GatedLogExecutor : NodeExecutorBase
+    private sealed class GatedActionExecutor : NodeExecutorBase
     {
-        public GatedLogExecutor() : base(NodeTypes.Log) { }
+        public GatedActionExecutor() : base(NodeTypes.TextInput) { }
         public TaskCompletionSource FirstStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously); public TaskCompletionSource ReleaseFirst { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously); public int Count { get; private set; }
         public override async Task<NodeExecutionResult> ExecuteAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken cancellationToken) { Count++; if (Count == 1) { FirstStarted.SetResult(); await ReleaseFirst.Task.WaitAsync(cancellationToken); } return NodeExecutionResult.Ok(); }
     }
-    private sealed class BlockingLogExecutor : NodeExecutorBase
+    private sealed class BlockingActionExecutor : NodeExecutorBase
     {
-        public BlockingLogExecutor() : base(NodeTypes.Log) { }
+        public BlockingActionExecutor() : base(NodeTypes.TextInput) { }
         public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public override async Task<NodeExecutionResult> ExecuteAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken cancellationToken) { Started.SetResult(); await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken); return NodeExecutionResult.Ok(); }
     }
-    private sealed class ThrowingLogExecutor : NodeExecutorBase
+    private sealed class ThrowingActionExecutor : NodeExecutorBase
     {
-        public ThrowingLogExecutor() : base(NodeTypes.Log) { }
+        public ThrowingActionExecutor() : base(NodeTypes.TextInput) { }
         public override Task<NodeExecutionResult> ExecuteAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken cancellationToken) => throw new InvalidOperationException("测试异常");
     }
 
     private sealed class WindowScopeTrackingExecutor : NodeExecutorBase
     {
-        public WindowScopeTrackingExecutor() : base(NodeTypes.Log) { }
+        public WindowScopeTrackingExecutor() : base(NodeTypes.TextInput) { }
         public IReadOnlyList<nint> Handles { get; private set; } = [];
         public object? OutputValue { get; private set; }
         public override Task<NodeExecutionResult> ExecuteAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken cancellationToken)
@@ -243,7 +243,7 @@ public sealed class WorkflowEngineTests
 
     private sealed class WindowExecutionTrackingExecutor : NodeExecutorBase
     {
-        public WindowExecutionTrackingExecutor() : base(NodeTypes.Log) { }
+        public WindowExecutionTrackingExecutor() : base(NodeTypes.TextInput) { }
         public List<string> Executions { get; } = [];
         public override Task<NodeExecutionResult> ExecuteAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken cancellationToken)
         {

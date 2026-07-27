@@ -15,7 +15,6 @@ internal static class NodeCatalog
         new(NodeTypes.Start, "开始", "基础类"),
         new(NodeTypes.End, "结束", "基础类"),
         new(NodeTypes.Wait, "等待", "基础类"),
-        new(NodeTypes.Log, "输出日志", "基础类"),
         new(NodeTypes.KeyPress, "键盘按键", "键盘"),
         new(NodeTypes.TextInput, "输入文本", "键盘"),
         new(NodeTypes.MouseClick, "点击", "鼠标操作"),

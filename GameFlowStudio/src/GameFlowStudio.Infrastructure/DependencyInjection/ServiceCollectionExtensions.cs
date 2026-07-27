@@ -54,7 +54,6 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<INodeExecutor>(serviceProvider => new SingleStateConditionNodeExecutor(NodeTypes.OcrCondition, DetectorType.Ocr, serviceProvider.GetRequiredService<IStateConditionEvaluator>()));
         services.AddSingleton<INodeExecutor, StateConditionNodeExecutor>();
         services.AddSingleton<INodeExecutor, JumpNodeExecutor>();
-        services.AddSingleton<INodeExecutor, LogNodeExecutor>();
         services.AddSingleton<INodeExecutor, RunProgramNodeExecutor>();
         services.AddSingleton<INodeExecutor, CloseProgramNodeExecutor>();
         services.AddSingleton<INodeExecutor, ResizeWindowNodeExecutor>();

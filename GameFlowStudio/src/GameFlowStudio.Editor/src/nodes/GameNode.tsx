@@ -6,7 +6,7 @@ const colors: Record<NodeType, string> = {
   start: '#22c55e', end: '#ef4444', colorCondition: '#f59e0b', imageCondition: '#fb923c', ocrCondition: '#c084fc', stateCondition: '#f59e0b', jump: '#a855f7',
   windowScope: '#eab308',
   mouseClick: '#3b82f6', mouseMove: '#0ea5e9', mouseDrag: '#2563eb', mouseScroll: '#0891b2', keyPress: '#6366f1', textInput: '#14b8a6',
-  wait: '#64748b', log: '#06b6d4', runProgram: '#f97316', closeProgram: '#ef4444',
+  wait: '#64748b', runProgram: '#f97316', closeProgram: '#ef4444',
   resizeWindow: '#eab308', minimizeWindow: '#64748b', arrangeWindows: '#14b8a6', setWindowResolution: '#0ea5e9',
 }
 
