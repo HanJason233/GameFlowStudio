@@ -627,22 +627,24 @@ public sealed class MainViewModel : ObservableObject
         var first = await PickCoordinateAsync(mode.Value, window);
         if (first is null) return;
         SetParameter("coordinateMode", mode == CoordinatePickMode.Screen ? "absolute" : "relative");
+        if (SelectedNode.Type == NodeTypes.ColorCondition && first.Color is not null)
+            SetParameter("targetColor", first.Color);
 
         if (SelectedNode.Type == NodeTypes.MouseDrag)
         {
             var second = await PickCoordinateAsync(mode.Value, window);
             if (second is null) return;
-            SetParameter("startX", first.Value.X); SetParameter("startY", first.Value.Y);
-            SetParameter("endX", second.Value.X); SetParameter("endY", second.Value.Y);
+            SetParameter("startX", first.X); SetParameter("startY", first.Y);
+            SetParameter("endX", second.X); SetParameter("endY", second.Y);
         }
         else
         {
-            SetParameter("x", first.Value.X); SetParameter("y", first.Value.Y);
+            SetParameter("x", first.X); SetParameter("y", first.Y);
         }
         await UpdateSelectedNodeAsync();
     }
 
-    private Task<(int X, int Y)?> PickCoordinateAsync(CoordinatePickMode mode, WindowInfo? window)
+    private Task<CoordinatePickResult?> PickCoordinateAsync(CoordinatePickMode mode, WindowInfo? window)
     {
         return mode == CoordinatePickMode.Window && window is not null
             ? _relativeCoordinatePicker.PickAsync(window)

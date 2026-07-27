@@ -32,15 +32,21 @@ public sealed class FileDialogService : IFileDialogService
     }
 }
 
-public interface ICoordinatePickerService { Task<(int X, int Y)?> PickAsync(WindowBounds? relativeTo = null); }
-public sealed class CoordinatePickerService(Automation.Coordinates.CursorPositionService cursor) : ICoordinatePickerService
+public sealed record CoordinatePickResult(int X, int Y, string? Color = null);
+
+public interface ICoordinatePickerService { Task<CoordinatePickResult?> PickAsync(WindowBounds? relativeTo = null); }
+public sealed class CoordinatePickerService(
+    Automation.Coordinates.CursorPositionService cursor,
+    IDesktopCaptureService capture) : ICoordinatePickerService
 {
-    public Task<(int X, int Y)?> PickAsync(WindowBounds? relativeTo = null)
+    public Task<CoordinatePickResult?> PickAsync(WindowBounds? relativeTo = null)
     {
         var main = Application.Current.MainWindow; var previous = main.WindowState;
         main.WindowState = WindowState.Minimized;
-        var picker = new CoordinatePickerWindow(cursor, relativeTo); picker.ShowDialog();
+        var picker = new CoordinatePickerWindow(cursor, capture, relativeTo); picker.ShowDialog();
         main.WindowState = previous; main.Activate();
-        return Task.FromResult(picker.SelectedPosition);
+        return Task.FromResult(picker.SelectedPosition is { } position
+            ? new CoordinatePickResult(position.X, position.Y, picker.SelectedColor)
+            : null);
     }
 }

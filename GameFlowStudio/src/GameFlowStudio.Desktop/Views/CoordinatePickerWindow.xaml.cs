@@ -4,18 +4,21 @@ using System.Windows.Input;
 using System.Windows.Threading;
 using GameFlowStudio.Automation.Coordinates;
 using GameFlowStudio.Contracts.Results;
+using GameFlowStudio.Contracts.Services;
 
 namespace GameFlowStudio.Desktop.Views;
 
 public partial class CoordinatePickerWindow : Window
 {
     private readonly CursorPositionService _cursor;
+    private readonly IDesktopCaptureService _capture;
     private readonly WindowBounds? _relativeTo;
     private readonly DispatcherTimer _timer;
     public (int X, int Y)? SelectedPosition { get; private set; }
-    public CoordinatePickerWindow(CursorPositionService cursor, WindowBounds? relativeTo = null)
+    public string? SelectedColor { get; private set; }
+    public CoordinatePickerWindow(CursorPositionService cursor, IDesktopCaptureService capture, WindowBounds? relativeTo = null)
     {
-        InitializeComponent(); _cursor = cursor; _relativeTo = relativeTo;
+        InitializeComponent(); _cursor = cursor; _capture = capture; _relativeTo = relativeTo;
         Left = SystemParameters.VirtualScreenLeft; Top = SystemParameters.VirtualScreenTop; Width = SystemParameters.VirtualScreenWidth; Height = SystemParameters.VirtualScreenHeight;
         _timer = new(TimeSpan.FromMilliseconds(33), DispatcherPriority.Render, (_, _) => UpdatePosition(), Dispatcher);
         Loaded += (_, _) => { Activate(); Focus(); _timer.Start(); }; Closed += (_, _) => _timer.Stop();
@@ -31,6 +34,21 @@ public partial class CoordinatePickerWindow : Window
         Canvas.SetLeft(CoordinateBadge, Math.Clamp(point.X - Left + 18, 0, Math.Max(0, Width - 170)));
         Canvas.SetTop(CoordinateBadge, Math.Clamp(point.Y - Top + 18, 0, Math.Max(0, Height - 50)));
     }
-    private void OnMouseDown(object sender, MouseButtonEventArgs e) { SelectedPosition = _cursor.GetPosition(); DialogResult = true; }
+    private async void OnMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        SelectedPosition = _cursor.GetPosition();
+        Hide();
+        try
+        {
+            var frame = await _capture.CaptureAsync(new CaptureRegion(SelectedPosition.Value.X, SelectedPosition.Value.Y, 1, 1), CancellationToken.None);
+            var pixel = frame.Pixel(0, 0);
+            if (pixel.Length >= 3) SelectedColor = $"#{pixel[2]:X2}{pixel[1]:X2}{pixel[0]:X2}";
+        }
+        catch
+        {
+            SelectedColor = null;
+        }
+        DialogResult = true;
+    }
     private void OnKeyDown(object sender, KeyEventArgs e) { if (e.Key == Key.Escape) { SelectedPosition = null; DialogResult = false; } }
 }
