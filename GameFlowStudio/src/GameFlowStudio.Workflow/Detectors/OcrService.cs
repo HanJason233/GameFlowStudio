@@ -4,7 +4,7 @@ using GameFlowStudio.Contracts.Services;
 namespace GameFlowStudio.Workflow.Detectors;
 
 /// <summary>
-/// 默认 OCR 服务。核心库不绑定具体 OCR 引擎，桌面宿主可注册 Windows OCR 或其它实现覆盖此服务。
+/// 默认 OCR 服务。核心库不绑定具体 OCR 引擎，宿主可注册云端或其它实现覆盖此服务。
 /// </summary>
 public sealed class UnsupportedOcrService : IOcrService
 {

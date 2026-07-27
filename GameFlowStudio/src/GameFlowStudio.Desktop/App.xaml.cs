@@ -24,7 +24,6 @@ public partial class App : Application
             {
                 services.AddGameFlowCore();
                 services.AddSingleton<IImageTemplateProvider, WpfImageTemplateProvider>();
-                services.AddSingleton<IOcrService, WindowsOcrService>();
                 services.AddSingleton<IImageCaptureService, ImageCaptureService>();
                 services.AddSingleton<IColorPickerService, ColorPickerService>();
                 services.AddSingleton(logProvider);
