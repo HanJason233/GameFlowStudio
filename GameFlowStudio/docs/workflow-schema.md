@@ -25,7 +25,7 @@
 
 每个脚本独立保存 `detectors`。检测器支持 `color`、`image`，`ocr` 与 `aiRecognition` 当前返回 TODO 未支持结果。检测器只供当前脚本的逻辑判断节点使用。
 
-`color` 参数使用 `x`、`y`、`width`、`height`、`targetColor`、`tolerance` 和可选 `minMatchRatio`；`image` 使用 `templatePath`、可选搜索区域、`tolerance` 与 `matchThreshold`。
+`color` 参数使用 `coordinateMode`、`x`、`y`、`width`、`height`、`targetColor`、`tolerance` 和可选 `minMatchRatio`；`image` 使用 `coordinateMode`、`templatePath`、可选搜索区域、`tolerance` 与 `matchThreshold`。
 
 `stateCondition`（联合判断）到达节点时检测一次；只有一个规则时直接作为单一判断，多个规则时按 AND 联合判断，并按 `true`/`false` 输出继续流程。`colorCondition` 和 `imageCondition` 直接在节点参数中保存检测内容，不引用脚本检测器。
 
@@ -36,17 +36,16 @@
 | type | 主要参数 | 输出 |
 |---|---|---|
 | `start` | 无 | `output` |
-| `mouseClick` | `coordinateMode`, `x`, `y`, `button`, `clickCount`, `intervalMs`, `windowHandleVariable`, `windowHandleIndex` | `output` |
+| `mouseClick` | `coordinateMode`, `x`, `y`, `button`, `clickCount`, `intervalMs` | `output` |
 
-`mouseClick.coordinateMode` 默认为 `screen`，表示使用屏幕绝对坐标。设置为 `windowRelative` 后，执行器会从 `windowHandleVariable` 指定的窗口句柄变量中按 `windowHandleIndex` 取句柄，读取窗口左上角，再加上 `x`/`y` 相对偏移后执行点击。旧版本鼠标点击节点缺少这些字段时仍按屏幕坐标执行。
-| `mouseMove` | `x`, `y`, `durationMs` | `output` |
-| `mouseDrag` | `startX`, `startY`, `endX`, `endY`, `button`, `durationMs` | `output` |
-| `mouseScroll` | `x`, `y`, `delta` | `output` |
+| `mouseMove` | `coordinateMode`, `x`, `y`, `durationMs` | `output` |
+| `mouseDrag` | `coordinateMode`, `startX`, `startY`, `endX`, `endY`, `button`, `durationMs` | `output` |
+| `mouseScroll` | `coordinateMode`, `x`, `y`, `delta` | `output` |
 | `keyPress` | `key`, `durationMs`, `repeatCount`, `intervalMs` | `output` |
 | `textInput` | `text`, `intervalMs` | `output` |
 | `wait` | `durationMs`，可选 `randomMinMs`/`randomMaxMs` | `output` |
-| `colorCondition` | `x`, `y`, `width`, `height`, `targetColor`, `tolerance`, `minMatchRatio`, `state` | `true`, `false` |
-| `imageCondition` | `templatePath`, `x`, `y`, 可选 `width`/`height`、`tolerance`、`matchThreshold`、`state` | `true`, `false` |
+| `colorCondition` | `coordinateMode`, `x`, `y`, `width`, `height`, `targetColor`, `tolerance`, `minMatchRatio`, `state` | `true`, `false` |
+| `imageCondition` | `coordinateMode`, `templatePath`, `x`, `y`, 可选 `width`/`height`、`tolerance`、`matchThreshold`、`state` | `true`, `false` |
 | `stateCondition` | `detectorRules`（多个检测器 ID 与期望 `state` 0/1 的数组） | `true`, `false` |
 | `log` | `message`, `level` | `output` |
 | `runProgram` | `path`, `arguments`, `workingDirectory`, `waitForExit` | `output` |
@@ -57,7 +56,9 @@
 | `setWindowResolution` | `windowHandleVariable`, `windowHandleIndex`, `width`, `height` | `output` |
 | `end` | 无 | 无 |
 
-变量类型为 `string`、`number`、`boolean`。鼠标按钮为 `left`、`right`、`middle`；日志级别为 `debug`、`information`、`warning`、`error`。窗口相对点击会在执行前自动激活对应句柄的窗口。
+`coordinateMode` 默认为 `followScript`（跟随脚本）：脚本使用整个屏幕时按屏幕绝对坐标，脚本使用正则匹配窗口时按当前目标窗口的相对坐标。`absolute`（强制绝对）和 `relative`（强制相对）会覆盖脚本窗口范围。
+
+变量类型为 `string`、`number`、`boolean`。鼠标按钮为 `left`、`right`、`middle`；日志级别为 `debug`、`information`、`warning`、`error`。
 
 结构节点不能禁用。禁用的普通动作节点沿唯一 `output` 直接跳过。工作流不允许出现环路。
 

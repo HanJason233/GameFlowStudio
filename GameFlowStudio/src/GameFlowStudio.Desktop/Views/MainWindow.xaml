@@ -216,6 +216,20 @@
                             <controls:SelectableTextBlock Text="动作 ID" Foreground="#94A3B8"/>
                             <controls:SelectableTextBlock Text="{Binding Path=Id, Mode=OneWay}" Foreground="#E2E8F0" TextWrapping="Wrap" Margin="0,0,0,8"/>
                             <controls:SelectableTextBlock Text="直接配置本节点的检测内容，命中后从 true 分支继续，否则从 false 分支继续。" Foreground="#94A3B8" FontSize="10" TextWrapping="Wrap" Margin="3,0,3,10"/>
+                            <StackPanel Visibility="{Binding HasCoordinateParameters, Converter={StaticResource BoolVisibility}}">
+                                <controls:SelectableTextBlock Text="坐标基准" Foreground="#94A3B8" Margin="0,0,0,3"/>
+                                <ItemsControl ItemsSource="{Binding CoordinateParameters}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <ComboBox SelectedValue="{Binding Value, UpdateSourceTrigger=PropertyChanged}" SelectedValuePath="Tag">
+                                                <ComboBoxItem Tag="followScript" Content="跟随脚本"/>
+                                                <ComboBoxItem Tag="absolute" Content="强制绝对"/>
+                                                <ComboBoxItem Tag="relative" Content="强制相对"/>
+                                            </ComboBox>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
                             <controls:SelectableTextBlock Text="数值参数" Foreground="#94A3B8" Margin="0,0,0,3"/>
                             <ItemsControl ItemsSource="{Binding NumericParameters}">
                                 <ItemsControl.ItemsPanel>
@@ -318,6 +332,20 @@
                             <controls:SelectableTextBlock Text="节点名称" Foreground="#94A3B8"/>
                             <TextBox Text="{Binding DisplayName, UpdateSourceTrigger=PropertyChanged}"/>
                             <controls:SelectableTextBlock Text="参数配置" Foreground="#94A3B8" Margin="0,12,0,4"/>
+                            <StackPanel Visibility="{Binding HasCoordinateParameters, Converter={StaticResource BoolVisibility}}">
+                                <controls:SelectableTextBlock Text="坐标基准" Foreground="#94A3B8" Margin="0,0,0,3"/>
+                                <ItemsControl ItemsSource="{Binding CoordinateParameters}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <ComboBox SelectedValue="{Binding Value, UpdateSourceTrigger=PropertyChanged}" SelectedValuePath="Tag">
+                                                <ComboBoxItem Tag="followScript" Content="跟随脚本"/>
+                                                <ComboBoxItem Tag="absolute" Content="强制绝对"/>
+                                                <ComboBoxItem Tag="relative" Content="强制相对"/>
+                                            </ComboBox>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
                             <StackPanel Visibility="{Binding HasNumericParameters, Converter={StaticResource BoolVisibility}}">
                                 <controls:SelectableTextBlock Text="数值参数" Foreground="#94A3B8" Margin="0,0,0,3"/>
                                 <ItemsControl ItemsSource="{Binding NumericParameters}">
@@ -365,21 +393,81 @@
                                                         <Style TargetType="ComboBox">
                                                             <Setter Property="Visibility" Value="Collapsed"/>
                                                             <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding Name}" Value="coordinateMode"><Setter Property="Visibility" Value="Visible"/></DataTrigger>
                                                                 <DataTrigger Binding="{Binding Name}" Value="button"><Setter Property="Visibility" Value="Visible"/></DataTrigger>
                                                                 <DataTrigger Binding="{Binding Name}" Value="level"><Setter Property="Visibility" Value="Visible"/></DataTrigger>
                                                             </Style.Triggers>
                                                         </Style>
                                                     </ComboBox.Style>
-                                                    <ComboBoxItem Tag="screen" Content="screen · 屏幕"/>
-                                                    <ComboBoxItem Tag="windowRelative" Content="windowRelative · 窗口"/>
-                                                    <ComboBoxItem Tag="left" Content="left · 左键"/>
-                                                    <ComboBoxItem Tag="right" Content="right · 右键"/>
-                                                    <ComboBoxItem Tag="middle" Content="middle · 中键"/>
-                                                    <ComboBoxItem Tag="debug" Content="debug · 调试"/>
-                                                    <ComboBoxItem Tag="information" Content="information · 信息"/>
-                                                    <ComboBoxItem Tag="warning" Content="warning · 警告"/>
-                                                    <ComboBoxItem Tag="error" Content="error · 错误"/>
+                                                    <ComboBoxItem Tag="left" Content="left · 左键">
+                                                        <ComboBoxItem.Style>
+                                                            <Style TargetType="ComboBoxItem">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=ComboBox}, Path=DataContext.Name}" Value="button"><Setter Property="Visibility" Value="Visible"/></DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </ComboBoxItem.Style>
+                                                    </ComboBoxItem>
+                                                    <ComboBoxItem Tag="right" Content="right · 右键">
+                                                        <ComboBoxItem.Style>
+                                                            <Style TargetType="ComboBoxItem">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=ComboBox}, Path=DataContext.Name}" Value="button"><Setter Property="Visibility" Value="Visible"/></DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </ComboBoxItem.Style>
+                                                    </ComboBoxItem>
+                                                    <ComboBoxItem Tag="middle" Content="middle · 中键">
+                                                        <ComboBoxItem.Style>
+                                                            <Style TargetType="ComboBoxItem">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=ComboBox}, Path=DataContext.Name}" Value="button"><Setter Property="Visibility" Value="Visible"/></DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </ComboBoxItem.Style>
+                                                    </ComboBoxItem>
+                                                    <ComboBoxItem Tag="debug" Content="debug · 调试">
+                                                        <ComboBoxItem.Style>
+                                                            <Style TargetType="ComboBoxItem">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=ComboBox}, Path=DataContext.Name}" Value="level"><Setter Property="Visibility" Value="Visible"/></DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </ComboBoxItem.Style>
+                                                    </ComboBoxItem>
+                                                    <ComboBoxItem Tag="information" Content="information · 信息">
+                                                        <ComboBoxItem.Style>
+                                                            <Style TargetType="ComboBoxItem">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=ComboBox}, Path=DataContext.Name}" Value="level"><Setter Property="Visibility" Value="Visible"/></DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </ComboBoxItem.Style>
+                                                    </ComboBoxItem>
+                                                    <ComboBoxItem Tag="warning" Content="warning · 警告">
+                                                        <ComboBoxItem.Style>
+                                                            <Style TargetType="ComboBoxItem">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=ComboBox}, Path=DataContext.Name}" Value="level"><Setter Property="Visibility" Value="Visible"/></DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </ComboBoxItem.Style>
+                                                    </ComboBoxItem>
+                                                    <ComboBoxItem Tag="error" Content="error · 错误">
+                                                        <ComboBoxItem.Style>
+                                                            <Style TargetType="ComboBoxItem">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=ComboBox}, Path=DataContext.Name}" Value="level"><Setter Property="Visibility" Value="Visible"/></DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </ComboBoxItem.Style>
+                                                    </ComboBoxItem>
                                                 </ComboBox>
                                             </StackPanel>
                                         </DataTemplate>
@@ -409,7 +497,7 @@
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
                             </StackPanel>
-                            <Button Content="拾取坐标（按当前模式）" ToolTip="屏幕模式捕获绝对坐标；窗口相对模式自动换算为相对坐标" Command="{Binding DataContext.PickCoordinateCommand, RelativeSource={RelativeSource AncestorType=Window}}" Visibility="{Binding CanPickCoordinate, Converter={StaticResource BoolVisibility}}" Margin="3,12,3,3"/>
+                            <Button Content="拾取坐标（按当前模式）" ToolTip="跟随脚本时按脚本窗口范围决定；强制绝对使用屏幕坐标；强制相对换算为窗口坐标" Command="{Binding DataContext.PickCoordinateCommand, RelativeSource={RelativeSource AncestorType=Window}}" Visibility="{Binding CanPickCoordinate, Converter={StaticResource BoolVisibility}}" Margin="3,12,3,3"/>
                         </StackPanel>
                     </ScrollViewer>
                 </DockPanel>

@@ -7,15 +7,17 @@ namespace GameFlowStudio.Workflow.Detectors;
 public sealed class StateConditionEvaluator(
     IStateDetectorService detectorService,
     IDesktopCaptureService capture,
-    IImageTemplateProvider? images = null) : IStateConditionEvaluator
+    IImageTemplateProvider? images = null,
+    IWindowAutomationService? windows = null) : IStateConditionEvaluator
 {
     public async Task<StateConditionEvaluation> EvaluateAsync(
         IReadOnlyList<DetectorDefinition> detectors,
         IReadOnlyList<StateDetectorRule> rules,
+        IReadOnlyList<nint> windowHandles,
         CancellationToken cancellationToken)
     {
         var detectorMap = detectors.ToDictionary(detector => detector.Id, StringComparer.Ordinal);
-        var context = new DetectorEvaluationContext { Capture = capture, Images = images };
+        var context = new DetectorEvaluationContext { Capture = capture, Images = images, Windows = windows, WindowHandles = windowHandles };
         var results = new Dictionary<string, DetectorEvaluationResult>(StringComparer.Ordinal);
         var matched = rules.Count > 0;
         foreach (var rule in rules)

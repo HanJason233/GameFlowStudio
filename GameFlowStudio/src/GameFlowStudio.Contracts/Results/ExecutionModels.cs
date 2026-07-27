@@ -87,6 +87,8 @@ public sealed class DetectorEvaluationContext
 
     public required IDesktopCaptureService Capture { get; init; }
     public IImageTemplateProvider? Images { get; init; }
+    public IWindowAutomationService? Windows { get; init; }
+    public IReadOnlyList<nint> WindowHandles { get; init; } = [];
 
     public async Task<CapturedFrame> CaptureAsync(CaptureRegion region, CancellationToken cancellationToken)
     {

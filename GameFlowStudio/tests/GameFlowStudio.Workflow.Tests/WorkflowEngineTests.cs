@@ -267,8 +267,8 @@ public sealed class WorkflowEngineTests
         public Task TypeTextAsync(string text, int intervalMs, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
-    private sealed class NullCoordinateResolver : IMouseClickCoordinateResolver
+    private sealed class NullCoordinateResolver : IMouseCoordinateResolver
     {
-        public (int X, int Y) Resolve(MouseClickParameters parameters, WorkflowExecutionContext context) => (parameters.X, parameters.Y);
+        public (int X, int Y) Resolve(int x, int y, CoordinateMode mode, WorkflowExecutionContext context) => (x, y);
     }
 }

@@ -32,7 +32,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IStateDetector>(new TodoStateDetector(DetectorType.AiRecognition));
         services.AddSingleton<IStateDetectorService, StateDetectorService>();
         services.AddSingleton<IStateConditionEvaluator, StateConditionEvaluator>();
-        services.AddSingleton<IMouseClickCoordinateResolver, MouseClickCoordinateResolver>();
+        services.AddSingleton<IMouseCoordinateResolver, MouseCoordinateResolver>();
         services.AddSingleton<IProjectStorageService, ProjectStorageService>();
         services.AddSingleton<ISettingsStorageService, SettingsStorageService>();
         services.AddSingleton<IWorkflowValidator, WorkflowValidator>();

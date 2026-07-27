@@ -56,7 +56,7 @@ public sealed class NodeParameterItem(string name, string value, JsonValueKind k
         ["startY"] = "起始纵坐标",
         ["endX"] = "结束横坐标",
         ["endY"] = "结束纵坐标",
-        ["coordinateMode"] = "坐标模式（screen 或 windowRelative）",
+        ["coordinateMode"] = "坐标基准：跟随脚本、强制绝对或强制相对",
         ["button"] = "鼠标按键",
         ["clickCount"] = "点击次数",
         ["durationMs"] = "持续时间，毫秒",
@@ -211,15 +211,19 @@ public sealed class SelectedNodeViewModel : ObservableObject
     public ObservableCollection<DetectorRuleEditorItem> StateRules { get; } = [];
     public bool IsStateCondition => Type == NodeTypes.StateCondition;
     public bool IsSingleStateCondition => Type is NodeTypes.ColorCondition or NodeTypes.ImageCondition;
+    public bool SupportsCoordinateMode => Type is NodeTypes.ColorCondition or NodeTypes.ImageCondition
+        or NodeTypes.MouseClick or NodeTypes.MouseMove or NodeTypes.MouseDrag or NodeTypes.MouseScroll;
     public IEnumerable<NodeParameterItem> NumericParameters => Parameters.Where(parameter => parameter.Kind == JsonValueKind.Number && parameter.Name != "state");
-    public IEnumerable<NodeParameterItem> TextParameters => Parameters.Where(parameter => parameter.Kind == JsonValueKind.String && !IsChoiceParameter(parameter.Name));
-    public IEnumerable<NodeParameterItem> ChoiceParameters => Parameters.Where(parameter => parameter.Kind == JsonValueKind.String && IsChoiceParameter(parameter.Name));
+    public IEnumerable<NodeParameterItem> TextParameters => Parameters.Where(parameter => parameter.Kind == JsonValueKind.String && !IsChoiceParameter(parameter.Name) && parameter.Name != "coordinateMode");
+    public IEnumerable<NodeParameterItem> ChoiceParameters => Parameters.Where(parameter => parameter.Kind == JsonValueKind.String && IsChoiceParameter(parameter.Name) && parameter.Name != "coordinateMode");
+    public IEnumerable<NodeParameterItem> CoordinateParameters => Parameters.Where(parameter => parameter.Name == "coordinateMode");
     public IEnumerable<NodeParameterItem> BooleanParameters => Parameters.Where(parameter => parameter.Kind is JsonValueKind.True or JsonValueKind.False);
     public IEnumerable<NodeParameterItem> OtherParameters => Parameters.Where(parameter => parameter.Kind is not (JsonValueKind.Number or JsonValueKind.String or JsonValueKind.True or JsonValueKind.False) && parameter.Name != "state");
     public IEnumerable<NodeParameterItem> StateParameters => Parameters.Where(parameter => parameter.Name == "state");
     public bool HasNumericParameters => NumericParameters.Any();
     public bool HasTextParameters => TextParameters.Any();
     public bool HasChoiceParameters => ChoiceParameters.Any();
+    public bool HasCoordinateParameters => SupportsCoordinateMode;
     public bool HasBooleanParameters => BooleanParameters.Any();
     public bool HasOtherParameters => OtherParameters.Any();
     public string LogicLabel => Type switch
@@ -234,9 +238,10 @@ public sealed class SelectedNodeViewModel : ObservableObject
         1 => "单一判断",
         _ => $"{StateRules.Count} 个检测器 · 联合满足"
     };
-    public bool CanPickCoordinate => Type is NodeTypes.MouseClick or NodeTypes.MouseMove;
-    public bool UsesWindowRelativeCoordinates => Type == NodeTypes.MouseClick &&
-        string.Equals(GetParameterValue("coordinateMode", "screen"), "windowRelative", StringComparison.OrdinalIgnoreCase);
+    public bool CanPickCoordinate => Type is NodeTypes.ColorCondition or NodeTypes.ImageCondition or NodeTypes.MouseClick or NodeTypes.MouseMove;
+    public bool UsesWindowRelativeCoordinates => SupportsCoordinateMode &&
+        (string.Equals(GetParameterValue("coordinateMode", "followScript"), "relative", StringComparison.OrdinalIgnoreCase) ||
+         string.Equals(GetParameterValue("coordinateMode", "followScript"), "windowRelative", StringComparison.OrdinalIgnoreCase));
 
     public string GetParameterValue(string name, string fallback) =>
         Parameters.FirstOrDefault(parameter => parameter.Name == name)?.Value ?? fallback;
@@ -516,7 +521,13 @@ public sealed class MainViewModel : ObservableObject
         selected.SetChangedHandler(OnSelectedNodeEditorChanged);
         if (data.TryGetProperty("parameters", out var parameters))
         {
-            foreach (var property in parameters.EnumerateObject()) selected.Parameters.Add(new(property.Name, DisplayValue(property.Value), property.Value.ValueKind, OnSelectedNodeEditorChanged));
+            foreach (var property in parameters.EnumerateObject())
+            {
+                var value = property.Name == "coordinateMode"
+                    ? NormalizeCoordinateMode(DisplayValue(property.Value))
+                    : DisplayValue(property.Value);
+                selected.Parameters.Add(new(property.Name, value, property.Value.ValueKind, OnSelectedNodeEditorChanged));
+            }
             if (selected.IsStateCondition)
             {
                 if (parameters.TryGetProperty("detectors", out var detectorsElement))
@@ -535,8 +546,17 @@ public sealed class MainViewModel : ObservableObject
                 foreach (var rule in rules) selected.StateRules.Add(new DetectorRuleEditorItem(rule, OnSelectedNodeEditorChanged));
             }
         }
+        if (selected.SupportsCoordinateMode && !selected.Parameters.Any(parameter => parameter.Name == "coordinateMode"))
+            selected.Parameters.Insert(0, new("coordinateMode", "followScript", JsonValueKind.String, OnSelectedNodeEditorChanged));
         SelectedNode = selected;
     }
+
+    private static string NormalizeCoordinateMode(string value) => value.ToLowerInvariant() switch
+    {
+        "screen" => "absolute",
+        "windowrelative" => "relative",
+        _ => value
+    };
 
     private void OnSelectedNodeEditorChanged()
     {
@@ -600,11 +620,18 @@ public sealed class MainViewModel : ObservableObject
 
     private async Task<(int X, int Y)?> PickCoordinateForNodeAsync()
     {
-        if (SelectedNode is null || !SelectedNode.UsesWindowRelativeCoordinates)
+        if (SelectedNode is null || !ShouldUseWindowRelativeCoordinates(SelectedNode))
             return await _coordinatePicker.PickAsync();
 
         var window = _windowSelection.SelectWindow();
         return window is null ? null : await _relativeCoordinatePicker.PickAsync(window);
+    }
+
+    private bool ShouldUseWindowRelativeCoordinates(SelectedNodeViewModel node)
+    {
+        var mode = node.GetParameterValue("coordinateMode", "followScript");
+        return node.UsesWindowRelativeCoordinates ||
+            string.Equals(mode, "followScript", StringComparison.OrdinalIgnoreCase) && ActiveScript.WindowScope.Enabled;
     }
 
     private void SetParameter(string name, int value)
@@ -863,6 +890,7 @@ public sealed class MainViewModel : ObservableObject
         var detector = new DetectorDefinition { Name = name, Type = DetectorType.Color };
         detector.Parameters["x"] = ProjectJson.Element(0);
         detector.Parameters["y"] = ProjectJson.Element(0);
+        detector.Parameters["coordinateMode"] = ProjectJson.Element("followScript");
         detector.Parameters["width"] = ProjectJson.Element(1);
         detector.Parameters["height"] = ProjectJson.Element(1);
         detector.Parameters["targetColor"] = ProjectJson.Element("#FFFFFF");

@@ -3,6 +3,7 @@ using GameFlowStudio.Contracts.Enums;
 using GameFlowStudio.Contracts.Results;
 using GameFlowStudio.Contracts.Services;
 using GameFlowStudio.Contracts.Workflows;
+using GameFlowStudio.Workflow.Coordinates;
 
 namespace GameFlowStudio.Workflow.Executors;
 
@@ -12,24 +13,21 @@ public sealed record MouseClickParameters(
     MouseButtonType Button,
     int ClickCount,
     int IntervalMs,
-    bool IsWindowRelative,
-    string WindowHandleVariable,
-    int WindowHandleIndex);
+    CoordinateMode CoordinateMode);
 
-public interface IMouseClickCoordinateResolver
+public interface IMouseCoordinateResolver
 {
-    (int X, int Y) Resolve(MouseClickParameters parameters, WorkflowExecutionContext context);
+    (int X, int Y) Resolve(int x, int y, CoordinateMode mode, WorkflowExecutionContext context);
 }
 
-public sealed class MouseClickCoordinateResolver(IWindowAutomationService windows) : IMouseClickCoordinateResolver
+public sealed class MouseCoordinateResolver(IWindowAutomationService windows) : IMouseCoordinateResolver
 {
-    public (int X, int Y) Resolve(MouseClickParameters parameters, WorkflowExecutionContext context)
+    public (int X, int Y) Resolve(int x, int y, CoordinateMode mode, WorkflowExecutionContext context)
     {
-        if (!parameters.IsWindowRelative) return (parameters.X, parameters.Y);
+        if (!CoordinateModeReader.UsesWindow(mode, context.WindowHandles)) return (x, y);
 
-        var handle = WindowHandleSelector.Select(context, parameters.WindowHandleVariable, parameters.WindowHandleIndex);
-        var bounds = windows.GetWindowBounds(handle);
-        return WindowCoordinateCalculator.AddOffset(bounds, parameters.X, parameters.Y);
+        var bounds = CoordinateModeReader.GetWindowBounds(context.WindowHandles, windows);
+        return WindowCoordinateCalculator.AddOffset(bounds, x, y);
     }
 }
 
@@ -37,12 +35,6 @@ internal static class MouseClickParameterReader
 {
     public static MouseClickParameters Read(WorkflowNode node)
     {
-        var mode = NodeParameterReader.String(node, "coordinateMode", "screen");
-        var isWindowRelative = mode.Equals("windowRelative", StringComparison.OrdinalIgnoreCase) ||
-                               mode.Equals("relative", StringComparison.OrdinalIgnoreCase);
-        if (!isWindowRelative && !mode.Equals("screen", StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException($"不支持的坐标模式：{mode}。");
-
         var buttonName = NodeParameterReader.String(node, "button", "left");
         if (!Enum.TryParse<MouseButtonType>(buttonName, true, out var button))
             throw new InvalidOperationException($"不支持的鼠标按键：{buttonName}。");
@@ -53,9 +45,7 @@ internal static class MouseClickParameterReader
             button,
             NodeParameterReader.Int(node, "clickCount", 1),
             NodeParameterReader.Int(node, "intervalMs", 0),
-            isWindowRelative,
-            NodeParameterReader.String(node, "windowHandleVariable", "windowHandles"),
-            NodeParameterReader.Int(node, "windowHandleIndex", 0));
+            CoordinateModeReader.Read(NodeParameterReader.String(node, "coordinateMode", "followScript")));
     }
 }
 

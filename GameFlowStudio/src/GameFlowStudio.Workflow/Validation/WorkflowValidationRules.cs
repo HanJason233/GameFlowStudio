@@ -3,6 +3,7 @@ using GameFlowStudio.Contracts.Results;
 using GameFlowStudio.Contracts.Workflows;
 using GameFlowStudio.Contracts.Enums;
 using GameFlowStudio.Contracts.States;
+using GameFlowStudio.Workflow.Coordinates;
 using System.Globalization;
 using System.Text.Json;
 using GameFlowStudio.Workflow.Executors;
@@ -229,6 +230,7 @@ internal sealed class StateConfigurationRule : IWorkflowValidationRule
     {
         try
         {
+            _ = CoordinateModeReader.Read(DetectorParameterReader.String(detector, "coordinateMode", "followScript"));
             if (detector.Type == DetectorType.Color)
             {
                 ValidateCoordinate(detector, "x", "y");

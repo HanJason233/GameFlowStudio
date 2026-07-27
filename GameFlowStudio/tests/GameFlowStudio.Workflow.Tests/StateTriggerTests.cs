@@ -37,12 +37,37 @@ public sealed class StateConditionTests
         var evaluator = new StateConditionEvaluator(new StateDetectorService([new ColorStateDetector()]), capture);
         var rules = new List<StateDetectorRule> { new() { DetectorId = "red", State = 1 }, new() { DetectorId = "green", State = 1 } };
 
-        var matched = await evaluator.EvaluateAsync([red, green], rules, CancellationToken.None);
+        var matched = await evaluator.EvaluateAsync([red, green], rules, [], CancellationToken.None);
         Assert.True(matched.Matched);
 
         rules[1].State = 0;
-        var notMatched = await evaluator.EvaluateAsync([red, green], rules, CancellationToken.None);
+        var notMatched = await evaluator.EvaluateAsync([red, green], rules, [], CancellationToken.None);
         Assert.False(notMatched.Matched);
+    }
+
+    [Fact]
+    public async Task RelativeColorDetectorOffsetsCaptureRegionFromScriptWindow()
+    {
+        var capture = new FakeCapture(new CapturedFrame(105, 206, 1, 1, [0, 0, 255, 255]));
+        var detector = new DetectorDefinition { Id = "red", Type = DetectorType.Color };
+        detector.Parameters["coordinateMode"] = ProjectJson.Element("relative");
+        detector.Parameters["x"] = ProjectJson.Element(5);
+        detector.Parameters["y"] = ProjectJson.Element(6);
+        detector.Parameters["width"] = ProjectJson.Element(1);
+        detector.Parameters["height"] = ProjectJson.Element(1);
+        detector.Parameters["targetColor"] = ProjectJson.Element("#FF0000");
+        var context = new DetectorEvaluationContext
+        {
+            Capture = capture,
+            Windows = new FakeWindows(new(101, 100, 200, 900, 800)),
+            WindowHandles = [(nint)101]
+        };
+
+        var result = await new StateDetectorService([new ColorStateDetector()])
+            .EvaluateAsync(detector, context, CancellationToken.None);
+
+        Assert.Equal(1, result.State);
+        Assert.Equal(new CaptureRegion(105, 206, 1, 1), capture.LastRegion);
     }
 
     [Fact]
@@ -157,8 +182,25 @@ public sealed class StateConditionTests
 
     private sealed class FakeCapture(CapturedFrame frame) : IDesktopCaptureService
     {
+        public CaptureRegion? LastRegion { get; private set; }
         public CaptureRegion VirtualScreenBounds => new(frame.X, frame.Y, frame.Width, frame.Height);
-        public Task<CapturedFrame> CaptureAsync(CaptureRegion region, CancellationToken cancellationToken) => Task.FromResult(frame);
+        public Task<CapturedFrame> CaptureAsync(CaptureRegion region, CancellationToken cancellationToken)
+        {
+            LastRegion = region;
+            return Task.FromResult(frame);
+        }
+    }
+
+    private sealed class FakeWindows(WindowBounds bounds) : IWindowAutomationService
+    {
+        public IReadOnlyList<WindowInfo> GetOpenWindows() => [];
+        public bool ActivateWindow(nint handle) => true;
+        public bool CloseWindow(nint handle) => true;
+        public bool ResizeWindow(nint handle, int width, int height) => true;
+        public bool MinimizeWindow(nint handle) => true;
+        public bool ArrangeWindows(IReadOnlyList<nint> handles, int x, int y, int width, int height, int columns, int gapX, int gapY) => true;
+        public bool SetWindowResolution(nint handle, int width, int height) => true;
+        public WindowBounds GetWindowBounds(nint handle) => bounds with { Handle = handle };
     }
 
     private sealed class FakeImages(DetectorImage image) : IImageTemplateProvider

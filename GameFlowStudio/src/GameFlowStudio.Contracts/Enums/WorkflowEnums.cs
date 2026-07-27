@@ -36,3 +36,11 @@ public enum WindowExecutionMode
     WindowPriority,
     ActionPriority
 }
+
+/// <summary>带坐标动作的坐标基准。</summary>
+public enum CoordinateMode
+{
+    FollowScript,
+    Absolute,
+    Relative
+}

@@ -2,36 +2,64 @@ using GameFlowStudio.Contracts.Enums;
 using GameFlowStudio.Contracts.Results;
 using GameFlowStudio.Contracts.Services;
 using GameFlowStudio.Contracts.Workflows;
+using GameFlowStudio.Workflow.Coordinates;
 using GameFlowStudio.Workflow.Executors;
 
 namespace GameFlowStudio.Workflow.Tests;
 
 public sealed class MouseClickExecutionTests
 {
+    [Theory]
+    [InlineData("followScript", false, 25, 35)]
+    [InlineData("followScript", true, 125, 235)]
+    [InlineData("absolute", true, 25, 35)]
+    [InlineData("relative", true, 125, 235)]
+    public void CoordinateModesResolveAgainstTheScriptWindowAsConfigured(
+        string mode, bool hasScriptWindow, int expectedX, int expectedY)
+    {
+        var context = Context();
+        if (hasScriptWindow) context.WindowHandles = [(nint)101];
+        var resolver = new MouseCoordinateResolver(new FakeWindowAutomationService(new(101, 100, 200, 900, 800)));
+
+        var result = resolver.Resolve(25, 35, CoordinateModeReader.Read(mode), context);
+
+        Assert.Equal((expectedX, expectedY), result);
+    }
+
+    [Fact]
+    public void ForcedRelativeCoordinatesRequireAScriptWindow()
+    {
+        var resolver = new MouseCoordinateResolver(new FakeWindowAutomationService(new(101, 100, 200, 900, 800)));
+
+        var error = Assert.Throws<InvalidOperationException>(
+            () => resolver.Resolve(25, 35, CoordinateMode.Relative, Context()));
+
+        Assert.Contains("一个目标窗口", error.Message);
+    }
+
     [Fact]
     public async Task RelativeClickAddsWindowOriginToOffset()
     {
         var input = new RecordingInputAutomationService();
         var windows = new FakeWindowAutomationService(new(101, 100, 200, 900, 800));
-        var executor = new MouseClickNodeExecutor(input, new MouseClickCoordinateResolver(windows), windows);
+        var executor = new MouseClickNodeExecutor(input, new MouseCoordinateResolver(windows));
         var node = WorkflowEngineTests.Node("click", Contracts.Nodes.NodeTypes.MouseClick,
-            ("coordinateMode", "windowRelative"), ("x", 25), ("y", 35), ("button", "left"),
-            ("clickCount", 1), ("intervalMs", 0), ("windowHandleVariable", "targets"), ("windowHandleIndex", 0));
+            ("coordinateMode", "relative"), ("x", 25), ("y", 35), ("button", "left"),
+            ("clickCount", 1), ("intervalMs", 0));
         var context = Context();
-        context.Variables["targets"] = new long[] { 101 };
+        context.WindowHandles = [(nint)101];
 
         await executor.ExecuteAsync(node, context, CancellationToken.None);
 
         Assert.Equal((125, 235), (input.X, input.Y));
         Assert.Equal(MouseButtonType.Left, input.Button);
-        Assert.Equal((nint)101, windows.ActivatedHandle);
     }
 
     [Fact]
     public async Task ScreenClickDoesNotUseWindowBounds()
     {
         var input = new RecordingInputAutomationService();
-        var executor = new MouseClickNodeExecutor(input, new MouseClickCoordinateResolver(new FakeWindowAutomationService(new(101, 100, 200, 900, 800))));
+        var executor = new MouseClickNodeExecutor(input, new MouseCoordinateResolver(new FakeWindowAutomationService(new(101, 100, 200, 900, 800))));
         var node = WorkflowEngineTests.Node("click", Contracts.Nodes.NodeTypes.MouseClick,
             ("x", 25), ("y", 35), ("button", "right"), ("clickCount", 1), ("intervalMs", 0));
 

@@ -6,6 +6,7 @@ using GameFlowStudio.Contracts.Results;
 using GameFlowStudio.Contracts.Services;
 using GameFlowStudio.Contracts.States;
 using GameFlowStudio.Contracts.Workflows;
+using GameFlowStudio.Workflow.Coordinates;
 using GameFlowStudio.Workflow.Synchronization;
 
 namespace GameFlowStudio.Workflow.Executors;
@@ -50,29 +51,38 @@ public sealed class WaitNodeExecutor() : NodeExecutorBase(NodeTypes.Wait)
     }
 }
 
-public sealed class MouseMoveNodeExecutor(IInputAutomationService input) : NodeExecutorBase(NodeTypes.MouseMove)
-{
-    public override async Task<NodeExecutionResult> ExecuteAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken cancellationToken)
-    { await input.MoveMouseAsync(NodeParameterReader.Int(node, "x"), NodeParameterReader.Int(node, "y"), NodeParameterReader.Int(node, "durationMs", 0), cancellationToken); return NodeExecutionResult.Ok(); }
-}
-
-public sealed class MouseDragNodeExecutor(IInputAutomationService input) : NodeExecutorBase(NodeTypes.MouseDrag)
+public sealed class MouseMoveNodeExecutor(IInputAutomationService input, IMouseCoordinateResolver coordinates) : NodeExecutorBase(NodeTypes.MouseMove)
 {
     public override async Task<NodeExecutionResult> ExecuteAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken cancellationToken)
     {
+        var point = coordinates.Resolve(NodeParameterReader.Int(node, "x"), NodeParameterReader.Int(node, "y"),
+            CoordinateModeReader.Read(NodeParameterReader.String(node, "coordinateMode", "followScript")), context);
+        await input.MoveMouseAsync(point.X, point.Y, NodeParameterReader.Int(node, "durationMs", 0), cancellationToken);
+        return NodeExecutionResult.Ok();
+    }
+}
+
+public sealed class MouseDragNodeExecutor(IInputAutomationService input, IMouseCoordinateResolver coordinates) : NodeExecutorBase(NodeTypes.MouseDrag)
+{
+    public override async Task<NodeExecutionResult> ExecuteAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken cancellationToken)
+    {
+        var mode = CoordinateModeReader.Read(NodeParameterReader.String(node, "coordinateMode", "followScript"));
+        var start = coordinates.Resolve(NodeParameterReader.Int(node, "startX"), NodeParameterReader.Int(node, "startY"), mode, context);
+        var end = coordinates.Resolve(NodeParameterReader.Int(node, "endX"), NodeParameterReader.Int(node, "endY"), mode, context);
         await input.DragMouseAsync(
-            NodeParameterReader.Int(node, "startX"), NodeParameterReader.Int(node, "startY"),
-            NodeParameterReader.Int(node, "endX"), NodeParameterReader.Int(node, "endY"),
+            start.X, start.Y, end.X, end.Y,
             MouseActionParameterReader.Button(node), NodeParameterReader.Int(node, "durationMs", 500), cancellationToken);
         return NodeExecutionResult.Ok();
     }
 }
 
-public sealed class MouseScrollNodeExecutor(IInputAutomationService input) : NodeExecutorBase(NodeTypes.MouseScroll)
+public sealed class MouseScrollNodeExecutor(IInputAutomationService input, IMouseCoordinateResolver coordinates) : NodeExecutorBase(NodeTypes.MouseScroll)
 {
     public override async Task<NodeExecutionResult> ExecuteAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken cancellationToken)
     {
-        await input.ScrollMouseAsync(NodeParameterReader.Int(node, "x"), NodeParameterReader.Int(node, "y"), NodeParameterReader.Int(node, "delta", 120), cancellationToken);
+        var point = coordinates.Resolve(NodeParameterReader.Int(node, "x"), NodeParameterReader.Int(node, "y"),
+            CoordinateModeReader.Read(NodeParameterReader.String(node, "coordinateMode", "followScript")), context);
+        await input.ScrollMouseAsync(point.X, point.Y, NodeParameterReader.Int(node, "delta", 120), cancellationToken);
         return NodeExecutionResult.Ok();
     }
 }
@@ -87,17 +97,12 @@ internal static class MouseActionParameterReader
     }
 }
 
-public sealed class MouseClickNodeExecutor(IInputAutomationService input, IMouseClickCoordinateResolver coordinates, IWindowAutomationService? windows = null) : NodeExecutorBase(NodeTypes.MouseClick)
+public sealed class MouseClickNodeExecutor(IInputAutomationService input, IMouseCoordinateResolver coordinates) : NodeExecutorBase(NodeTypes.MouseClick)
 {
     public override async Task<NodeExecutionResult> ExecuteAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken cancellationToken)
     {
         var parameters = MouseClickParameterReader.Read(node);
-        if (parameters.IsWindowRelative && windows is not null)
-        {
-            var handle = WindowHandleSelector.Select(context, parameters.WindowHandleVariable, parameters.WindowHandleIndex);
-            if (!windows.ActivateWindow(handle)) return NodeExecutionResult.Fail("无法激活目标窗口。");
-        }
-        var absoluteCoordinates = coordinates.Resolve(parameters, context);
+        var absoluteCoordinates = coordinates.Resolve(parameters.X, parameters.Y, parameters.CoordinateMode, context);
         await input.ClickAsync(absoluteCoordinates.X, absoluteCoordinates.Y, parameters.Button, parameters.ClickCount, parameters.IntervalMs, cancellationToken);
         return NodeExecutionResult.Ok();
     }
@@ -122,7 +127,7 @@ public sealed class StateConditionNodeExecutor(IStateConditionEvaluator evaluato
     {
         var detectors = StateDetectorReader.Read(node);
         var rules = StateRuleReader.Read(node);
-        var evaluation = await evaluator.EvaluateAsync(detectors, rules, cancellationToken).ConfigureAwait(false);
+        var evaluation = await evaluator.EvaluateAsync(detectors, rules, context.WindowHandles, cancellationToken).ConfigureAwait(false);
         return NodeExecutionResult.Ok(evaluation.Matched ? "true" : "false");
     }
 }
@@ -155,7 +160,7 @@ public sealed class SingleStateConditionNodeExecutor(string nodeType, DetectorTy
                 .Where(pair => pair.Key != "state")
                 .ToDictionary(pair => pair.Key, pair => pair.Value.Clone(), StringComparer.Ordinal)
         };
-        var evaluation = await evaluator.EvaluateAsync([detector], [new StateDetectorRule { DetectorId = detector.Id, State = state }], cancellationToken).ConfigureAwait(false);
+        var evaluation = await evaluator.EvaluateAsync([detector], [new StateDetectorRule { DetectorId = detector.Id, State = state }], context.WindowHandles, cancellationToken).ConfigureAwait(false);
         return NodeExecutionResult.Ok(evaluation.Matched ? "true" : "false");
     }
 }

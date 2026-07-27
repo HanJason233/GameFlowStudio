@@ -46,16 +46,16 @@ export const nodeLabels: Record<NodeType, string> = {
 }
 
 export const defaultParameters: Record<NodeType, Record<string, unknown>> = {
-  colorCondition: { x: 0, y: 0, width: 1, height: 1, targetColor: '#FFFFFF', tolerance: 10, minMatchRatio: 1, state: 1 },
-  imageCondition: { templatePath: '', x: 0, y: 0, tolerance: 10, matchThreshold: 0.95, state: 1 },
+  colorCondition: { coordinateMode: 'followScript', x: 0, y: 0, width: 1, height: 1, targetColor: '#FFFFFF', tolerance: 10, minMatchRatio: 1, state: 1 },
+  imageCondition: { coordinateMode: 'followScript', templatePath: '', x: 0, y: 0, tolerance: 10, matchThreshold: 0.95, state: 1 },
   stateCondition: { detectors: [], detectorRules: [] },
   jump: { scriptId: '', actionId: '' },
   start: {}, end: {},
   windowScope: { titlePattern: '.*', outputVariable: 'windowHandles' },
-  mouseClick: { coordinateMode: 'screen', x: 500, y: 300, button: 'left', clickCount: 1, intervalMs: 100, windowHandleVariable: 'windowHandles', windowHandleIndex: 0 },
-  mouseMove: { x: 500, y: 300, durationMs: 0 },
-  mouseDrag: { startX: 500, startY: 300, endX: 700, endY: 300, button: 'left', durationMs: 500 },
-  mouseScroll: { x: 500, y: 300, delta: 120 },
+  mouseClick: { coordinateMode: 'followScript', x: 500, y: 300, button: 'left', clickCount: 1, intervalMs: 100 },
+  mouseMove: { coordinateMode: 'followScript', x: 500, y: 300, durationMs: 0 },
+  mouseDrag: { coordinateMode: 'followScript', startX: 500, startY: 300, endX: 700, endY: 300, button: 'left', durationMs: 500 },
+  mouseScroll: { coordinateMode: 'followScript', x: 500, y: 300, delta: 120 },
   keyPress: { key: 'A', durationMs: 50, repeatCount: 1, intervalMs: 100 },
   textInput: { text: 'Hello GameFlow', intervalMs: 30 },
   wait: { durationMs: 1000 },
@@ -69,8 +69,16 @@ export const defaultParameters: Record<NodeType, Record<string, unknown>> = {
 }
 
 function normalizedParameters(node: AutomationProject['nodes'][number]): Record<string, unknown> {
-  if (node.type !== 'mouseClick') return node.data.parameters
-  return { ...defaultParameters.mouseClick, ...node.data.parameters }
+  const coordinateNodes: NodeType[] = ['colorCondition', 'imageCondition', 'mouseClick', 'mouseMove', 'mouseDrag', 'mouseScroll']
+  if (!coordinateNodes.includes(node.type)) return node.data.parameters
+  const parameters = { ...defaultParameters[node.type], ...node.data.parameters }
+  if (parameters.coordinateMode === 'screen') parameters.coordinateMode = 'absolute'
+  if (parameters.coordinateMode === 'windowRelative') parameters.coordinateMode = 'relative'
+  if (node.type === 'mouseClick') {
+    delete parameters.windowHandleVariable
+    delete parameters.windowHandleIndex
+  }
+  return parameters
 }
 
 export function toFlowNodes(project: AutomationProject): GameFlowNode[] {

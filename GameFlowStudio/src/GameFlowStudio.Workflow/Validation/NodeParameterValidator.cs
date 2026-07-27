@@ -4,6 +4,7 @@ using GameFlowStudio.Contracts.Enums;
 using GameFlowStudio.Contracts.Nodes;
 using GameFlowStudio.Contracts.Results;
 using GameFlowStudio.Contracts.Workflows;
+using GameFlowStudio.Workflow.Coordinates;
 using GameFlowStudio.Workflow.Executors;
 
 namespace GameFlowStudio.Workflow.Validation;
@@ -28,12 +29,12 @@ internal sealed class NodeParameterValidator
             case NodeTypes.MouseClick:
                 ValidateMouseClick(node); break;
             case NodeTypes.MouseMove:
-                Coordinate(node); NonNegative(node, "durationMs", 0); break;
+                CoordinateMode(node); Coordinate(node); NonNegative(node, "durationMs", 0); break;
             case NodeTypes.MouseDrag:
-                Coordinate(node, "startX", "startY"); Coordinate(node, "endX", "endY");
+                CoordinateMode(node); Coordinate(node, "startX", "startY"); Coordinate(node, "endX", "endY");
                 MouseButton(node); NonNegative(node, "durationMs", 0); break;
             case NodeTypes.MouseScroll:
-                Coordinate(node); if (NodeParameterReader.Int(node, "delta", 120) == 0) throw new InvalidOperationException("滚动量不能为零。"); break;
+                CoordinateMode(node); Coordinate(node); if (NodeParameterReader.Int(node, "delta", 120) == 0) throw new InvalidOperationException("滚动量不能为零。"); break;
             case NodeTypes.KeyPress:
                 RequiredText(node, "key"); NonNegative(node, "durationMs", 0); Positive(node, "repeatCount", 1); NonNegative(node, "intervalMs", 0); break;
             case NodeTypes.TextInput:
@@ -42,7 +43,7 @@ internal sealed class NodeParameterValidator
                 ValidateWait(node); break;
             case NodeTypes.ColorCondition:
             case NodeTypes.ImageCondition:
-                ValidateSingleStateCondition(node); break;
+                CoordinateMode(node); ValidateSingleStateCondition(node); break;
             case NodeTypes.StateCondition:
                 _ = StateRuleReader.Read(node); break;
             case NodeTypes.Jump:
@@ -84,9 +85,6 @@ internal sealed class NodeParameterValidator
         Coordinate(node);
         Positive(node, "clickCount", parameters.ClickCount);
         NonNegative(node, "intervalMs", parameters.IntervalMs);
-        if (!parameters.IsWindowRelative) return;
-        RequiredText(node, "windowHandleVariable");
-        if (parameters.WindowHandleIndex < 0) throw new InvalidOperationException("窗口句柄索引不能为负数。");
     }
 
     private static void ValidateWait(WorkflowNode node)
@@ -124,6 +122,9 @@ internal sealed class NodeParameterValidator
         var y = NodeParameterReader.Int(node, yName);
         if (x is < -100000 or > 100000 || y is < -100000 or > 100000) throw new InvalidOperationException("屏幕坐标超出允许范围。");
     }
+
+    private static void CoordinateMode(WorkflowNode node) =>
+        _ = CoordinateModeReader.Read(NodeParameterReader.String(node, "coordinateMode", "followScript"));
 
     private static void MouseButton(WorkflowNode node)
     {

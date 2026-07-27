@@ -3,6 +3,7 @@ using GameFlowStudio.Contracts.Enums;
 using GameFlowStudio.Contracts.Results;
 using GameFlowStudio.Contracts.Services;
 using GameFlowStudio.Contracts.States;
+using GameFlowStudio.Workflow.Coordinates;
 
 namespace GameFlowStudio.Workflow.Detectors;
 
@@ -33,7 +34,8 @@ public sealed class ColorStateDetector : IStateDetector
 
     public async Task<DetectorEvaluationResult> EvaluateAsync(DetectorDefinition detector, DetectorEvaluationContext context, CancellationToken cancellationToken)
     {
-        var region = ReadRegion(detector, context.Capture.VirtualScreenBounds, defaultWidth: 1, defaultHeight: 1);
+        var origin = CoordinateOrigin.Read(detector, context);
+        var region = ReadRegion(detector, context.Capture.VirtualScreenBounds, origin, defaultWidth: 1, defaultHeight: 1);
         var target = ParseColor(DetectorParameterReader.String(detector, "targetColor", "#FFFFFF"));
         var tolerance = Math.Clamp(DetectorParameterReader.Int(detector, "tolerance", 10), 0, 255);
         var minimumRatio = Math.Clamp(DetectorParameterReader.Double(detector, "minMatchRatio", 1), 0, 1);
@@ -52,14 +54,14 @@ public sealed class ColorStateDetector : IStateDetector
         return StateDetectorService.Result(detector, ratio >= minimumRatio ? 1 : 0, true, $"匹配比例 {ratio:P1}。");
     }
 
-    private static CaptureRegion ReadRegion(DetectorDefinition detector, CaptureRegion fallback, int defaultWidth, int defaultHeight)
+    private static CaptureRegion ReadRegion(DetectorDefinition detector, CaptureRegion fallback, CoordinateOrigin origin, int defaultWidth, int defaultHeight)
     {
-        var x = DetectorParameterReader.Int(detector, "x", fallback.X);
-        var y = DetectorParameterReader.Int(detector, "y", fallback.Y);
+        var x = DetectorParameterReader.Int(detector, "x", origin.IsWindow ? 0 : fallback.X);
+        var y = DetectorParameterReader.Int(detector, "y", origin.IsWindow ? 0 : fallback.Y);
         var width = DetectorParameterReader.Int(detector, "width", defaultWidth);
         var height = DetectorParameterReader.Int(detector, "height", defaultHeight);
         if (width <= 0 || height <= 0) throw new InvalidOperationException("检测区域的宽度和高度必须大于 0。");
-        return new(x, y, width, height);
+        return new(x + origin.X, y + origin.Y, width, height);
     }
 
     private static (byte R, byte G, byte B) ParseColor(string value)
@@ -83,7 +85,8 @@ public sealed class ImageStateDetector : IStateDetector
         if (template.Width <= 0 || template.Height <= 0 || template.Bgra32.Length < template.Width * template.Height * 4)
             throw new InvalidOperationException("图片模板为空或不是 BGRA32 图片。");
 
-        var search = ReadSearchRegion(detector, context.Capture.VirtualScreenBounds);
+        var origin = CoordinateOrigin.Read(detector, context);
+        var search = ReadSearchRegion(detector, context.Capture.VirtualScreenBounds, origin);
         var frame = await context.CaptureAsync(search, cancellationToken).ConfigureAwait(false);
         var tolerance = Math.Clamp(DetectorParameterReader.Int(detector, "tolerance", 10), 0, 255);
         var threshold = Math.Clamp(DetectorParameterReader.Double(detector, "matchThreshold", 0.95), 0, 1);
@@ -91,17 +94,17 @@ public sealed class ImageStateDetector : IStateDetector
         return StateDetectorService.Result(detector, best >= threshold ? 1 : 0, true, $"最佳匹配 {best:P1}。");
     }
 
-    private static CaptureRegion ReadSearchRegion(DetectorDefinition detector, CaptureRegion fallback)
+    private static CaptureRegion ReadSearchRegion(DetectorDefinition detector, CaptureRegion fallback, CoordinateOrigin origin)
     {
         var hasWidth = detector.Parameters.ContainsKey("width");
         var hasHeight = detector.Parameters.ContainsKey("height");
-        var width = DetectorParameterReader.Int(detector, "width", fallback.Width);
-        var height = DetectorParameterReader.Int(detector, "height", fallback.Height);
-        if (!hasWidth || !hasHeight) { width = fallback.Width; height = fallback.Height; }
+        var width = DetectorParameterReader.Int(detector, "width", origin.Width ?? fallback.Width);
+        var height = DetectorParameterReader.Int(detector, "height", origin.Height ?? fallback.Height);
+        if (!hasWidth || !hasHeight) { width = origin.Width ?? fallback.Width; height = origin.Height ?? fallback.Height; }
         if (width <= 0 || height <= 0) throw new InvalidOperationException("图片搜索区域的宽度和高度必须大于 0。");
         return new(
-            DetectorParameterReader.Int(detector, "x", fallback.X),
-            DetectorParameterReader.Int(detector, "y", fallback.Y), width, height);
+            DetectorParameterReader.Int(detector, "x", origin.IsWindow ? 0 : fallback.X) + origin.X,
+            DetectorParameterReader.Int(detector, "y", origin.IsWindow ? 0 : fallback.Y) + origin.Y, width, height);
     }
 
     private static double FindBestMatch(CapturedFrame frame, DetectorImage template, int tolerance, CancellationToken cancellationToken)
@@ -129,6 +132,18 @@ public sealed class ImageStateDetector : IStateDetector
             if (best >= 1) return best;
         }
         return best;
+    }
+}
+
+internal sealed record CoordinateOrigin(bool IsWindow, int X, int Y, int? Width = null, int? Height = null)
+{
+    public static CoordinateOrigin Read(DetectorDefinition detector, DetectorEvaluationContext context)
+    {
+        var mode = CoordinateModeReader.Read(DetectorParameterReader.String(detector, "coordinateMode", "followScript"));
+        if (!CoordinateModeReader.UsesWindow(mode, context.WindowHandles)) return new(false, 0, 0);
+        if (context.Windows is null) throw new InvalidOperationException("相对坐标未注册窗口服务。");
+        var bounds = CoordinateModeReader.GetWindowBounds(context.WindowHandles, context.Windows);
+        return new(true, bounds.Left, bounds.Top, bounds.Right - bounds.Left, bounds.Bottom - bounds.Top);
     }
 }
 
