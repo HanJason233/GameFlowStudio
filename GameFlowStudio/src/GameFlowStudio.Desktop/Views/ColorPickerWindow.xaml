@@ -17,8 +17,5 @@
                 <controls:SelectableTextBlock x:Name="CoordinateText" Foreground="#CBD5E1" FontFamily="Consolas" FontSize="12" Margin="0,3,0,0"/>
             </StackPanel>
         </Border>
-        <Border Canvas.Left="20" Canvas.Top="20" Background="#D9111827" CornerRadius="8" Padding="14">
-            <controls:SelectableTextBlock Foreground="White" Text="移动鼠标查看像素放大镜 · 左键确认 · Esc 取消"/>
-        </Border>
     </Canvas>
 </Window>

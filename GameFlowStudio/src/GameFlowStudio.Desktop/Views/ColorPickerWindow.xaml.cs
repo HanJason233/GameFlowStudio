@@ -47,9 +47,9 @@ public partial class ColorPickerWindow : Window
         try
         {
             var region = CreateSampleRegion(point, _capture.VirtualScreenBounds);
-            OverlayCanvas.Visibility = Visibility.Hidden;
+            PositionMagnifier(point);
             await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Render);
-            var frame = await _capture.CaptureAsync(region, CancellationToken.None);
+            var frame = await Task.Run(() => _capture.CaptureAsync(region, CancellationToken.None));
             var pixelX = Math.Clamp(point.X - region.X, 0, frame.Width - 1);
             var pixelY = Math.Clamp(point.Y - region.Y, 0, frame.Height - 1);
             var pixel = frame.Pixel(pixelX, pixelY);
@@ -60,7 +60,6 @@ public partial class ColorPickerWindow : Window
             PixelText.Text = $"{_lastColor}  RGB({pixel[2]}, {pixel[1]}, {pixel[0]})";
             CoordinateText.Text = FormatCoordinate(point);
             MagnifierImage.Source = BitmapSource.Create(frame.Width, frame.Height, 96, 96, PixelFormats.Bgra32, null, frame.Bgra32, frame.Width * 4);
-            PositionMagnifier(point);
         }
         catch
         {
@@ -71,7 +70,6 @@ public partial class ColorPickerWindow : Window
         }
         finally
         {
-            if (!_isClosed) OverlayCanvas.Visibility = Visibility.Visible;
             _isUpdating = false;
         }
     }
