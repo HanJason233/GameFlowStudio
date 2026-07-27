@@ -239,7 +239,7 @@
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <StackPanel Width="112" Margin="0,2,6,2">
-                                                <controls:SelectableTextBlock Text="{Binding Name}" Foreground="#94A3B8" ToolTip="{Binding Description}"/>
+                                                <controls:SelectableTextBlock Text="{Binding Name, Mode=OneWay}" Foreground="#94A3B8" ToolTip="{Binding Description}"/>
                                                 <TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"/>
                                             </StackPanel>
                                         </DataTemplate>
@@ -358,7 +358,7 @@
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
                                                 <StackPanel Width="112" Margin="0,2,6,2">
-                                                    <controls:SelectableTextBlock Text="{Binding Name}" Foreground="#94A3B8" ToolTip="{Binding Description}"/>
+                                                    <controls:SelectableTextBlock Text="{Binding Name, Mode=OneWay}" Foreground="#94A3B8" ToolTip="{Binding Description}"/>
                                                     <TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"/>
                                                 </StackPanel>
                                             </DataTemplate>
