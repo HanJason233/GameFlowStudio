@@ -1,0 +1,9 @@
+<Project Sdk="WixToolset.Sdk/5.0.2">
+  <PropertyGroup>
+    <InstallerPlatform>x64</InstallerPlatform>
+    <AppVersion Condition="'$(AppVersion)' == ''">0.1.0</AppVersion>
+    <PublishDir Condition="'$(PublishDir)' == ''">..\artifacts\publish\win-x64</PublishDir>
+    <DefineConstants>AppVersion=$(AppVersion);PublishDir=$([System.IO.Path]::GetFullPath('$(PublishDir)'))</DefineConstants>
+    <OutputName>GameFlowStudio-$(AppVersion)-win-x64</OutputName>
+  </PropertyGroup>
+</Project>

@@ -11,12 +11,61 @@ declare global {
 }
 
 export function postBridgeMessage<T>(type: string, payload?: T, requestId?: string): void {
+  if (type.trim().length === 0) {
+    console.warn('[editor bridge] Ignored a message with an empty type.')
+    return
+  }
+
   const message: BridgeMessage<T> = { type, payload, requestId }
-  window.chrome?.webview?.postMessage(message)
+  try {
+    window.chrome?.webview?.postMessage(message)
+  } catch (error) {
+    console.error(`[editor bridge] Failed to send "${type}".`, error)
+  }
 }
 
 export function subscribeBridge(listener: (message: BridgeMessage) => void): () => void {
-  const handler = (event: MessageEvent) => listener(typeof event.data === 'string' ? JSON.parse(event.data) : event.data as BridgeMessage)
-  window.chrome?.webview?.addEventListener('message', handler)
-  return () => window.chrome?.webview?.removeEventListener('message', handler)
+  const webView = window.chrome?.webview
+  if (!webView) return () => undefined
+
+  const handler = (event: MessageEvent) => {
+    const message = parseBridgeMessage(event.data)
+    if (!message) {
+      console.warn('[editor bridge] Ignored a malformed host message.')
+      return
+    }
+
+    try {
+      listener(message)
+    } catch (error) {
+      console.error(`[editor bridge] Failed to handle "${message.type}".`, error)
+    }
+  }
+
+  webView.addEventListener('message', handler)
+  return () => webView.removeEventListener('message', handler)
+}
+
+function parseBridgeMessage(value: unknown): BridgeMessage | null {
+  let parsed: unknown = value
+  if (typeof value === 'string') {
+    try {
+      parsed = JSON.parse(value) as unknown
+    } catch {
+      return null
+    }
+  }
+
+  if (!isRecord(parsed) || typeof parsed.type !== 'string' || parsed.type.trim().length === 0) return null
+  if ('requestId' in parsed && parsed.requestId !== undefined && typeof parsed.requestId !== 'string') return null
+
+  return {
+    type: parsed.type,
+    requestId: typeof parsed.requestId === 'string' ? parsed.requestId : undefined,
+    payload: parsed.payload,
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }

@@ -1,0 +1,87 @@
+param(
+    [string]$Version
+)
+
+$ErrorActionPreference = 'Stop'
+
+$repositoryRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+$artifactRoot = Join-Path $repositoryRoot 'artifacts'
+$editorDirectory = Join-Path $repositoryRoot 'src\GameFlowStudio.Editor'
+$desktopProject = Join-Path $repositoryRoot 'src\GameFlowStudio.Desktop\GameFlowStudio.Desktop.csproj'
+$installerProject = Join-Path $repositoryRoot 'installer\GameFlowStudio.Installer.wixproj'
+$publishDirectory = Join-Path $artifactRoot 'publish\win-x64'
+$installerDirectory = Join-Path $artifactRoot 'installer'
+
+function Reset-ArtifactDirectory {
+    param([Parameter(Mandatory)][string]$Path)
+
+    $resolvedArtifactRoot = [System.IO.Path]::GetFullPath($artifactRoot).TrimEnd(
+        [System.IO.Path]::DirectorySeparatorChar,
+        [System.IO.Path]::AltDirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
+    $resolvedPath = [System.IO.Path]::GetFullPath($Path)
+    if (!$resolvedPath.StartsWith($resolvedArtifactRoot, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "Refusing to clean a path outside the artifacts directory: $resolvedPath"
+    }
+
+    if (Test-Path -LiteralPath $resolvedPath) {
+        Remove-Item -LiteralPath $resolvedPath -Recurse -Force
+    }
+    New-Item -ItemType Directory -Path $resolvedPath -Force | Out-Null
+}
+
+if ([string]::IsNullOrWhiteSpace($Version)) {
+    $Version = (& dotnet msbuild $desktopProject -nologo -getProperty:Version).Trim()
+}
+if ($Version -notmatch '^\d+\.\d+\.\d+$') {
+    throw "The installer version must use major.minor.patch format: $Version"
+}
+
+Reset-ArtifactDirectory $publishDirectory
+Reset-ArtifactDirectory $installerDirectory
+
+Push-Location $editorDirectory
+try {
+    & npm.cmd ci --prefer-offline --no-audit --no-fund
+    if ($LASTEXITCODE -ne 0) { throw 'npm ci failed.' }
+    & npm.cmd run lint
+    if ($LASTEXITCODE -ne 0) { throw 'Frontend lint failed.' }
+    & npm.cmd run build
+    if ($LASTEXITCODE -ne 0) { throw 'Frontend build failed.' }
+}
+finally {
+    Pop-Location
+}
+
+& dotnet test (Join-Path $repositoryRoot 'GameFlowStudio.sln') -c Release
+if ($LASTEXITCODE -ne 0) { throw '.NET tests failed.' }
+
+& dotnet publish $desktopProject `
+    -c Release `
+    -r win-x64 `
+    --self-contained true `
+    -p:Version=$Version `
+    -p:DebugSymbols=false `
+    -p:DebugType=None `
+    -p:PublishReadyToRun=true `
+    -o $publishDirectory
+if ($LASTEXITCODE -ne 0) { throw '.NET publish failed.' }
+
+& dotnet build $installerProject `
+    -c Release `
+    -p:AppVersion=$Version `
+    -p:PublishDir=$publishDirectory `
+    -p:OutputPath=$installerDirectory
+if ($LASTEXITCODE -ne 0) { throw 'MSI build failed.' }
+
+$installer = Get-ChildItem -LiteralPath $installerDirectory -Filter '*.msi' -File |
+    Sort-Object LastWriteTimeUtc -Descending |
+    Select-Object -First 1
+if ($null -eq $installer) { throw 'MSI build completed without producing an installer.' }
+
+$hash = Get-FileHash -LiteralPath $installer.FullName -Algorithm SHA256
+$checksumPath = "$($installer.FullName).sha256"
+"$($hash.Hash.ToLowerInvariant())  $($installer.Name)" |
+    Set-Content -LiteralPath $checksumPath -Encoding ascii
+
+Write-Output "Installer: $($installer.FullName)"
+Write-Output "SHA256:    $($hash.Hash.ToLowerInvariant())"

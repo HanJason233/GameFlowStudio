@@ -1,8 +1,12 @@
 import type { Edge, Node } from '@xyflow/react'
 
-export type NodeType = 'start' | 'windowScope' | 'mouseClick' | 'mouseMove' | 'mouseDrag' | 'mouseScroll' | 'keyPress' | 'textInput' | 'wait' |
-  'colorCondition' | 'imageCondition' | 'ocrCondition' | 'jump' | 'runProgram' | 'closeProgram' |
-  'minimizeWindow' | 'arrangeWindows' | 'setWindowResolution' | 'end'
+export const nodeTypes = [
+  'start', 'windowScope', 'mouseClick', 'mouseMove', 'mouseDrag', 'mouseScroll', 'keyPress', 'textInput', 'wait',
+  'colorCondition', 'imageCondition', 'ocrCondition', 'jump', 'runProgram', 'closeProgram',
+  'minimizeWindow', 'arrangeWindows', 'setWindowResolution', 'end',
+] as const
+
+export type NodeType = (typeof nodeTypes)[number]
 
 export type ExecutionStatus = 'none' | 'running' | 'success' | 'error'
 

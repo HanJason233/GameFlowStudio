@@ -84,7 +84,7 @@ public sealed class ProjectStorageTests : IDisposable
     }
 
     [Fact]
-    public async Task FailedSaveRestoresUpdatedTimestampAndRemovesTemporaryFile()
+    public async Task FailedSaveDoesNotChangeTimestampAndRemovesTemporaryFile()
     {
         Directory.CreateDirectory(_directory);
         var path = Path.Combine(_directory, "invalid-save.gflow");
@@ -98,6 +98,21 @@ public sealed class ProjectStorageTests : IDisposable
         Assert.Equal(originalTimestamp, project.Project.UpdatedAt);
         Assert.False(File.Exists(path));
         Assert.Empty(Directory.GetFiles(_directory, "*.tmp"));
+    }
+
+    [Fact]
+    public async Task SaveCreatesTimestampedSnapshotWithoutMutatingCaller()
+    {
+        var path = Path.Combine(_directory, "pure-save.gflow");
+        var project = Project();
+        var originalTimestamp = new DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        project.Project.UpdatedAt = originalTimestamp;
+
+        await _storage.SaveAsync(project, path, CancellationToken.None);
+        var loaded = await _storage.LoadAsync(path, CancellationToken.None);
+
+        Assert.Equal(originalTimestamp, project.Project.UpdatedAt);
+        Assert.True(loaded.Project.UpdatedAt > originalTimestamp);
     }
 
     [Fact]

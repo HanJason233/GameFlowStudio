@@ -23,19 +23,14 @@ public sealed class ProjectStorageService(ILogger<ProjectStorageService> logger)
         await saveGate.WaitAsync(cancellationToken).ConfigureAwait(false);
 
         string? tempPath = null;
-        DateTimeOffset previousUpdatedAt = default;
-        var timestampChanged = false;
         try
         {
-            ProjectDocumentSerializer.Validate(project);
+            var snapshot = ProjectDocumentSerializer.CreateSnapshot(project, DateTimeOffset.UtcNow);
             Directory.CreateDirectory(directory);
             tempPath = Path.Combine(directory, $".{Path.GetFileName(fullPath)}.{Guid.NewGuid():N}.tmp");
-            previousUpdatedAt = project.Project.UpdatedAt;
-            project.Project.UpdatedAt = DateTimeOffset.UtcNow;
-            timestampChanged = true;
 
             await using (var stream = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, 81920, FileOptions.Asynchronous | FileOptions.WriteThrough))
-                await ProjectDocumentSerializer.WriteAsync(stream, project, cancellationToken).ConfigureAwait(false);
+                await ProjectDocumentSerializer.WriteAsync(stream, snapshot, cancellationToken).ConfigureAwait(false);
 
             await using (var verification = new FileStream(tempPath, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, FileOptions.Asynchronous))
                 _ = await ProjectDocumentSerializer.ReadAsync(verification, cancellationToken).ConfigureAwait(false);
@@ -46,7 +41,6 @@ public sealed class ProjectStorageService(ILogger<ProjectStorageService> logger)
         }
         catch
         {
-            if (timestampChanged) project.Project.UpdatedAt = previousUpdatedAt;
             TryDeleteTemporaryFile(tempPath);
             throw;
         }

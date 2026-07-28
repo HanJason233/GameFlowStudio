@@ -1,0 +1,36 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package
+    Name="GameFlow Studio"
+    Manufacturer="GameFlow Studio"
+    Version="$(AppVersion)"
+    Language="2052"
+    Scope="perMachine"
+    UpgradeCode="E4F858AD-16A8-4BA9-8CE2-DC9368280262">
+
+    <MajorUpgrade DowngradeErrorMessage="已安装更高版本的 GameFlow Studio。" />
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+
+    <StandardDirectory Id="ProgramFiles6432Folder">
+      <Directory Id="INSTALLFOLDER" Name="GameFlow Studio">
+        <Component Id="MainExecutable" Guid="*">
+          <File
+            Id="GameFlowStudioExecutable"
+            Source="$(PublishDir)\GameFlowStudio.Desktop.exe"
+            KeyPath="yes">
+            <Shortcut
+              Id="StartMenuShortcut"
+              Directory="ProgramMenuFolder"
+              Name="GameFlow Studio"
+              Description="Windows 无代码键盘鼠标自动化工具"
+              Advertise="yes"
+              WorkingDirectory="INSTALLFOLDER" />
+          </File>
+        </Component>
+
+        <Files Include="$(PublishDir)\**">
+          <Exclude Files="$(PublishDir)\GameFlowStudio.Desktop.exe" />
+        </Files>
+      </Directory>
+    </StandardDirectory>
+  </Package>
+</Wix>

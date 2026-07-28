@@ -55,6 +55,17 @@ dotnet test GameFlowStudio.sln -c Release
 
 首次启动可点击“打开示例项目”。创建新项目时会得到一个已连接的开始和结束节点；从节点编辑区下方的步骤面板添加节点，重新连接后即可保存和运行。
 
+## 发布 Windows 安装包
+
+项目使用 WiX Toolset 生成包含 .NET 运行时的 x64 MSI，构建机只需要当前项目要求的 .NET SDK 和 Node.js：
+
+```powershell
+cd C:\auto\GameFlowStudio
+powershell -NoProfile -ExecutionPolicy Bypass -File .\build\Publish-Installer.ps1
+```
+
+脚本会重新安装锁定版本的前端依赖，执行 lint、前端构建和全部 .NET 测试，然后将自包含应用发布到 `artifacts\publish\win-x64`，最终安装包及 SHA-256 校验文件输出到 `artifacts\installer`。可通过 `-Version 0.1.1` 显式指定三段式版本号；未指定时使用项目的 `VersionPrefix`。
+
 ## Gemini OCR 配置
 
 桌面端默认使用 `https://gemini.11145149.xyz/` 的 Gemini `generateContent` 接口和 `gemini-flash-lite-latest` 模型，默认提示词为“你当前是ocr识别助手，只输出识别到的文字，字母，数字，符号等”。API 密钥可在“全局设置 → Gemini OCR API 密钥”中保存到本机设置；留空时也可以使用 `GEMINI_API_KEY` 环境变量。也可以使用 `GeminiOcr__ApiBaseUrl`、`GeminiOcr__EndpointPath`、`GeminiOcr__Model`、`GeminiOcr__Prompt` 和 `GeminiOcr__TimeoutSeconds` 覆盖默认配置。
@@ -94,7 +105,7 @@ GameFlowStudio/
 - 鼠标移动的 `durationMs` 已保留，但 MVP 当前执行瞬时定位。
 - 快捷键设置支持 F1–F24，尚未提供带 Ctrl/Shift/Alt 的全局组合键编辑器。
 - 浅色主题切换 WPF 主背景；React 编辑器保持适合流程调试的深色画布。
-- 未提供 MSI/MSIX、自动更新、工作流并行或崩溃恢复。
+- 未提供自动更新、工作流并行或崩溃恢复。
 - 不包含录制、云同步、登录、插件、脚本市场、游戏内存、注入、驱动输入或反作弊能力。
 
 架构细节见 [architecture.md](docs/architecture.md)，消息协议见 [editor-communication.md](docs/editor-communication.md)。

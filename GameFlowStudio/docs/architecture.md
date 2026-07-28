@@ -15,6 +15,13 @@ WPF Desktop ── WebView2 JSON ── React Flow Editor
 
 Desktop 负责窗口生命周期、文件对话框、运行命令和可视状态，不绘制流程。Editor 负责图形编辑，不执行自动化。Workflow 只依赖 Contracts 中的接口，因此测试可注入假的输入或节点执行器。Automation 是唯一允许调用 `user32.dll` 的项目。
 
+## 防御边界与后端纯度
+
+- React Editor 把 WebView 消息视为不可信输入：先校验消息信封、请求 ID、节点类型、payload 和工作流结构，再更新画布；畸形消息只记录并隔离，渲染异常由前端错误边界提供恢复入口。
+- Desktop 是 UI 适配层，负责把异常记录为日志或转换为用户提示。Workflow、Storage 和 Automation 不依赖对话框、Dispatcher 或前端状态。
+- 后端仍必须在存储、执行和系统调用边界验证领域不变量；这类校验保证数据正确性，不应下放给前端。领域内部不重复猜测或修补非法输入，也不吞掉业务异常。
+- 后端服务不得隐式修改调用方传入的数据。项目保存使用独立快照更新时间并落盘，调用方对象保持不变。
+
 ## 屏幕坐标契约
 
 - Automation、Workflow 和项目参数中的屏幕坐标统一使用虚拟桌面物理像素；`CursorPositionService`、`CaptureRegion`、`CapturedFrame` 和鼠标输入必须保持同一坐标系，并允许多显示器负坐标。

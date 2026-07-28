@@ -41,6 +41,16 @@ internal static class ProjectDocumentSerializer
         ValidateShape(project);
     }
 
+    public static AutomationProject CreateSnapshot(AutomationProject project, DateTimeOffset updatedAt)
+    {
+        Validate(project);
+        var snapshot = JsonSerializer.SerializeToElement(project, StorageOptions)
+            .Deserialize<AutomationProject>(StorageOptions)
+            ?? throw new InvalidDataException("无法创建项目保存快照。");
+        snapshot.Project.UpdatedAt = updatedAt;
+        return snapshot;
+    }
+
     private static void ValidateEnvelope(JsonElement root)
     {
         if (root.ValueKind != JsonValueKind.Object)

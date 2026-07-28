@@ -3,6 +3,7 @@ import {
   Background, BackgroundVariant, Controls, Panel, ReactFlow, ReactFlowProvider,
   type Connection, type Edge, type NodeMouseHandler, type OnSelectionChangeParams,
 } from '@xyflow/react'
+import { EditorErrorBoundary } from './components/EditorErrorBoundary'
 import { useEditorBridge } from './hooks/useEditorBridge'
 import { useNodeClipboard } from './hooks/useNodeClipboard'
 import { useWorkflowDocument } from './hooks/useWorkflowDocument'
@@ -78,4 +79,6 @@ function EditorCanvas() {
   </div>
 }
 
-export default function App() { return <ReactFlowProvider><EditorCanvas /></ReactFlowProvider> }
+export default function App() {
+  return <EditorErrorBoundary><ReactFlowProvider><EditorCanvas /></ReactFlowProvider></EditorErrorBoundary>
+}
