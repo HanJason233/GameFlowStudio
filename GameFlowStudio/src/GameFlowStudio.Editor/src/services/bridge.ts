@@ -57,7 +57,7 @@ function parseBridgeMessage(value: unknown): BridgeMessage | null {
   }
 
   if (!isRecord(parsed) || typeof parsed.type !== 'string' || parsed.type.trim().length === 0) return null
-  if ('requestId' in parsed && parsed.requestId !== undefined && typeof parsed.requestId !== 'string') return null
+  if ('requestId' in parsed && parsed.requestId !== undefined && parsed.requestId !== null && typeof parsed.requestId !== 'string') return null
 
   return {
     type: parsed.type,

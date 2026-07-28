@@ -39,7 +39,11 @@ function routeMessage(message: BridgeMessage, handlers: EditorBridgeHandlers): v
     case 'add_node': {
       const payload = readRecord(message.payload)
       if (!payload || !isNodeType(payload.nodeType)) return reject(message.type, 'invalid node type')
-      handlers.addNode(payload.nodeType)
+      try {
+        handlers.addNode(payload.nodeType)
+      } catch (error) {
+        reportError(message.type, error)
+      }
       break
     }
     case 'update_node_data': {
@@ -74,6 +78,12 @@ function routeExecutionStatus(
 
 function reject(type: string, reason: string): void {
   console.warn(`[editor bridge] Ignored "${type}": ${reason}.`)
+}
+
+function reportError(type: string, error: unknown): void {
+  const message = error instanceof Error ? error.message : String(error)
+  console.error(`[editor bridge] Failed to handle "${type}": ${message}`)
+  postBridgeMessage('editor_error', { type, message })
 }
 
 function isNonEmptyString(value: unknown): value is string {

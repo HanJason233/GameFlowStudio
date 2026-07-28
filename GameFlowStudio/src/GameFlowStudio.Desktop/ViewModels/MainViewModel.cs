@@ -269,6 +269,9 @@ public sealed class MainViewModel : ObservableObject
             {
                   case "editor_ready": await _editor.SendAsync("initialize_editor", CreateEditorSnapshot(ActiveScript)); break;
                   case "workflow_changed": _dirty = true; break;
+                  case "editor_error":
+                      _logger.LogError("Editor reported an error: {Payload}", message.Payload.ValueKind is JsonValueKind.Undefined or JsonValueKind.Null ? "unknown" : message.Payload.GetRawText());
+                      break;
                   case "node_selected": ReadSelection(message.Payload); break;
                   case "node_context_menu":
                       ReadSelection(message.Payload);
@@ -560,7 +563,11 @@ public sealed class MainViewModel : ObservableObject
         finally { await FinishRunAsync(); }
     }
 
-    private async Task AddNodeAsync(ToolboxItem? item) { if (item is not null) await _editor.SendAsync("add_node", new { nodeType = item.Type }); }
+    private async Task AddNodeAsync(ToolboxItem? item)
+    {
+        if (item is not null)
+            await _editor.SendAsync("add_node", new { nodeType = item.Type });
+    }
 
     private async Task NewScriptAsync()
     {

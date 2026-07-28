@@ -40,7 +40,19 @@ export function useWorkflowDocument() {
 
   const addNode = useCallback((nodeType: NodeType) => {
     if (readOnly) return
-    const position = flow.screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 })
+    let position = { x: 100, y: 100 }
+    try {
+      const canvas = document.querySelector('.react-flow')
+      const bounds = canvas?.getBoundingClientRect()
+      const screenPoint = bounds && bounds.width > 0 && bounds.height > 0
+        ? { x: bounds.left + bounds.width / 2, y: bounds.top + bounds.height / 2 }
+        : { x: window.innerWidth / 2, y: window.innerHeight / 2 }
+      const converted = flow.screenToFlowPosition(screenPoint)
+      if (Number.isFinite(converted.x) && Number.isFinite(converted.y)) position = converted
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      postBridgeMessage('editor_error', { type: 'add_node', message: `Unable to calculate node position: ${message}` })
+    }
     setNodes(current => [...current, { id: nextActionId(current), type: 'gameNode', position, data: { nodeType, displayName: nodeLabels[nodeType], parameters: structuredClone(defaultParameters[nodeType]) } }])
     markChanged()
   }, [flow, markChanged, readOnly, setNodes])
