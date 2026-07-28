@@ -19,6 +19,31 @@ public sealed class WorkflowValidatorTests
     [Fact] public async Task SuppliedSampleIsValid() { await using var stream = File.OpenRead(Path.Combine(AppContext.BaseDirectory,"samples","basic-example.gflow")); var project = await JsonSerializer.DeserializeAsync<AutomationProject>(stream,ProjectJson.Options); Assert.NotNull(project); var script = Assert.Single(project.Scripts); var workflow = new AutomationProject { SchemaVersion = project.SchemaVersion, Project = project.Project, Variables = script.Variables, Nodes = script.Nodes, Edges = script.Edges }; Assert.True(_validator.Validate(workflow).IsValid, string.Join(" | ",_validator.Validate(workflow).Errors.Select(e=>e.Message))); }
     [Fact] public void InvalidWindowScopePatternFails() { var scope = WorkflowEngineTests.Node("scope", NodeTypes.WindowScope, ("titlePattern", "["), ("outputVariable", "windowHandles")); var p = ValidWith(scope); Assert.Contains(_validator.Validate(p).Errors, e => e.Code == "parameters" && e.NodeId == "scope"); }
     [Fact] public void InvalidInlineColorParametersFail() { var color = WorkflowEngineTests.Node("color", NodeTypes.ColorCondition, ("targetColor", "not-a-color")); var p = ValidWith(color); Assert.Contains(_validator.Validate(p).Errors, e => e.Code == "detector_parameters" && e.NodeId == "color"); }
+    [Fact] public void DuplicateScriptIdsFail() { var p = Valid(); p.Scripts = [new() { Id = "same" }, new() { Id = "same" }]; Assert.Contains(_validator.Validate(p).Errors, e => e.Code == "script_id"); }
+    [Fact] public void MissingActiveScriptFails() { var p = Valid(); p.Scripts = [new() { Id = "one" }]; p.ActiveScriptId = "missing"; Assert.Contains(_validator.Validate(p).Errors, e => e.Code == "active_script"); }
+    [Fact] public void ActiveScriptWithoutScriptsFails() { var p = Valid(); p.ActiveScriptId = "missing"; Assert.Contains(_validator.Validate(p).Errors, e => e.Code == "active_script"); }
+    [Fact]
+    public void EmptyEdgeEndpointsAreAggregatedAsValidationErrors()
+    {
+        var p = Valid();
+        p.Edges[0].Source = null!;
+        p.Edges[0].Target = null!;
+
+        var result = _validator.Validate(p);
+
+        Assert.Contains(result.Errors, error => error.Code == "edge_source");
+        Assert.Contains(result.Errors, error => error.Code == "edge_target");
+    }
+    [Fact]
+    public void EmptyNodeIdIsReportedWithoutInterruptingValidation()
+    {
+        var p = Valid();
+        p.Nodes[0].Id = null!;
+
+        var result = _validator.Validate(p);
+
+        Assert.Contains(result.Errors, error => error.Code == "node_id");
+    }
     private static Contracts.Workflows.AutomationProject Valid() => ValidWith();
     private static Contracts.Workflows.AutomationProject ValidWith(params Contracts.Workflows.WorkflowNode[] middle)
     {

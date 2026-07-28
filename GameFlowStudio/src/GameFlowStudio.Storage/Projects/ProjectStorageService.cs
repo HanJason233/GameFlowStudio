@@ -1,6 +1,8 @@
+using System.Collections.Concurrent;
 using System.Text.Json;
 using GameFlowStudio.Contracts.Services;
 using GameFlowStudio.Contracts.Workflows;
+using GameFlowStudio.Storage.Serialization;
 using Microsoft.Extensions.Logging;
 
 namespace GameFlowStudio.Storage.Projects;
@@ -8,42 +10,77 @@ namespace GameFlowStudio.Storage.Projects;
 /// <summary>使用临时文件校验和原子替换保存 .gflow 项目。</summary>
 public sealed class ProjectStorageService(ILogger<ProjectStorageService> logger) : IProjectStorageService
 {
+    private static readonly ConcurrentDictionary<string, SemaphoreSlim> SaveGates = new(
+        OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+
     public async Task SaveAsync(AutomationProject project, string filePath, CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(project);
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
         var fullPath = Path.GetFullPath(filePath);
         var directory = Path.GetDirectoryName(fullPath) ?? throw new InvalidOperationException("无法确定项目目录。");
-        Directory.CreateDirectory(directory);
-        var tempPath = Path.Combine(directory, $".{Path.GetFileName(fullPath)}.{Guid.NewGuid():N}.tmp");
-        project.Project.UpdatedAt = DateTimeOffset.UtcNow;
+        var saveGate = SaveGates.GetOrAdd(fullPath, static _ => new SemaphoreSlim(1, 1));
+        await saveGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        string? tempPath = null;
+        DateTimeOffset previousUpdatedAt = default;
+        var timestampChanged = false;
         try
         {
+            ProjectDocumentSerializer.Validate(project);
+            Directory.CreateDirectory(directory);
+            tempPath = Path.Combine(directory, $".{Path.GetFileName(fullPath)}.{Guid.NewGuid():N}.tmp");
+            previousUpdatedAt = project.Project.UpdatedAt;
+            project.Project.UpdatedAt = DateTimeOffset.UtcNow;
+            timestampChanged = true;
+
             await using (var stream = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, 81920, FileOptions.Asynchronous | FileOptions.WriteThrough))
-                await JsonSerializer.SerializeAsync(stream, project, ProjectJson.Options, cancellationToken).ConfigureAwait(false);
+                await ProjectDocumentSerializer.WriteAsync(stream, project, cancellationToken).ConfigureAwait(false);
 
             await using (var verification = new FileStream(tempPath, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, FileOptions.Asynchronous))
-                _ = await JsonSerializer.DeserializeAsync<AutomationProject>(verification, ProjectJson.Options, cancellationToken).ConfigureAwait(false)
-                    ?? throw new InvalidDataException("临时项目文件校验失败。");
+                _ = await ProjectDocumentSerializer.ReadAsync(verification, cancellationToken).ConfigureAwait(false);
 
             if (File.Exists(fullPath)) File.Replace(tempPath, fullPath, null, true);
             else File.Move(tempPath, fullPath);
-            logger.LogInformation("项目已保存到 {Path}", fullPath);
+            tempPath = null;
         }
         catch
         {
-            if (File.Exists(tempPath)) File.Delete(tempPath);
+            if (timestampChanged) project.Project.UpdatedAt = previousUpdatedAt;
+            TryDeleteTemporaryFile(tempPath);
             throw;
         }
+        finally
+        {
+            saveGate.Release();
+        }
+
+        logger.LogInformation("项目已保存到 {Path}", fullPath);
     }
 
     public async Task<AutomationProject> LoadAsync(string filePath, CancellationToken cancellationToken)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
         try
         {
-            await using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, FileOptions.Asynchronous);
-            var project = await JsonSerializer.DeserializeAsync<AutomationProject>(stream, ProjectJson.Options, cancellationToken).ConfigureAwait(false);
-            return project ?? throw new InvalidDataException("项目文件内容为空。");
+            var fullPath = Path.GetFullPath(filePath);
+            await using var stream = new FileStream(
+                fullPath,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.Read | FileShare.Delete,
+                81920,
+                FileOptions.Asynchronous);
+            return await ProjectDocumentSerializer.ReadAsync(stream, cancellationToken).ConfigureAwait(false);
         }
         catch (JsonException ex) { throw new InvalidDataException($"项目 JSON 无效：{ex.Message}", ex); }
+    }
+
+    private static void TryDeleteTemporaryFile(string? path)
+    {
+        if (path is null) return;
+        try { File.Delete(path); }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
     }
 }

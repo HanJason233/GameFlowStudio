@@ -1,32 +1,40 @@
-import { useEffect } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 import { postBridgeMessage, subscribeBridge } from '../services/bridge'
-import type { AutomationProject, BridgeMessage, GameFlowNode, NodeType } from '../types/workflow'
+import type { BridgeMessage, NodeDataUpdate, NodeType, WorkflowDocument } from '../types/workflow'
 
 interface EditorBridgeHandlers {
-  exportProject: () => AutomationProject
-  importProject: (project: AutomationProject) => void
+  exportDocument: () => WorkflowDocument
+  importDocument: (document: WorkflowDocument) => void
   addNode: (nodeType: NodeType) => void
-  updateNodeData: (nodeId: string, data: Partial<GameFlowNode['data']>) => void
+  updateNodeData: (nodeId: string, data: NodeDataUpdate) => void
   updateExecutionStatus: (nodeId: string, status: 'running' | 'success' | 'error') => void
   clearExecutionState: () => void
   setReadOnly: (readOnly: boolean) => void
 }
 
 export function useEditorBridge(handlers: EditorBridgeHandlers): void {
-  useEffect(() => subscribeBridge((message: BridgeMessage) => routeMessage(message, handlers)), [handlers])
-  useEffect(() => { postBridgeMessage('editor_ready') }, [])
+  const handlersRef = useRef(handlers)
+  useLayoutEffect(() => {
+    handlersRef.current = handlers
+  }, [handlers])
+
+  useEffect(() => {
+    const unsubscribe = subscribeBridge((message: BridgeMessage) => routeMessage(message, handlersRef.current))
+    postBridgeMessage('editor_ready')
+    return unsubscribe
+  }, [])
 }
 
 function routeMessage(message: BridgeMessage, handlers: EditorBridgeHandlers): void {
   switch (message.type) {
     case 'initialize_editor': case 'import_workflow':
-      handlers.importProject(message.payload as AutomationProject); break
+      handlers.importDocument(message.payload as WorkflowDocument); break
     case 'request_workflow_export':
-      postBridgeMessage('workflow_exported', handlers.exportProject(), message.requestId); break
+      postBridgeMessage('workflow_exported', handlers.exportDocument(), message.requestId); break
     case 'add_node':
       handlers.addNode((message.payload as { nodeType: NodeType }).nodeType); break
     case 'update_node_data': {
-      const update = message.payload as { nodeId: string; data: Partial<GameFlowNode['data']> }
+      const update = message.payload as { nodeId: string; data: NodeDataUpdate }
       handlers.updateNodeData(update.nodeId, update.data); break
     }
     case 'highlight_node': handlers.updateExecutionStatus(nodeId(message), 'running'); break

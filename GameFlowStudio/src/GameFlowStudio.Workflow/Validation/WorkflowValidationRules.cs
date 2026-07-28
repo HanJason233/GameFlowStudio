@@ -17,6 +17,12 @@ internal sealed class ProjectStructureRule(NodeParameterValidator parameterValid
     {
         var workflow = context.Workflow;
         if (workflow.SchemaVersion is not "1.4") result.Add("schema", $"不支持的架构版本：{workflow.SchemaVersion}。");
+        foreach (var group in workflow.Scripts.GroupBy(script => script.Id).Where(group => string.IsNullOrWhiteSpace(group.Key) || group.Count() > 1))
+            result.Add("script_id", "脚本 ID 不能为空且必须唯一。");
+        foreach (var script in workflow.Scripts.Where(script => string.IsNullOrWhiteSpace(script.Name)))
+            result.Add("script_name", $"脚本 {script.Id} 的名称不能为空。");
+        if (workflow.ActiveScriptId is not null && !context.ContainsScript(workflow.ActiveScriptId))
+            result.Add("active_script", "活动脚本不存在。");
         foreach (var group in workflow.Nodes.GroupBy(node => node.Id).Where(group => string.IsNullOrWhiteSpace(group.Key) || group.Count() > 1))
             result.Add("node_id", "节点 ID 不能为空且必须唯一。", group.Key);
         if (context.StartNodes.Count == 0) result.Add("start_missing", "工作流必须包含一个开始节点。");
@@ -42,8 +48,8 @@ internal sealed class EdgeReferenceRule : IWorkflowValidationRule
 
         foreach (var edge in context.Workflow.Edges)
         {
-            if (!context.Nodes.ContainsKey(edge.Source)) result.Add("edge_source", "连接引用了不存在的源节点。", edgeId: edge.Id);
-            if (!context.Nodes.ContainsKey(edge.Target)) result.Add("edge_target", "连接引用了不存在的目标节点。", edgeId: edge.Id);
+            if (!context.ContainsNode(edge.Source)) result.Add("edge_source", "连接引用了不存在的源节点。", edgeId: edge.Id);
+            if (!context.ContainsNode(edge.Target)) result.Add("edge_target", "连接引用了不存在的目标节点。", edgeId: edge.Id);
             if (edge.Source == edge.Target) result.Add("self_edge", "节点不能直接连接到自身。", edge.Source, edge.Id);
             if (edge.TargetHandle != "input") result.Add("target_handle", "目标句柄必须为 input。", edge.Target, edge.Id);
         }
@@ -54,22 +60,20 @@ internal sealed class NodeConnectionRule : IWorkflowValidationRule
 {
     public void Validate(WorkflowValidationContext context, WorkflowValidationResult result)
     {
-        foreach (var node in context.Workflow.Nodes.Where(node => context.Nodes.ContainsKey(node.Id)))
+        foreach (var node in context.Workflow.Nodes.Where(node => context.ContainsNode(node.Id)))
         {
-            var incoming = context.Workflow.Edges.Where(edge => edge.Target == node.Id).ToList();
-            var outgoing = context.Workflow.Edges.Where(edge => edge.Source == node.Id).ToList();
-            ValidateInputs(node, incoming, result);
-            ValidateOutputs(node, outgoing, result);
+            ValidateInputs(node, context.IncomingEdges(node.Id), result);
+            ValidateOutputs(node, context.OutgoingEdges(node.Id), result);
         }
     }
 
-    private static void ValidateInputs(WorkflowNode node, IReadOnlyCollection<WorkflowEdge> incoming, WorkflowValidationResult result)
+    private static void ValidateInputs(WorkflowNode node, IReadOnlyList<WorkflowEdge> incoming, WorkflowValidationResult result)
     {
         if (node.Type == NodeTypes.Start && incoming.Count != 0) result.Add("start_input", "开始节点不能有输入连接。", node.Id);
         if (node.Type != NodeTypes.Start && incoming.Count == 0) result.Add("orphan", "节点没有输入连接。", node.Id);
     }
 
-    private static void ValidateOutputs(WorkflowNode node, List<WorkflowEdge> outgoing, WorkflowValidationResult result)
+    private static void ValidateOutputs(WorkflowNode node, IReadOnlyList<WorkflowEdge> outgoing, WorkflowValidationResult result)
     {
         switch (node.Type)
         {
@@ -103,13 +107,13 @@ internal sealed class GraphTopologyRule : IWorkflowValidationRule
     {
         if (context.StartNodes.Count == 1)
         {
-            var reachable = ReachableFrom(context.StartNodes[0].Id, context.Workflow.Edges);
+            var reachable = ReachableFrom(context.StartNodes[0].Id, context);
             foreach (var node in context.Workflow.Nodes.Where(node => !reachable.Contains(node.Id))) result.Add("unreachable", "节点无法从开始节点到达。", node.Id);
         }
-        if (HasCycle(context.Nodes, context.Workflow.Edges)) result.Add("cycle", "检测到工作流环路。");
+        if (HasCycle(context)) result.Add("cycle", "检测到工作流环路。");
     }
 
-    private static HashSet<string> ReachableFrom(string start, IReadOnlyList<WorkflowEdge> edges)
+    private static HashSet<string> ReachableFrom(string start, WorkflowValidationContext context)
     {
         var reachable = new HashSet<string>(StringComparer.Ordinal);
         var pending = new Stack<string>();
@@ -118,23 +122,25 @@ internal sealed class GraphTopologyRule : IWorkflowValidationRule
         {
             var node = pending.Pop();
             if (!reachable.Add(node)) continue;
-            foreach (var edge in edges.Where(edge => edge.Source == node)) pending.Push(edge.Target);
+            foreach (var edge in context.OutgoingEdges(node))
+                if (context.ContainsNode(edge.Target))
+                    pending.Push(edge.Target);
         }
         return reachable;
     }
 
-    private static bool HasCycle(IReadOnlyDictionary<string, WorkflowNode> nodes, IReadOnlyList<WorkflowEdge> edges)
+    private static bool HasCycle(WorkflowValidationContext context)
     {
         var visiting = new HashSet<string>(StringComparer.Ordinal);
         var visited = new HashSet<string>(StringComparer.Ordinal);
-        return nodes.Keys.Any(Visit);
+        return context.Nodes.Keys.Any(Visit);
 
         bool Visit(string id)
         {
             if (visiting.Contains(id)) return true;
             if (!visited.Add(id)) return false;
             visiting.Add(id);
-            if (edges.Where(edge => edge.Source == id).Any(edge => Visit(edge.Target))) return true;
+            if (context.OutgoingEdges(id).Any(edge => context.ContainsNode(edge.Target) && Visit(edge.Target))) return true;
             visiting.Remove(id);
             return false;
         }
@@ -151,8 +157,7 @@ internal sealed class JumpTargetRule : IWorkflowValidationRule
 
             var scriptId = NodeParameterReader.String(node, "scriptId");
             var actionId = NodeParameterReader.String(node, "actionId");
-            var script = context.Workflow.Scripts.FirstOrDefault(candidate => candidate.Id == scriptId);
-            if (script is null)
+            if (!context.Scripts.TryGetValue(scriptId, out var script))
             {
                 result.Add("jump_script", $"跳转目标脚本不存在：{scriptId}。", node.Id);
                 continue;

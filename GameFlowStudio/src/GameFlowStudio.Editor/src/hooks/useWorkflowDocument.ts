@@ -6,36 +6,35 @@ import {
 import { postBridgeMessage } from '../services/bridge'
 import { arrangeWorkflowNodes } from '../workflowLayout'
 import {
-  defaultParameters, nodeLabels, toFlowEdges, toFlowNodes,
-  nextActionId, type AutomationProject, type GameFlowNode, type NodeType,
+  defaultParameters, fromDocument, nodeLabels, toDocument,
+  nextActionId, type GameFlowNode, type NodeDataUpdate, type NodeType, type WorkflowDocument,
 } from '../types/workflow'
 
-const createEmptyProject = (): AutomationProject => ({
+const createEmptyDocument = (): WorkflowDocument => ({
   schemaVersion: '1.4',
   project: { id: `project-${crypto.randomUUID()}`, name: '未命名项目', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
   variables: {}, nodes: [], edges: [],
 })
 
 export function useWorkflowDocument() {
-  const [project, setProject] = useState<AutomationProject>(createEmptyProject)
+  const [sourceDocument, setSourceDocument] = useState<WorkflowDocument>(createEmptyDocument)
   const [nodes, setNodes, applyNodeChanges] = useNodesState<GameFlowNode>([])
   const [edges, setEdges, applyEdgeChanges] = useEdgesState<Edge>([])
   const [readOnly, setReadOnly] = useState(false)
   const flow = useReactFlow<GameFlowNode, Edge>()
 
-  const exportProject = useCallback((): AutomationProject => ({
-    ...project,
-    project: { ...project.project, updatedAt: new Date().toISOString() },
-    nodes: nodes.map(node => ({ id: node.id, type: node.data.nodeType as NodeType, position: node.position, data: { displayName: node.data.displayName, parameters: node.data.parameters } })),
-    edges: edges.map(edge => ({ id: edge.id, source: edge.source, sourceHandle: edge.sourceHandle ?? 'output', target: edge.target, targetHandle: edge.targetHandle ?? 'input' })),
-  }), [edges, nodes, project])
+  const exportDocument = useCallback(
+    (): WorkflowDocument => toDocument(sourceDocument, nodes, edges),
+    [edges, nodes, sourceDocument],
+  )
 
-  const notifyChanged = useCallback(() => queueMicrotask(() => postBridgeMessage('workflow_changed', exportProject())), [exportProject])
+  const markChanged = useCallback(() => postBridgeMessage('workflow_changed'), [])
 
-  const importProject = useCallback((incoming: AutomationProject) => {
-    setProject(incoming)
-    setNodes(toFlowNodes(incoming).map(node => ({ ...node, data: { ...node.data, nodeType: incoming.nodes.find(item => item.id === node.id)?.type } })))
-    setEdges(toFlowEdges(incoming))
+  const importDocument = useCallback((incoming: WorkflowDocument) => {
+    const graph = fromDocument(incoming)
+    setSourceDocument(incoming)
+    setNodes(graph.nodes)
+    setEdges(graph.edges)
     setTimeout(() => flow.fitView({ padding: .2 }), 30)
   }, [flow, setEdges, setNodes])
 
@@ -43,13 +42,13 @@ export function useWorkflowDocument() {
     if (readOnly) return
     const position = flow.screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 })
     setNodes(current => [...current, { id: nextActionId(current), type: 'gameNode', position, data: { nodeType, displayName: nodeLabels[nodeType], parameters: structuredClone(defaultParameters[nodeType]) } }])
-    setTimeout(notifyChanged, 0)
-  }, [flow, notifyChanged, readOnly, setNodes])
+    markChanged()
+  }, [flow, markChanged, readOnly, setNodes])
 
-  const updateNodeData = useCallback((nodeId: string, data: Partial<GameFlowNode['data']>) => {
+  const updateNodeData = useCallback((nodeId: string, data: NodeDataUpdate) => {
     setNodes(current => current.map(node => node.id === nodeId ? { ...node, data: { ...node.data, ...data, parameters: { ...node.data.parameters, ...data.parameters } } } : node))
-    setTimeout(notifyChanged, 0)
-  }, [notifyChanged, setNodes])
+    markChanged()
+  }, [markChanged, setNodes])
 
   const updateExecutionStatus = useCallback((nodeId: string, status: 'running' | 'success' | 'error') => {
     setNodes(current => current.map(node => {
@@ -64,33 +63,46 @@ export function useWorkflowDocument() {
   const onConnect = useCallback((connection: Connection) => {
     if (readOnly) return
     setEdges(current => addEdge({ ...connection, id: `edge-${crypto.randomUUID()}`, type: 'smoothstep' }, current))
-    setTimeout(notifyChanged, 0)
-  }, [notifyChanged, readOnly, setEdges])
+    markChanged()
+  }, [markChanged, readOnly, setEdges])
 
   const onNodesChange = useCallback((changes: NodeChange<GameFlowNode>[]) => {
-    const allowed = readOnly ? changes.filter(change => change.type === 'select') : changes
+    const allowed = readOnly ? changes.filter(isReadOnlyNodeChange) : changes
     applyNodeChanges(allowed)
-    if (!readOnly && changes.some(change => change.type !== 'select')) notifyChanged()
-  }, [applyNodeChanges, notifyChanged, readOnly])
+    if (!readOnly && changes.some(isPersistentNodeChange)) markChanged()
+  }, [applyNodeChanges, markChanged, readOnly])
 
   const onEdgesChange = useCallback((changes: EdgeChange<Edge>[]) => {
     if (readOnly) return
     applyEdgeChanges(changes)
-    notifyChanged()
-  }, [applyEdgeChanges, notifyChanged, readOnly])
+    if (changes.some(isPersistentEdgeChange)) markChanged()
+  }, [applyEdgeChanges, markChanged, readOnly])
 
   const arrangeNodes = useCallback(() => {
     if (readOnly || nodes.length < 2) return
     setNodes(arrangeWorkflowNodes(nodes, edges))
-    setTimeout(() => {
-      postBridgeMessage('workflow_changed')
-      flow.fitView({ padding: .2, duration: 260 })
-    }, 30)
-  }, [edges, flow, nodes, readOnly, setNodes])
+    markChanged()
+    setTimeout(() => flow.fitView({ padding: .2, duration: 260 }), 30)
+  }, [edges, flow, markChanged, nodes, readOnly, setNodes])
 
   return {
-    nodes, edges, readOnly, setNodes, setReadOnly, exportProject, importProject, addNode,
-    updateNodeData, updateExecutionStatus, clearExecutionState, notifyChanged,
+    nodes, edges, readOnly, setNodes, setReadOnly, exportDocument, importDocument, addNode,
+    updateNodeData, updateExecutionStatus, clearExecutionState, markChanged,
     onConnect, onNodesChange, onEdgesChange, arrangeNodes,
   }
+}
+
+function isReadOnlyNodeChange(change: NodeChange<GameFlowNode>): boolean {
+  return change.type === 'select' || change.type === 'dimensions'
+}
+
+function isPersistentNodeChange(change: NodeChange<GameFlowNode>): boolean {
+  return change.type === 'add'
+    || change.type === 'remove'
+    || change.type === 'replace'
+    || (change.type === 'position' && change.dragging !== true)
+}
+
+function isPersistentEdgeChange(change: EdgeChange<Edge>): boolean {
+  return change.type === 'add' || change.type === 'remove' || change.type === 'replace'
 }

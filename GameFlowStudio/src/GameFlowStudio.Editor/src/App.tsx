@@ -14,24 +14,29 @@ function EditorCanvas() {
   const document = useWorkflowDocument()
   const nodeTypes = useMemo(() => ({ gameNode: GameNodeView }), [])
   const bridgeHandlers = useMemo(() => ({
-    exportProject: document.exportProject,
-    importProject: document.importProject,
+    exportDocument: document.exportDocument,
+    importDocument: document.importDocument,
     addNode: document.addNode,
     updateNodeData: document.updateNodeData,
     updateExecutionStatus: document.updateExecutionStatus,
     clearExecutionState: document.clearExecutionState,
     setReadOnly: document.setReadOnly,
-  }), [document.addNode, document.clearExecutionState, document.exportProject, document.importProject, document.setReadOnly, document.updateExecutionStatus, document.updateNodeData])
+  }), [document.addNode, document.clearExecutionState, document.exportDocument, document.importDocument, document.setReadOnly, document.updateExecutionStatus, document.updateNodeData])
 
   useEditorBridge(bridgeHandlers)
-  useNodeClipboard(document.nodes, document.setNodes, document.readOnly, document.notifyChanged)
+  useNodeClipboard(document.nodes, document.setNodes, document.readOnly, document.markChanged)
 
   const isValidConnection = useCallback((connection: Connection | Edge) => {
     const source = document.nodes.find(node => node.id === connection.source)
     const target = document.nodes.find(node => node.id === connection.target)
     if (!source || !target || source.id === target.id) return false
     if (source.data.nodeType === 'end' || target.data.nodeType === 'start') return false
-    return !document.edges.some(edge => edge.source === connection.source && edge.sourceHandle === connection.sourceHandle)
+    const currentEdgeId = 'id' in connection ? connection.id : undefined
+    return !document.edges.some(edge =>
+      edge.id !== currentEdgeId
+      && edge.source === connection.source
+      && edge.sourceHandle === connection.sourceHandle,
+    )
   }, [document.edges, document.nodes])
 
   const onSelectionChange = useCallback(({ nodes }: OnSelectionChangeParams<GameFlowNode, Edge>) => {

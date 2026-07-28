@@ -53,6 +53,79 @@ public sealed class ProjectStorageTests : IDisposable
         Assert.Empty(Directory.GetFiles(_directory,"*.tmp"));
     }
 
+    [Fact]
+    public async Task SuppliedSampleCanBeLoaded()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "samples", "basic-example.gflow");
+
+        var project = await _storage.LoadAsync(path, CancellationToken.None);
+
+        Assert.Single(project.Scripts);
+    }
+
+    [Theory]
+    [InlineData("""{"project":{},"scripts":[]}""", "schemaVersion")]
+    [InlineData("""{"schemaVersion":"1.5","project":{},"scripts":[]}""", "1.5")]
+    [InlineData("""{"schemaVersion":"1.4","project":{}}""", "scripts")]
+    [InlineData("""{"schemaVersion":"1.4","project":{},"scripts":null}""", "scripts")]
+    [InlineData("""{"schemaVersion":"1.4","project":{},"scripts":[{"windowScope":{},"variables":{},"edges":[]}]}""", "nodes")]
+    [InlineData("""{"schemaVersion":"1.4","project":{},"scripts":[{"windowScope":{},"variables":{},"nodes":[{"position":{}}],"edges":[]}]}""", "data")]
+    [InlineData("""{"schemaVersion":"1.4","project":{},"scripts":[{"id":null,"windowScope":{},"variables":{},"nodes":[],"edges":[]}]}""", "id")]
+    public async Task UnsupportedOrIncompleteDocumentsAreRejected(string json, string expectedMessage)
+    {
+        Directory.CreateDirectory(_directory);
+        var path = Path.Combine(_directory, "unsupported.gflow");
+        await File.WriteAllTextAsync(path, json);
+
+        var error = await Assert.ThrowsAsync<InvalidDataException>(
+            () => _storage.LoadAsync(path, CancellationToken.None));
+
+        Assert.Contains(expectedMessage, error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task FailedSaveRestoresUpdatedTimestampAndRemovesTemporaryFile()
+    {
+        Directory.CreateDirectory(_directory);
+        var path = Path.Combine(_directory, "invalid-save.gflow");
+        var project = Project();
+        var originalTimestamp = project.Project.UpdatedAt;
+        project.Scripts = null!;
+
+        await Assert.ThrowsAsync<InvalidDataException>(
+            () => _storage.SaveAsync(project, path, CancellationToken.None));
+
+        Assert.Equal(originalTimestamp, project.Project.UpdatedAt);
+        Assert.False(File.Exists(path));
+        Assert.Empty(Directory.GetFiles(_directory, "*.tmp"));
+    }
+
+    [Fact]
+    public async Task ConcurrentSavesFromDifferentServiceInstancesRemainCoherent()
+    {
+        var path = Path.Combine(_directory, "concurrent.gflow");
+        var projects = Enumerable.Range(0, 20)
+            .Select(index =>
+            {
+                var project = Project();
+                project.Project.Name = $"project-{index}";
+                project.Scripts[0].Name = $"script-{index}";
+                return project;
+            })
+            .ToArray();
+
+        var saves = projects
+            .Select(project => new ProjectStorageService(NullLogger<ProjectStorageService>.Instance)
+                .SaveAsync(project, path, CancellationToken.None))
+            .ToArray();
+        await Task.WhenAll(saves);
+
+        var loaded = await _storage.LoadAsync(path, CancellationToken.None);
+        var index = int.Parse(loaded.Project.Name["project-".Length..]);
+        Assert.Equal($"script-{index}", loaded.Scripts[0].Name);
+        Assert.Empty(Directory.GetFiles(_directory, "*.tmp"));
+    }
+
     private static AutomationProject Project()
     {
         var start = new WorkflowNode { Id="start",Type=NodeTypes.Start,Position=new(){X=123.5,Y=45},Data=new(){DisplayName="开始"} }; var end = new WorkflowNode { Id="end",Type=NodeTypes.End,Position=new(){X=500,Y=45},Data=new(){DisplayName="结束"} };

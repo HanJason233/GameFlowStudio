@@ -166,8 +166,14 @@ public sealed class SingleConditionNodeExecutor(string nodeType, DetectorType ex
         };
         var evaluation = await evaluator.EvaluateAsync(detector, context.WindowHandles, cancellationToken).ConfigureAwait(false);
         var detail = evaluation.Message ?? "无详细结果";
-        ActionExecutionLogging.Write(context, node, $"{detail}；条件结果：{ActionExecutionLogging.Outcome(evaluation.Supported && evaluation.IsOn)}。");
-        return NodeExecutionResult.Ok(evaluation.Supported && evaluation.IsOn ? "true" : "false");
+        if (!evaluation.Supported)
+        {
+            ActionExecutionLogging.Write(context, node, $"{detail}；检测未能完成，节点执行失败。");
+            return NodeExecutionResult.Fail(detail);
+        }
+
+        ActionExecutionLogging.Write(context, node, $"{detail}；条件结果：{ActionExecutionLogging.Outcome(evaluation.IsOn)}。");
+        return NodeExecutionResult.Ok(evaluation.IsOn ? "true" : "false");
     }
 }
 

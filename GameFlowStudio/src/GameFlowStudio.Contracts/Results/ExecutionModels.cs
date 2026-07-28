@@ -57,8 +57,15 @@ public sealed record CapturedFrame(int X, int Y, int Width, int Height, byte[] B
 {
     public ReadOnlySpan<byte> Pixel(int x, int y)
     {
-        if ((uint)x >= (uint)Width || (uint)y >= (uint)Height) return ReadOnlySpan<byte>.Empty;
-        return Bgra32.AsSpan((y * Width + x) * 4, 4);
+        if (Width <= 0 || Height <= 0 ||
+            (uint)x >= (uint)Width || (uint)y >= (uint)Height ||
+            Bgra32 is null)
+            return ReadOnlySpan<byte>.Empty;
+
+        var offset = ((long)y * Width + x) * 4;
+        return offset >= 0 && offset <= Bgra32.Length - 4
+            ? Bgra32.AsSpan((int)offset, 4)
+            : ReadOnlySpan<byte>.Empty;
     }
 }
 

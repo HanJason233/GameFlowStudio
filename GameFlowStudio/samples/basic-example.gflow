@@ -10,7 +10,7 @@
     {
       "id": "script-basic-example",
       "name": "Main",
-      "windowScope": { "enabled": false, "titlePattern": ".*", "outputVariable": "windowHandles" },
+      "windowScope": { "enabled": false, "titlePattern": ".*", "executionMode": "firstOnly" },
       "defaultNodeDelayMs": 0,
       "variables": {},
       "nodes": [

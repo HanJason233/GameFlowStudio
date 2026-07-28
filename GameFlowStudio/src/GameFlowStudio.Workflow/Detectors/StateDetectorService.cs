@@ -9,7 +9,7 @@ namespace GameFlowStudio.Workflow.Detectors;
 
 public sealed class StateDetectorService(IEnumerable<IStateDetector> detectors) : IStateDetectorService
 {
-    private readonly IReadOnlyDictionary<DetectorType, IStateDetector> _detectors =
+    private readonly Dictionary<DetectorType, IStateDetector> _detectors =
         detectors.GroupBy(detector => detector.Type).ToDictionary(group => group.Key, group => group.First());
 
     public async Task<DetectorEvaluationResult> EvaluateAsync(DetectorDefinition detector, DetectorEvaluationContext context, CancellationToken cancellationToken)

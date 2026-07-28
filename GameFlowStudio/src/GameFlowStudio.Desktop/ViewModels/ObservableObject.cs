@@ -20,7 +20,10 @@ public sealed class RelayCommand(Action<object?> execute, Func<object?, bool>? c
     public void RaiseCanExecuteChanged() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
 }
 
-public sealed class AsyncRelayCommand(Func<object?, Task> execute, Func<object?, bool>? canExecute = null) : ICommand
+public sealed class AsyncRelayCommand(
+    Func<object?, Task> execute,
+    Func<object?, bool>? canExecute = null,
+    Action<Exception>? errorHandler = null) : ICommand
 {
     private bool _running;
     public event EventHandler? CanExecuteChanged;
@@ -29,7 +32,20 @@ public sealed class AsyncRelayCommand(Func<object?, Task> execute, Func<object?,
     {
         if (!CanExecute(parameter)) return;
         _running = true; CanExecuteChanged?.Invoke(this, EventArgs.Empty);
-        try { await execute(parameter); } finally { _running = false; CanExecuteChanged?.Invoke(this, EventArgs.Empty); }
+        try
+        {
+            await execute(parameter);
+        }
+        catch (Exception exception)
+        {
+            if (errorHandler is null) throw;
+            errorHandler(exception);
+        }
+        finally
+        {
+            _running = false;
+            CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+        }
     }
     public void RaiseCanExecuteChanged() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
 }

@@ -19,6 +19,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Include="..\..\samples\basic-example.gflow" Link="samples\basic-example.gflow" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\GameFlowStudio.Contracts\GameFlowStudio.Contracts.csproj" />
     <ProjectReference Include="..\..\src\GameFlowStudio.Storage\GameFlowStudio.Storage.csproj" />
   </ItemGroup>

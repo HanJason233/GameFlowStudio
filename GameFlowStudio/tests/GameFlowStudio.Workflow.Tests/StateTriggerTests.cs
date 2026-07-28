@@ -94,6 +94,41 @@ public sealed class DetectorConditionTests
     }
 
     [Fact]
+    public async Task UnsupportedConditionFailsInsteadOfTakingFalseBranch()
+    {
+        var node = new WorkflowNode
+        {
+            Id = "unsupported-condition",
+            Type = NodeTypes.OcrCondition,
+            Data = new() { DisplayName = "OCR 判断" }
+        };
+        var context = new WorkflowExecutionContext
+        {
+            Workflow = new AutomationProject(),
+            WaitIfPausedAsync = _ => Task.CompletedTask,
+            Log = _ => { }
+        };
+        var evaluator = new StubEvaluator(
+            new(node.Id, DetectorType.Ocr, 0, Supported: false, Message: "OCR 服务不可用"));
+
+        var result = await new SingleConditionNodeExecutor(NodeTypes.OcrCondition, DetectorType.Ocr, evaluator)
+            .ExecuteAsync(node, context, CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Contains("OCR 服务不可用", result.ErrorMessage);
+    }
+
+    [Fact]
+    public void CapturedFrameReturnsEmptyPixelForIncompleteBuffer()
+    {
+        var frame = new CapturedFrame(0, 0, 2, 1, [0, 0, 0, 255]);
+
+        Assert.Equal(4, frame.Pixel(0, 0).Length);
+        Assert.Equal(0, frame.Pixel(1, 0).Length);
+        Assert.Equal(0, new CapturedFrame(0, 0, -1, 1, [0, 0, 0, 255]).Pixel(0, 0).Length);
+    }
+
+    [Fact]
     public async Task ImageDetectorFindsTemplate()
     {
         var capture = new FakeCapture(new CapturedFrame(0, 0, 2, 1, [0, 0, 255, 255, 0, 255, 0, 255]));
@@ -178,5 +213,13 @@ public sealed class DetectorConditionTests
     {
         public Task<OcrRecognitionResult> RecognizeAsync(CapturedFrame frame, CancellationToken cancellationToken) =>
             Task.FromResult(new OcrRecognitionResult(text));
+    }
+
+    private sealed class StubEvaluator(DetectorEvaluationResult result) : IDetectorEvaluator
+    {
+        public Task<DetectorEvaluationResult> EvaluateAsync(
+            DetectorDefinition detector,
+            IReadOnlyList<nint> windowHandles,
+            CancellationToken cancellationToken) => Task.FromResult(result);
     }
 }

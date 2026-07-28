@@ -60,7 +60,6 @@ public sealed class DesktopCaptureService : IDesktopCaptureService
         }
         finally
         {
-            SelectObject(memoryDc, previous);
             ReleaseCaptureResources(screenDc, memoryDc, bitmap, previous);
         }
     }

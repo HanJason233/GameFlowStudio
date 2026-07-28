@@ -189,7 +189,7 @@
                         <Button Content="—" Style="{StaticResource PaneHeaderButton}" HorizontalAlignment="Right" Command="{Binding TogglePropertiesPaneCommand}" ToolTip="最小化属性面板"/>
                     </Grid>
                     <controls:SelectableTextBlock Text="在画布中选择一个节点，或右键脚本查看脚本属性" Foreground="#64748B" HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="Wrap" Margin="20" Visibility="{Binding HasPropertySelection, Converter={StaticResource InverseBoolVisibility}}"/>
-                    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,0,8,8" Visibility="{Binding IsScriptPropertiesVisible, Converter={StaticResource BoolVisibility}}">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,0,8,8" IsEnabled="{Binding IsProjectEditingEnabled}" Visibility="{Binding IsScriptPropertiesVisible, Converter={StaticResource BoolVisibility}}">
                         <StackPanel>
                             <controls:SelectableTextBlock Text="当前脚本属性" FontWeight="SemiBold" Foreground="#F8FAFC" Margin="3,4,3,14"/>
                             <controls:SelectableTextBlock Text="脚本 ID" Foreground="#94A3B8"/>
@@ -212,7 +212,7 @@
                             <controls:SelectableTextBlock Text="设置为 0 表示关闭；显式等待节点仍使用自身等待时间。以上配置只对当前脚本生效。" Foreground="#64748B" TextWrapping="Wrap" Margin="3,6,3,0"/>
                         </StackPanel>
                     </ScrollViewer>
-                    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,0,8,8" Visibility="{Binding HasDetectorConditionSelection, Converter={StaticResource BoolVisibility}}">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,0,8,8" IsEnabled="{Binding IsProjectEditingEnabled}" Visibility="{Binding HasDetectorConditionSelection, Converter={StaticResource BoolVisibility}}">
                         <StackPanel DataContext="{Binding SelectedNode}">
                             <controls:SelectableTextBlock Text="{Binding Path=LogicLabel, Mode=OneWay}" FontWeight="SemiBold" Foreground="#FBBF24" Margin="3,4,3,2"/>
                             <controls:SelectableTextBlock Text="动作 ID" Foreground="#94A3B8"/>
@@ -281,7 +281,7 @@
                             <controls:SelectableTextBlock Text="命中输出 true，未命中输出 false。" Foreground="#64748B" FontSize="10" TextWrapping="Wrap" Margin="3,6,3,12"/>
                         </StackPanel>
                     </ScrollViewer>
-                    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,0,8,8" Visibility="{Binding IsRegularNodeSelection, Converter={StaticResource BoolVisibility}}">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,0,8,8" IsEnabled="{Binding IsProjectEditingEnabled}" Visibility="{Binding IsRegularNodeSelection, Converter={StaticResource BoolVisibility}}">
                         <StackPanel DataContext="{Binding SelectedNode}">
                             <controls:SelectableTextBlock Text="动作 ID" Foreground="#94A3B8"/>
                             <controls:SelectableTextBlock Text="{Binding Path=Id, Mode=OneWay}" Foreground="#E2E8F0" TextWrapping="Wrap" Margin="0,0,0,8"/>

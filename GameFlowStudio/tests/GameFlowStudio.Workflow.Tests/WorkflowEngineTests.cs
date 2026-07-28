@@ -43,6 +43,36 @@ public sealed class WorkflowEngineTests
     }
 
     [Fact]
+    public async Task CompletedStateHandlerCanRestartWithoutOldRunClearingNewCancellation()
+    {
+        var executor = new RestartActionExecutor();
+        var runner = Runner(executor);
+        Task? restartedRun = null;
+        runner.StateChanged += (_, args) =>
+        {
+            if (args.Current == WorkflowExecutionState.Completed && restartedRun is null)
+                restartedRun = runner.RunAsync(Chain(Action("second")), CancellationToken.None);
+        };
+
+        await runner.RunAsync(Chain(Action("first")), CancellationToken.None);
+        await executor.SecondStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        Assert.NotNull(restartedRun);
+        Assert.Equal(WorkflowExecutionState.Running, runner.State);
+        await runner.StopAsync();
+        await restartedRun!.WaitAsync(TimeSpan.FromSeconds(2));
+        Assert.Equal(WorkflowExecutionState.Idle, runner.State);
+    }
+
+    [Fact]
+    public Task CompletionBoundaryPauseDoesNotLeaveRunnerPaused() =>
+        AssertCompletionBoundaryAsync(stop: false);
+
+    [Fact]
+    public Task CompletionBoundaryStopDoesNotLeaveRunnerStopping() =>
+        AssertCompletionBoundaryAsync(stop: true);
+
+    [Fact]
     public async Task DuplicateRunIsRejected()
     {
         var executor = new BlockingActionExecutor(); var runner = Runner(executor); var first = runner.RunAsync(Chain(Action("block")), CancellationToken.None);
@@ -125,6 +155,53 @@ public sealed class WorkflowEngineTests
     }
 
     [Fact]
+    public async Task CrossScriptJumpsReusePlanIndexesAndReportMissingTargetClearly()
+    {
+        var executor = new RepeatingJumpActionExecutor();
+        var source = new AutomationScript { Id = "source", Name = "源脚本" };
+        var sourceStart = Node("source-start", NodeTypes.Start);
+        var sourceAction = Action("source-action");
+        var sourceEnd = Node("source-end", NodeTypes.End);
+        source.Nodes = [sourceStart, sourceAction, sourceEnd];
+        source.Edges = [Edge(sourceStart, "output", sourceAction), Edge(sourceAction, "output", sourceEnd)];
+
+        var target = new AutomationScript { Id = "target", Name = "目标脚本" };
+        var targetStart = Node("target-start", NodeTypes.Start);
+        var targetAction = Action("target-action");
+        var targetEnd = Node("target-end", NodeTypes.End);
+        target.Nodes = [targetStart, targetAction, targetEnd];
+        target.Edges = [Edge(targetStart, "output", targetAction), Edge(targetAction, "output", targetEnd)];
+
+        var project = NewProject();
+        project.Scripts = [source, target];
+        project.SetActiveScript(source);
+        var runner = Runner(executor);
+        runner.NodeCompleted += (_, args) =>
+        {
+            if (args.Node.Id == sourceAction.Id && target.Nodes.Count > 0)
+            {
+                target.Nodes.Clear();
+                target.Edges.Clear();
+            }
+            else if (args.Node.Id == targetAction.Id && source.Nodes.Count > 0)
+            {
+                source.Nodes.Clear();
+                source.Edges.Clear();
+            }
+        };
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => runner.RunAsync(project, CancellationToken.None));
+
+        Assert.Equal(
+            ["source-action", "target-action", "source-action", "target-action"],
+            executor.Executed);
+        Assert.Contains("跳转目标动作不存在", error.Message);
+        Assert.Contains("missing-action", error.Message);
+        Assert.Equal(WorkflowExecutionState.Failed, runner.State);
+    }
+
+    [Fact]
     public async Task WorkflowWindowScopeInitializesContextBeforeNodes()
     {
         var executor = new WindowScopeTrackingExecutor();
@@ -187,9 +264,39 @@ public sealed class WorkflowEngineTests
         Assert.InRange(timer.ElapsedMilliseconds, 10, 90);
     }
 
-    private static WorkflowRunner Runner(INodeExecutor actionExecutor, IWindowScopeService? windowScopes = null) => new(
-        [new StartNodeExecutor(), new EndNodeExecutor(), new WaitNodeExecutor(), new JumpNodeExecutor(), new MouseClickNodeExecutor(new NullInputAutomationService(), new NullCoordinateResolver()), actionExecutor],
+    private static WorkflowRunner Runner(INodeExecutor actionExecutor, IWindowScopeService? windowScopes = null, INodeExecutor? endExecutor = null) => new(
+        [new StartNodeExecutor(), endExecutor ?? new EndNodeExecutor(), new WaitNodeExecutor(), new JumpNodeExecutor(), new MouseClickNodeExecutor(new NullInputAutomationService(), new NullCoordinateResolver()), actionExecutor],
         new WorkflowValidator(), NullLogger<WorkflowRunner>.Instance, windowScopes);
+
+    private static async Task AssertCompletionBoundaryAsync(bool stop)
+    {
+        var end = new GatedEndExecutor();
+        var runner = Runner(new TrackingActionExecutor(), endExecutor: end);
+        var run = runner.RunAsync(Chain(Action("one")), CancellationToken.None);
+        await end.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        using var start = new ManualResetEventSlim(false);
+        var release = Task.Run(() =>
+        {
+            start.Wait();
+            end.Release.TrySetResult();
+        });
+        var control = Task.Run(async () =>
+        {
+            start.Wait();
+            if (stop) await runner.StopAsync();
+            else await runner.PauseAsync();
+        });
+
+        start.Set();
+        await Task.WhenAll(release, control);
+        await run.WaitAsync(TimeSpan.FromSeconds(2));
+
+        Assert.NotEqual(WorkflowExecutionState.Paused, runner.State);
+        Assert.NotEqual(WorkflowExecutionState.Stopping, runner.State);
+        if (!stop) Assert.Equal(WorkflowExecutionState.Completed, runner.State);
+        else Assert.True(runner.State is WorkflowExecutionState.Completed or WorkflowExecutionState.Idle);
+    }
 
     private static AutomationProject Chain(params WorkflowNode[] middle)
     {
@@ -221,6 +328,52 @@ public sealed class WorkflowEngineTests
         public BlockingActionExecutor() : base(NodeTypes.TextInput) { }
         public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public override async Task<NodeExecutionResult> ExecuteAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken cancellationToken) { Started.SetResult(); await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken); return NodeExecutionResult.Ok(); }
+    }
+    private sealed class RestartActionExecutor : NodeExecutorBase
+    {
+        public RestartActionExecutor() : base(NodeTypes.TextInput) { }
+        public TaskCompletionSource SecondStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public override async Task<NodeExecutionResult> ExecuteAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken cancellationToken)
+        {
+            if (node.Id != "second") return NodeExecutionResult.Ok();
+            SecondStarted.TrySetResult();
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            return NodeExecutionResult.Ok();
+        }
+    }
+    private sealed class RepeatingJumpActionExecutor : NodeExecutorBase
+    {
+        private int _targetExecutions;
+
+        public RepeatingJumpActionExecutor() : base(NodeTypes.TextInput) { }
+        public List<string> Executed { get; } = [];
+
+        public override Task<NodeExecutionResult> ExecuteAsync(
+            WorkflowNode node,
+            WorkflowExecutionContext context,
+            CancellationToken cancellationToken)
+        {
+            Executed.Add(node.Id);
+            if (node.Id == "source-action")
+                return Task.FromResult(NodeExecutionResult.Jump("target", "target-action"));
+
+            _targetExecutions++;
+            return Task.FromResult(_targetExecutions == 1
+                ? NodeExecutionResult.Jump("source", "source-action")
+                : NodeExecutionResult.Jump("target", "missing-action"));
+        }
+    }
+    private sealed class GatedEndExecutor : NodeExecutorBase
+    {
+        public GatedEndExecutor() : base(NodeTypes.End) { }
+        public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public override async Task<NodeExecutionResult> ExecuteAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken cancellationToken)
+        {
+            Started.TrySetResult();
+            await Release.Task.WaitAsync(cancellationToken);
+            return NodeExecutionResult.Ok();
+        }
     }
     private sealed class ThrowingActionExecutor : NodeExecutorBase
     {

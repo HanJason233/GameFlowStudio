@@ -11,7 +11,7 @@ const colors: Record<NodeType, string> = {
 }
 
 export function GameNodeView({ data, selected }: NodeProps<GameFlowNode>) {
-  const nodeType = (data.nodeType as NodeType | undefined) ?? 'wait'
+  const nodeType = data.nodeType
   const status = data.executionStatus ?? 'none'
   const isCondition = nodeType === 'colorCondition' || nodeType === 'imageCondition' || nodeType === 'ocrCondition'
   const outputs = isCondition ? ['true', 'false'] : nodeType === 'end' ? [] : ['output']

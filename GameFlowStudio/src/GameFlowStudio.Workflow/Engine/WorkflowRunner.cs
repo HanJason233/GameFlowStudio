@@ -14,15 +14,19 @@ namespace GameFlowStudio.Workflow.Engine;
 /// <summary>负责单个脚本图执行。</summary>
 public sealed class WorkflowRunner : IWorkflowRunner
 {
-    private readonly IReadOnlyDictionary<string, INodeExecutor> _executors;
+    private readonly Dictionary<string, INodeExecutor> _executors;
     private readonly IWorkflowValidator _validator;
     private readonly ILogger<WorkflowRunner> _logger;
     private readonly IWindowScopeService? _windowScopes;
     private readonly IWindowAutomationService? _windows;
-    private readonly SemaphoreSlim _stateLock = new(1, 1);
+    private readonly SemaphoreSlim _lifecycleGate = new(1, 1);
     private readonly AsyncManualResetEvent _pauseGate = new(true);
-    private CancellationTokenSource? _runCancellation;
-    private WorkflowExecutionState _state = WorkflowExecutionState.Idle;
+    private readonly object _stateEventSync = new();
+    private readonly Queue<WorkflowStateChangedEventArgs> _pendingStateChanges = [];
+    private RunLease? _activeRun;
+    private long _nextRunGeneration;
+    private int _stateValue = (int)WorkflowExecutionState.Idle;
+    private bool _isPublishingStateChanges;
     private int _defaultNodeDelayMs;
 
     public WorkflowRunner(IEnumerable<INodeExecutor> executors, IWorkflowValidator validator, ILogger<WorkflowRunner> logger, IWindowScopeService? windowScopes = null, IWindowAutomationService? windows = null)
@@ -34,7 +38,7 @@ public sealed class WorkflowRunner : IWorkflowRunner
         _windows = windows;
     }
 
-    public WorkflowExecutionState State => _state;
+    public WorkflowExecutionState State => (WorkflowExecutionState)Volatile.Read(ref _stateValue);
     public int DefaultNodeDelayMs { get => _defaultNodeDelayMs; set => _defaultNodeDelayMs = Math.Max(0, value); }
     public int MaxExecutedNodes { get; set; } = 10_000;
     public event EventHandler<NodeExecutionEventArgs>? NodeStarted;
@@ -44,66 +48,97 @@ public sealed class WorkflowRunner : IWorkflowRunner
 
     public async Task RunAsync(AutomationProject workflow, CancellationToken cancellationToken)
     {
-        var token = await PrepareExecutionAsync(workflow, cancellationToken).ConfigureAwait(false);
+        var run = await PrepareExecutionAsync(workflow, cancellationToken).ConfigureAwait(false);
         try
         {
-            await ExecuteGraphAsync(workflow, token).ConfigureAwait(false);
-            ChangeState(WorkflowExecutionState.Completed);
+            await ExecuteGraphAsync(workflow, run.Token).ConfigureAwait(false);
         }
-        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        catch (OperationCanceledException) when (run.Token.IsCancellationRequested)
         {
-            ChangeState(WorkflowExecutionState.Idle);
+            await CompleteExecutionAsync(run, WorkflowExecutionState.Idle).ConfigureAwait(false);
+            return;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "工作流执行失败");
-            ChangeState(WorkflowExecutionState.Failed);
+            try { _logger.LogError(ex, "工作流执行失败"); }
+            finally { await CompleteExecutionAsync(run, WorkflowExecutionState.Failed).ConfigureAwait(false); }
             throw;
         }
-        finally
-        {
-            ReleaseExecution();
-        }
+
+        await CompleteExecutionAsync(run, WorkflowExecutionState.Completed).ConfigureAwait(false);
     }
 
-    private async Task<CancellationToken> PrepareExecutionAsync(AutomationProject workflow, CancellationToken cancellationToken)
+    private async Task<RunLease> PrepareExecutionAsync(AutomationProject workflow, CancellationToken cancellationToken)
     {
-        await _stateLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        RunLease? run = null;
+        WorkflowValidationException? validationException = null;
+        await _lifecycleGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             EnsureNotRunning();
-            EnsureValid(workflow);
-            _runCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            _pauseGate.Set();
-            ChangeState(WorkflowExecutionState.Running);
-            return _runCancellation.Token;
+            var validation = _validator.Validate(workflow);
+            if (!validation.IsValid)
+            {
+                validationException = new WorkflowValidationException(
+                    string.Join(Environment.NewLine, validation.Errors.Select(error => error.Message)));
+                QueueStateChangeLocked(WorkflowExecutionState.Failed);
+            }
+            else
+            {
+                run = new RunLease(
+                    ++_nextRunGeneration,
+                    CancellationTokenSource.CreateLinkedTokenSource(cancellationToken));
+                _activeRun = run;
+                _pauseGate.Set();
+                QueueStateChangeLocked(WorkflowExecutionState.Running);
+            }
         }
-        finally { _stateLock.Release(); }
+        finally { _lifecycleGate.Release(); }
+
+        DrainStateChanges();
+        if (validationException is not null) throw validationException;
+        return run!;
     }
 
 
     private void EnsureNotRunning()
     {
-        if (_state is WorkflowExecutionState.Running or WorkflowExecutionState.Paused or WorkflowExecutionState.Stopping)
+        var state = (WorkflowExecutionState)_stateValue;
+        if (_activeRun is not null || state is WorkflowExecutionState.Running or WorkflowExecutionState.Paused or WorkflowExecutionState.Stopping)
             throw new InvalidOperationException("工作流已经在运行，不能重复启动。");
     }
 
-    private void EnsureValid(AutomationProject workflow)
+    private async Task CompleteExecutionAsync(RunLease run, WorkflowExecutionState terminalState)
     {
-        var validation = _validator.Validate(workflow);
-        if (validation.IsValid) return;
-        ChangeState(WorkflowExecutionState.Failed);
-        throw new WorkflowValidationException(string.Join(Environment.NewLine, validation.Errors.Select(e => e.Message)));
+        await _lifecycleGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            if (ReferenceEquals(_activeRun, run) && _activeRun.Generation == run.Generation)
+            {
+                _activeRun = null;
+                _pauseGate.Set();
+                run.Release();
+                QueueStateChangeLocked(terminalState);
+            }
+            else
+            {
+                run.Release();
+            }
+        }
+        finally { _lifecycleGate.Release(); }
+
+        DrainStateChanges();
     }
 
     private async Task ExecuteGraphAsync(AutomationProject workflow, CancellationToken token)
     {
         var initialScript = ResolveInitialScript(workflow);
+        var plan = new WorkflowExecutionPlan(workflow, initialScript);
         var handles = ResolveWindowHandles(initialScript.WindowScope);
         var budget = new ExecutionBudget();
         if (handles is null)
         {
-            await ExecuteGraphForWindowAsync(workflow, initialScript, null, budget, token).ConfigureAwait(false);
+            await ExecuteGraphForWindowAsync(workflow, plan, null, budget, token).ConfigureAwait(false);
             return;
         }
 
@@ -111,91 +146,93 @@ public sealed class WorkflowRunner : IWorkflowRunner
         {
             case WindowExecutionMode.WindowPriority:
                 foreach (var handle in handles)
-                    await ExecuteGraphForWindowAsync(workflow, initialScript, [handle], budget, token).ConfigureAwait(false);
+                    await ExecuteGraphForWindowAsync(workflow, plan, [handle], budget, token).ConfigureAwait(false);
                 return;
             case WindowExecutionMode.ActionPriority:
-                await ExecuteGraphByActionPriorityAsync(workflow, initialScript, handles, budget, token).ConfigureAwait(false);
+                await ExecuteGraphByActionPriorityAsync(workflow, plan, handles, budget, token).ConfigureAwait(false);
                 return;
             default:
-                await ExecuteGraphForWindowAsync(workflow, initialScript, [handles[0]], budget, token).ConfigureAwait(false);
+                await ExecuteGraphForWindowAsync(workflow, plan, [handles[0]], budget, token).ConfigureAwait(false);
                 return;
         }
     }
 
-    private async Task ExecuteGraphForWindowAsync(AutomationProject workflow, AutomationScript initialScript, IReadOnlyList<nint>? windowHandles, ExecutionBudget budget, CancellationToken token)
+    private async Task ExecuteGraphForWindowAsync(
+        AutomationProject workflow,
+        WorkflowExecutionPlan plan,
+        IReadOnlyList<nint>? windowHandles,
+        ExecutionBudget budget,
+        CancellationToken token)
     {
-        var context = CreateContext(workflow, initialScript, windowHandles);
-        var currentScript = initialScript;
-        var nodes = currentScript.Nodes.ToDictionary(n => n.Id, StringComparer.Ordinal);
-        var current = currentScript.Nodes.Single(n => n.Type == Contracts.Nodes.NodeTypes.Start);
-        while (true)
-        {
-            token.ThrowIfCancellationRequested();
-            await _pauseGate.WaitAsync(token).ConfigureAwait(false);
-            EnsureExecutionLimit(++budget.Executed);
-            var result = await ExecuteNodeAsync(workflow, current, context, token).ConfigureAwait(false);
-            if (current.Type == Contracts.Nodes.NodeTypes.End) return;
-            if (result.JumpTarget is not null)
-            {
-                var targetScript = ResolveTargetScript(workflow, result.JumpTarget);
-                var targetNodes = targetScript.Nodes.ToDictionary(n => n.Id, StringComparer.Ordinal);
-                var target = targetNodes[result.JumpTarget.ActionId];
-                await WaitBetweenNodesAsync(workflow, currentScript, current, target, context, token).ConfigureAwait(false);
-                ActivateScript(workflow, targetScript, context, CurrentWindowScope(context));
-                currentScript = targetScript;
-                nodes = targetNodes;
-                current = target;
-                continue;
-            }
-            var next = ResolveNextNode(currentScript, nodes, current, result.NextHandle);
-            await WaitBetweenNodesAsync(workflow, currentScript, current, next, context, token).ConfigureAwait(false);
-            current = next;
-        }
+        var track = CreateWindowTrack(workflow, plan.InitialGraph, windowHandles);
+        while (!await ExecuteTrackStepAsync(workflow, plan, track, budget, token).ConfigureAwait(false)) { }
     }
 
-    private async Task ExecuteGraphByActionPriorityAsync(AutomationProject workflow, AutomationScript initialScript, IReadOnlyList<nint> handles, ExecutionBudget budget, CancellationToken token)
+    private async Task ExecuteGraphByActionPriorityAsync(
+        AutomationProject workflow,
+        WorkflowExecutionPlan plan,
+        IReadOnlyList<nint> handles,
+        ExecutionBudget budget,
+        CancellationToken token)
     {
-        var tracks = handles.Select(handle => CreateWindowTrack(workflow, initialScript, handle)).ToList();
+        var tracks = handles
+            .Select(handle => CreateWindowTrack(workflow, plan.InitialGraph, [handle]))
+            .ToList();
         while (tracks.Count > 0)
         {
             for (var index = 0; index < tracks.Count;)
             {
                 var track = tracks[index];
-                token.ThrowIfCancellationRequested();
-                await _pauseGate.WaitAsync(token).ConfigureAwait(false);
-                EnsureExecutionLimit(++budget.Executed);
-                var result = await ExecuteNodeAsync(workflow, track.Current, track.Context, token).ConfigureAwait(false);
-                if (track.Current.Type == Contracts.Nodes.NodeTypes.End)
+                if (await ExecuteTrackStepAsync(workflow, plan, track, budget, token).ConfigureAwait(false))
                 {
                     tracks.RemoveAt(index);
                     continue;
                 }
-
-                if (result.JumpTarget is not null)
-                {
-                    var targetScript = ResolveTargetScript(workflow, result.JumpTarget);
-                    var targetNodes = targetScript.Nodes.ToDictionary(n => n.Id, StringComparer.Ordinal);
-                    var target = targetNodes[result.JumpTarget.ActionId];
-                    await WaitBetweenNodesAsync(workflow, track.Script, track.Current, target, track.Context, token).ConfigureAwait(false);
-                    ActivateScript(workflow, targetScript, track.Context, CurrentWindowScope(track.Context));
-                    track.Script = targetScript;
-                    track.Nodes = targetNodes;
-                    track.Current = target;
-                }
-                else
-                {
-                    var next = ResolveNextNode(track.Script, track.Nodes, track.Current, result.NextHandle);
-                    await WaitBetweenNodesAsync(workflow, track.Script, track.Current, next, track.Context, token).ConfigureAwait(false);
-                    track.Current = next;
-                }
-
                 index++;
             }
         }
     }
 
-    private WindowExecutionTrack CreateWindowTrack(AutomationProject workflow, AutomationScript script, nint handle) =>
-        new(script, script.Nodes.ToDictionary(n => n.Id, StringComparer.Ordinal), script.Nodes.Single(n => n.Type == Contracts.Nodes.NodeTypes.Start), CreateContext(workflow, script, [handle]));
+    private async Task<bool> ExecuteTrackStepAsync(
+        AutomationProject workflow,
+        WorkflowExecutionPlan plan,
+        WindowExecutionTrack track,
+        ExecutionBudget budget,
+        CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        await _pauseGate.WaitAsync(token).ConfigureAwait(false);
+        EnsureExecutionLimit(++budget.Executed);
+
+        var current = track.Current;
+        var result = await ExecuteNodeAsync(workflow, current, track.Context, token).ConfigureAwait(false);
+        if (current.Type == Contracts.Nodes.NodeTypes.End) return true;
+
+        ScriptExecutionGraph nextGraph;
+        WorkflowNode next;
+        if (result.JumpTarget is not null)
+        {
+            (nextGraph, next) = plan.ResolveJump(result.JumpTarget);
+            await WaitBetweenNodesAsync(workflow, track.Graph.Script, current, next, track.Context, token).ConfigureAwait(false);
+            ActivateScript(workflow, nextGraph.Script, track.Context, CurrentWindowScope(track.Context));
+        }
+        else
+        {
+            nextGraph = track.Graph;
+            next = nextGraph.ResolveNext(current, result.NextHandle);
+            await WaitBetweenNodesAsync(workflow, nextGraph.Script, current, next, track.Context, token).ConfigureAwait(false);
+        }
+
+        track.Graph = nextGraph;
+        track.Current = next;
+        return false;
+    }
+
+    private WindowExecutionTrack CreateWindowTrack(
+        AutomationProject workflow,
+        ScriptExecutionGraph graph,
+        IReadOnlyList<nint>? windowHandles) =>
+        new(graph, graph.StartNode, CreateContext(workflow, graph.Script, windowHandles));
 
     private IReadOnlyList<nint>? ResolveWindowHandles(ScriptWindowScope? scope)
     {
@@ -206,10 +243,9 @@ public sealed class WorkflowRunner : IWorkflowRunner
         return handles;
     }
 
-    private sealed class WindowExecutionTrack(AutomationScript script, IReadOnlyDictionary<string, WorkflowNode> nodes, WorkflowNode current, WorkflowExecutionContext context)
+    private sealed class WindowExecutionTrack(ScriptExecutionGraph graph, WorkflowNode current, WorkflowExecutionContext context)
     {
-        public AutomationScript Script { get; set; } = script;
-        public IReadOnlyDictionary<string, WorkflowNode> Nodes { get; set; } = nodes;
+        public ScriptExecutionGraph Graph { get; set; } = graph;
         public WorkflowNode Current { get; set; } = current;
         public WorkflowExecutionContext Context { get; } = context;
     }
@@ -237,17 +273,9 @@ public sealed class WorkflowRunner : IWorkflowRunner
             };
     }
 
-    private static AutomationScript ResolveTargetScript(AutomationProject workflow, WorkflowJumpTarget target) =>
-        workflow.Scripts.First(script => script.Id == target.ScriptId);
-
     private void ActivateScript(AutomationProject workflow, AutomationScript script, WorkflowExecutionContext context, IReadOnlyList<nint>? windowHandles = null)
     {
-        workflow.ActiveScriptId = script.Id;
-        workflow.Variables = script.Variables;
-        workflow.Nodes = script.Nodes;
-        workflow.Edges = script.Edges;
-        workflow.WindowScope = script.WindowScope;
-        workflow.DefaultNodeDelayMs = script.DefaultNodeDelayMs;
+        workflow.SetActiveScript(script);
         context.Variables.Clear();
         foreach (var variable in script.Variables)
             context.Variables[variable.Key] = ConvertElement(variable.Value.Value);
@@ -297,13 +325,6 @@ public sealed class WorkflowRunner : IWorkflowRunner
         return await executor.ExecuteAsync(node, context, token).ConfigureAwait(false);
     }
 
-    private static WorkflowNode ResolveNextNode(AutomationScript script, IReadOnlyDictionary<string, WorkflowNode> nodes, WorkflowNode current, string handle)
-    {
-        var edge = script.Edges.SingleOrDefault(e => e.Source == current.Id && e.SourceHandle == handle)
-            ?? throw new InvalidOperationException($"节点 {current.Data.DisplayName} 的 {handle} 出口没有连接。");
-        return nodes[edge.Target];
-    }
-
     private void EnsureExecutionLimit(int executed)
     {
         if (executed > MaxExecutedNodes) throw new InvalidOperationException($"执行节点数超过安全上限 {MaxExecutedNodes}。");
@@ -325,28 +346,63 @@ public sealed class WorkflowRunner : IWorkflowRunner
         && current.Type is not (Contracts.Nodes.NodeTypes.Start or Contracts.Nodes.NodeTypes.Wait)
         && next.Type is not (Contracts.Nodes.NodeTypes.End or Contracts.Nodes.NodeTypes.Wait);
 
-    private void ReleaseExecution()
+    public async Task PauseAsync()
     {
-        _runCancellation?.Dispose();
-        _runCancellation = null;
+        await _lifecycleGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            if (_activeRun is not null && (WorkflowExecutionState)_stateValue == WorkflowExecutionState.Running)
+            {
+                _pauseGate.Reset();
+                QueueStateChangeLocked(WorkflowExecutionState.Paused);
+            }
+        }
+        finally { _lifecycleGate.Release(); }
+
+        DrainStateChanges();
     }
 
-    public Task PauseAsync()
+    public async Task ResumeAsync()
     {
-        if (_state != WorkflowExecutionState.Running) return Task.CompletedTask;
-        _pauseGate.Reset(); ChangeState(WorkflowExecutionState.Paused); return Task.CompletedTask;
+        await _lifecycleGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            if (_activeRun is not null && (WorkflowExecutionState)_stateValue == WorkflowExecutionState.Paused)
+            {
+                _pauseGate.Set();
+                QueueStateChangeLocked(WorkflowExecutionState.Running);
+            }
+        }
+        finally { _lifecycleGate.Release(); }
+
+        DrainStateChanges();
     }
 
-    public Task ResumeAsync()
+    public async Task StopAsync()
     {
-        if (_state != WorkflowExecutionState.Paused) return Task.CompletedTask;
-        _pauseGate.Set(); ChangeState(WorkflowExecutionState.Running); return Task.CompletedTask;
-    }
+        RunLease? run = null;
+        await _lifecycleGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            var state = (WorkflowExecutionState)_stateValue;
+            if (_activeRun is not null && state is (WorkflowExecutionState.Running or WorkflowExecutionState.Paused))
+            {
+                run = _activeRun;
+                run.Retain();
+                _pauseGate.Set();
+                QueueStateChangeLocked(WorkflowExecutionState.Stopping);
+            }
+        }
+        finally { _lifecycleGate.Release(); }
 
-    public Task StopAsync()
-    {
-        if (_state is not (WorkflowExecutionState.Running or WorkflowExecutionState.Paused)) return Task.CompletedTask;
-        ChangeState(WorkflowExecutionState.Stopping); _pauseGate.Set(); _runCancellation?.Cancel(); return Task.CompletedTask;
+        try
+        {
+            run?.CancelAndRelease();
+        }
+        finally
+        {
+            DrainStateChanges();
+        }
     }
 
     private WorkflowExecutionContext CreateContext(AutomationProject workflow, AutomationScript script, IReadOnlyList<nint>? windowHandles = null)
@@ -355,17 +411,10 @@ public sealed class WorkflowRunner : IWorkflowRunner
         {
             Workflow = workflow,
             WaitIfPausedAsync = token => _pauseGate.WaitAsync(token),
-            Log = entry => _logger.Log(ToMicrosoftLevel(entry.Level), FormatLogMessage(entry))
+            Log = WriteLogEntry
         };
         if (script.Id != "runtime")
-        {
-            workflow.ActiveScriptId = script.Id;
-            workflow.Variables = script.Variables;
-            workflow.Nodes = script.Nodes;
-            workflow.Edges = script.Edges;
-            workflow.WindowScope = script.WindowScope;
-            workflow.DefaultNodeDelayMs = script.DefaultNodeDelayMs;
-        }
+            workflow.SetActiveScript(script);
         foreach (var variable in script.Variables)
             context.Variables[variable.Key] = ConvertElement(variable.Value.Value);
         InitializeWindowScope(script.WindowScope, context, windowHandles);
@@ -403,16 +452,73 @@ public sealed class WorkflowRunner : IWorkflowRunner
         WorkflowLogLevel.Error => LogLevel.Error, _ => LogLevel.Information
     };
 
-    private void ChangeState(WorkflowExecutionState next)
+    private void WriteLogEntry(WorkflowLogEntry entry)
     {
-        var previous = _state; _state = next;
-        if (previous != next) Raise(StateChanged, new(previous, next));
+        var level = ToMicrosoftLevel(entry.Level);
+        if (_logger.IsEnabled(level))
+            _logger.Log(level, "{WorkflowEntry}", FormatLogMessage(entry));
+    }
+
+    private void QueueStateChangeLocked(WorkflowExecutionState next)
+    {
+        var previous = (WorkflowExecutionState)_stateValue;
+        if (previous == next) return;
+        Volatile.Write(ref _stateValue, (int)next);
+        lock (_stateEventSync)
+            _pendingStateChanges.Enqueue(new(previous, next));
+    }
+
+    private void DrainStateChanges()
+    {
+        lock (_stateEventSync)
+        {
+            if (_isPublishingStateChanges) return;
+            _isPublishingStateChanges = true;
+        }
+
+        while (true)
+        {
+            WorkflowStateChangedEventArgs next;
+            lock (_stateEventSync)
+            {
+                if (_pendingStateChanges.Count == 0)
+                {
+                    _isPublishingStateChanges = false;
+                    return;
+                }
+                next = _pendingStateChanges.Dequeue();
+            }
+            Raise(StateChanged, next);
+        }
+    }
+
+    private sealed class RunLease(long generation, CancellationTokenSource cancellation)
+    {
+        private int _references = 1;
+        private int _disposed;
+
+        public long Generation { get; } = generation;
+        public CancellationToken Token { get; } = cancellation.Token;
+
+        public void Retain() => Interlocked.Increment(ref _references);
+
+        public void CancelAndRelease()
+        {
+            try { cancellation.Cancel(); }
+            finally { Release(); }
+        }
+
+        public void Release()
+        {
+            if (Interlocked.Decrement(ref _references) != 0) return;
+            if (Interlocked.Exchange(ref _disposed, 1) == 0) cancellation.Dispose();
+        }
     }
 
     private void Raise<T>(EventHandler<T>? handler, T args) where T : EventArgs
     {
         if (handler is null) return;
-        foreach (EventHandler<T> subscriber in handler.GetInvocationList())
+        foreach (var subscriber in handler.GetInvocationList().Cast<EventHandler<T>>())
             try { subscriber(this, args); } catch (Exception ex) { _logger.LogWarning(ex, "工作流事件订阅者发生异常"); }
     }
 }

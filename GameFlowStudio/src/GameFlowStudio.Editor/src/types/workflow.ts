@@ -6,13 +6,19 @@ export type NodeType = 'start' | 'windowScope' | 'mouseClick' | 'mouseMove' | 'm
 
 export type ExecutionStatus = 'none' | 'running' | 'success' | 'error'
 
-export interface GameNodeData extends Record<string, unknown> {
+export interface PersistedNodeData {
   displayName: string
   parameters: Record<string, unknown>
+}
+
+export type NodeDataUpdate = Partial<PersistedNodeData>
+
+export interface EditorNodeData extends PersistedNodeData, Record<string, unknown> {
+  nodeType: NodeType
   executionStatus?: ExecutionStatus
 }
 
-export type GameFlowNode = Node<GameNodeData, 'gameNode'>
+export type GameFlowNode = Node<EditorNodeData, 'gameNode'>
 
 export function nextActionId(nodes: GameFlowNode[]): string {
   const numericIds = nodes.map(node => /^\d+$/.test(node.id) ? Number(node.id) : 0)
@@ -26,11 +32,11 @@ export interface ProjectMetadata {
   updatedAt: string
 }
 
-export interface AutomationProject {
+export interface WorkflowDocument {
   schemaVersion: '1.4'
   project: ProjectMetadata
   variables: Record<string, { type: 'string' | 'number' | 'boolean'; value: unknown }>
-  nodes: Array<{ id: string; type: NodeType; position: { x: number; y: number }; data: GameNodeData }>
+  nodes: Array<{ id: string; type: NodeType; position: { x: number; y: number }; data: PersistedNodeData }>
   edges: Array<{ id: string; source: string; sourceHandle: string; target: string; targetHandle: string }>
 }
 
@@ -66,10 +72,10 @@ export const defaultParameters: Record<NodeType, Record<string, unknown>> = {
   setWindowResolution: { titlePattern: '.*', width: 1280, height: 720 },
 }
 
-function normalizedParameters(node: AutomationProject['nodes'][number]): Record<string, unknown> {
+function normalizedParameters(node: WorkflowDocument['nodes'][number]): Record<string, unknown> {
   const coordinateNodes: NodeType[] = ['colorCondition', 'imageCondition', 'ocrCondition', 'mouseClick', 'mouseMove', 'mouseDrag', 'mouseScroll']
   const windowProgramNodes: NodeType[] = ['closeProgram', 'minimizeWindow', 'arrangeWindows', 'setWindowResolution']
-  if (!coordinateNodes.includes(node.type) && !windowProgramNodes.includes(node.type)) return node.data.parameters
+  if (!coordinateNodes.includes(node.type) && !windowProgramNodes.includes(node.type)) return { ...node.data.parameters }
   const parameters = { ...defaultParameters[node.type], ...node.data.parameters }
   if (windowProgramNodes.includes(node.type)) {
     delete parameters.windowHandleVariable
@@ -82,10 +88,50 @@ function normalizedParameters(node: AutomationProject['nodes'][number]): Record<
   return parameters
 }
 
-export function toFlowNodes(project: AutomationProject): GameFlowNode[] {
-  return project.nodes.map(node => ({ id: node.id, type: 'gameNode', position: node.position, data: { ...node.data, parameters: normalizedParameters(node) } }))
+export interface WorkflowGraph {
+  nodes: GameFlowNode[]
+  edges: Edge[]
 }
 
-export function toFlowEdges(project: AutomationProject): Edge[] {
-  return project.edges.map(edge => ({ ...edge, type: 'smoothstep' }))
+export function fromDocument(document: WorkflowDocument): WorkflowGraph {
+  return {
+    nodes: document.nodes.map(node => ({
+      id: node.id,
+      type: 'gameNode',
+      position: { ...node.position },
+      data: {
+        nodeType: node.type,
+        displayName: node.data.displayName,
+        parameters: normalizedParameters(node),
+      },
+    })),
+    edges: document.edges.map(edge => ({ ...edge, type: 'smoothstep' })),
+  }
+}
+
+export function toDocument(
+  source: WorkflowDocument,
+  nodes: GameFlowNode[],
+  edges: Edge[],
+): WorkflowDocument {
+  return {
+    ...source,
+    project: { ...source.project, updatedAt: new Date().toISOString() },
+    nodes: nodes.map(node => ({
+      id: node.id,
+      type: node.data.nodeType,
+      position: { ...node.position },
+      data: {
+        displayName: node.data.displayName,
+        parameters: { ...node.data.parameters },
+      },
+    })),
+    edges: edges.map(edge => ({
+      id: edge.id,
+      source: edge.source,
+      sourceHandle: edge.sourceHandle ?? 'output',
+      target: edge.target,
+      targetHandle: edge.targetHandle ?? 'input',
+    })),
+  }
 }

@@ -24,6 +24,21 @@ public sealed class AutomationProject
     public ScriptWindowScope? WindowScope { get; set; }
     [JsonIgnore]
     public int? DefaultNodeDelayMs { get; set; }
+
+    /// <summary>
+    /// Synchronizes the runtime-only flat view used by the editor and executor
+    /// with one persisted script.
+    /// </summary>
+    public void SetActiveScript(AutomationScript script)
+    {
+        ArgumentNullException.ThrowIfNull(script);
+        ActiveScriptId = script.Id;
+        Variables = script.Variables;
+        Nodes = script.Nodes;
+        Edges = script.Edges;
+        WindowScope = script.WindowScope;
+        DefaultNodeDelayMs = script.DefaultNodeDelayMs;
+    }
 }
 
 public sealed class AutomationScript
