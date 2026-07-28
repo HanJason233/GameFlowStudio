@@ -14,6 +14,7 @@ public partial class MainWindow : Window
     private readonly MainViewModel _viewModel;
     private readonly IEditorBridge _editor;
     private readonly GlobalHotkeyRegistrar _hotkeys;
+    public string? StartupProjectPath { get; set; }
 
     public MainWindow(MainViewModel viewModel, IEditorBridge editor, GlobalHotkeyRegistrar hotkeys)
     {
@@ -30,6 +31,8 @@ public partial class MainWindow : Window
             if (_viewModel.Settings.WindowLeft.HasValue && _viewModel.Settings.WindowTop.HasValue) { Left = _viewModel.Settings.WindowLeft.Value; Top = _viewModel.Settings.WindowTop.Value; }
             RegisterHotkeys();
             await _editor.InitializeAsync(EditorWebView);
+            if (!string.IsNullOrWhiteSpace(StartupProjectPath))
+                await _viewModel.LoadStartupProjectAsync(StartupProjectPath);
         }
         catch (Exception ex) { _viewModel.ReportHotkeyError(ex); }
     }

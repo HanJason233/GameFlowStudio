@@ -36,6 +36,26 @@ public sealed record RuntimeLaunchOptions(string ProjectPath, string? ScriptId)
     }
 }
 
+/// <summary>从纯运行窗口切回编辑器时使用的命令行参数。</summary>
+public sealed record EditorLaunchOptions(string ProjectPath)
+{
+    public const string EditorSwitch = "--editor";
+
+    public static bool TryParse(IReadOnlyList<string> arguments, out EditorLaunchOptions? options)
+    {
+        options = null;
+        for (var index = 0; index < arguments.Count - 1; index++)
+        {
+            if (!string.Equals(arguments[index], EditorSwitch, StringComparison.OrdinalIgnoreCase)) continue;
+            if (string.IsNullOrWhiteSpace(arguments[index + 1])) return false;
+            options = new(Path.GetFullPath(arguments[index + 1]));
+            return true;
+        }
+
+        return false;
+    }
+}
+
 public interface IRuntimeProcessLauncher
 {
     Task LaunchAsync(AutomationProject project, CancellationToken cancellationToken);

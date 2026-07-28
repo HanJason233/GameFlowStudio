@@ -246,6 +246,8 @@ public sealed class MainViewModel : ObservableObject
         if (_editor.IsReady) await _editor.SendAsync("initialize_editor", CreateEditorSnapshot(ActiveScript));
     }
 
+    public Task LoadStartupProjectAsync(string path) => LoadProjectAsync(path, true);
+
     public bool CanClose()
     {
         if (!_runtimeLaunchInProgress && _dirty && !_dialogs.ConfirmDiscardChanges()) return false;

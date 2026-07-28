@@ -16,6 +16,7 @@ namespace GameFlowStudio.Desktop;
 public partial class App : Application
 {
     private IHost? _host;
+    private string? _temporaryEditorProjectPath;
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
@@ -69,13 +70,27 @@ public partial class App : Application
             }
         }
 
+        EditorLaunchOptions? editorOptions = null;
+        if (EditorLaunchOptions.TryParse(e.Args, out var parsedEditorOptions))
+        {
+            editorOptions = parsedEditorOptions;
+            _temporaryEditorProjectPath = parsedEditorOptions?.ProjectPath;
+        }
+
         var window = _host.Services.GetRequiredService<MainWindow>();
+        window.StartupProjectPath = editorOptions?.ProjectPath;
         MainWindow = window; window.Show();
     }
 
     protected override async void OnExit(ExitEventArgs e)
     {
         if (_host is not null) { await _host.StopAsync(); _host.Dispose(); }
+        if (_temporaryEditorProjectPath is not null)
+        {
+            try { File.Delete(_temporaryEditorProjectPath); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
         base.OnExit(e);
     }
 }

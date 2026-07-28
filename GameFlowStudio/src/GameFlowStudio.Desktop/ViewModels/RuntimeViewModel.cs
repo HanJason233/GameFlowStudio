@@ -90,17 +90,20 @@ public sealed class RuntimeViewModel : ObservableObject, IDisposable
         var project = await _storage.LoadAsync(projectPath, cancellationToken).ConfigureAwait(false);
         if (project.Scripts.Count == 0) throw new InvalidDataException("项目中没有可运行的脚本。");
 
-        _project = project;
-        ProjectName = project.Project.Name;
-        Scripts.Clear();
-        foreach (var script in project.Scripts)
-            Scripts.Add(new(script));
+        OnUi(() =>
+        {
+            _project = project;
+            ProjectName = project.Project.Name;
+            Scripts.Clear();
+            foreach (var script in project.Scripts)
+                Scripts.Add(new(script));
 
-        var selected = Scripts.FirstOrDefault(item => item.Id == scriptId) ?? Scripts[0];
-        _initialized = true;
-        Raise(nameof(IsSelectionEnabled));
-        SelectedScript = selected;
-        ResetProgress();
+            var selected = Scripts.FirstOrDefault(item => item.Id == scriptId) ?? Scripts[0];
+            _initialized = true;
+            Raise(nameof(IsSelectionEnabled));
+            SelectedScript = selected;
+            ResetProgress();
+        });
     }
 
     public bool IsReady => _initialized;
