@@ -10,11 +10,13 @@
     UpgradeCode="E4F858AD-16A8-4BA9-8CE2-DC9368280262">
 
     <Property Id="CREATE_START_MENU_SHORTCUT" Value="1" Secure="yes" />
+    <Property Id="CREATE_DESKTOP_SHORTCUT" Value="1" Secure="yes" />
     <MajorUpgrade DowngradeErrorMessage="已安装更高版本的 GameFlow Studio。" />
     <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
     <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
     <UIRef Id="WixUI_ErrorProgressText" />
     <WixVariable Id="WixUILicenseRtf" Value="$(sys.SOURCEFILEDIR)License.rtf" />
+    <Icon Id="GameFlowStudioIcon" SourceFile="$(sys.SOURCEFILEDIR)GameFlowStudio.ico" />
 
     <StandardDirectory Id="TARGETDIR">
       <Directory
@@ -38,11 +40,35 @@
             Name="GameFlow Studio"
             Description="Windows 无代码键盘鼠标自动化工具"
             Target="[INSTALLFOLDER]GameFlowStudio.Desktop.exe"
-            WorkingDirectory="INSTALLFOLDER" />
+            WorkingDirectory="INSTALLFOLDER"
+            Icon="GameFlowStudioIcon"
+            IconIndex="0" />
           <RegistryValue
             Root="HKCU"
             Key="Software\GameFlow Studio"
             Name="StartMenuShortcut"
+            Type="integer"
+            Value="1"
+            KeyPath="yes" />
+        </Component>
+
+        <Component
+          Id="DesktopShortcut"
+          Guid="D3AAE8E8-9FE1-4D06-9D65-2E4C4B2D85DD"
+          Condition="CREATE_DESKTOP_SHORTCUT">
+          <Shortcut
+            Id="DesktopShortcutFile"
+            Directory="DesktopFolder"
+            Name="GameFlow Studio"
+            Description="Windows automation workflow tool"
+            Target="[INSTALLFOLDER]GameFlowStudio.Desktop.exe"
+            WorkingDirectory="INSTALLFOLDER"
+            Icon="GameFlowStudioIcon"
+            IconIndex="0" />
+          <RegistryValue
+            Root="HKCU"
+            Key="Software\GameFlow Studio"
+            Name="DesktopShortcut"
             Type="integer"
             Value="1"
             KeyPath="yes" />
@@ -59,10 +85,20 @@
         <Control Id="Title" Type="Text" X="15" Y="6" Width="340" Height="15" NoPrefix="yes" Text="安装选项" />
         <Control Id="Description" Type="Text" X="20" Y="40" Width="330" Height="30" NoPrefix="yes" Text="请选择是否创建开始菜单快捷方式。" />
         <Control
-          Id="CreateStartMenuShortcut"
+          Id="CreateDesktopShortcut"
           Type="CheckBox"
           X="20"
           Y="90"
+          Width="330"
+          Height="17"
+          Property="CREATE_DESKTOP_SHORTCUT"
+          CheckBoxValue="1"
+          Text="Create a desktop shortcut" />
+        <Control
+          Id="CreateStartMenuShortcut"
+          Type="CheckBox"
+          X="20"
+          Y="120"
           Width="330"
           Height="17"
           Property="CREATE_START_MENU_SHORTCUT"
