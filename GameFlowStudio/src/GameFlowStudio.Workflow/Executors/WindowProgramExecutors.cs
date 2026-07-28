@@ -74,9 +74,7 @@ public sealed class SetWindowResolutionNodeExecutor(IWindowAutomationService win
 internal static class WindowActionParameters
 {
     public static nint SelectTarget(WorkflowNode node, IWindowScopeService scopes) =>
-        WindowHandleSelector.Select(scopes,
-            NodeParameterReader.String(node, "titlePattern", ".*"),
-            NodeParameterReader.Int(node, "windowHandleIndex", 0));
+        WindowHandleSelector.Select(scopes, NodeParameterReader.String(node, "titlePattern", ".*"));
 
     public static IReadOnlyList<nint> SelectAll(WorkflowNode node, IWindowScopeService scopes) =>
         WindowHandleSelector.SelectAll(scopes, NodeParameterReader.String(node, "titlePattern", ".*"));

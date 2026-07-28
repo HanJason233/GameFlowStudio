@@ -43,15 +43,15 @@
 | `imageCondition` | `coordinateMode`, `templatePath`, `x`, `y`, 可选 `width`/`height`、`tolerance`、`matchThreshold` | `true`, `false` |
 | `ocrCondition` | `coordinateMode`, `x`, `y`, `width`, `height`, `targetText`, `matchThreshold` | `true`, `false` |
 | `runProgram` | `path`, `arguments` | `output` |
-| `closeProgram` | `titlePattern`, `windowHandleIndex` | `output` |
-| `minimizeWindow` | `titlePattern`, `windowHandleIndex` | `output` |
+| `closeProgram` | `titlePattern` | `output` |
+| `minimizeWindow` | `titlePattern` | `output` |
 | `arrangeWindows` | `titlePattern`, `x`, `y`, `width`, `height`, `columns`, `gapX`, `gapY` | `output` |
-| `setWindowResolution` | `titlePattern`, `windowHandleIndex`, `width`, `height` | `output` |
+| `setWindowResolution` | `titlePattern`, `width`, `height` | `output` |
 | `end` | 无 | 无 |
 
 `coordinateMode` 默认为 `followScript`（跟随脚本）：脚本使用整个屏幕时按屏幕绝对坐标，脚本使用正则匹配窗口时按当前目标窗口的相对坐标。`absolute`（强制绝对）和 `relative`（强制相对）会覆盖脚本窗口范围。
 
-关闭程序、最小化窗口、窗口整理和设置窗口分辨率会使用动作自身的 `titlePattern` 查找正在运行的窗口，不使用脚本窗口作用域的匹配结果；单窗口动作通过 `windowHandleIndex` 从匹配结果中选择目标窗口。
+关闭程序、最小化窗口、窗口整理和设置窗口分辨率会使用动作自身的 `titlePattern` 查找正在运行的窗口，不使用脚本窗口作用域的匹配结果；关闭、最小化和设置分辨率使用匹配结果中的第一个窗口，窗口整理处理全部匹配窗口。
 
 变量类型为 `string`、`number`、`boolean`。鼠标按钮为 `left`、`right`、`middle`；日志级别为 `debug`、`information`、`warning`、`error`。
 

@@ -60,10 +60,10 @@ export const defaultParameters: Record<NodeType, Record<string, unknown>> = {
   textInput: { text: 'Hello GameFlow', intervalMs: 30 },
   wait: { durationMs: 1000 },
   runProgram: { path: '', arguments: '' },
-  closeProgram: { titlePattern: '.*', windowHandleIndex: 0 },
-  minimizeWindow: { titlePattern: '.*', windowHandleIndex: 0 },
+  closeProgram: { titlePattern: '.*' },
+  minimizeWindow: { titlePattern: '.*' },
   arrangeWindows: { titlePattern: '.*', x: 0, y: 0, width: 800, height: 600, columns: 2, gapX: 20, gapY: 20 },
-  setWindowResolution: { titlePattern: '.*', windowHandleIndex: 0, width: 1280, height: 720 },
+  setWindowResolution: { titlePattern: '.*', width: 1280, height: 720 },
 }
 
 function normalizedParameters(node: AutomationProject['nodes'][number]): Record<string, unknown> {
@@ -73,6 +73,7 @@ function normalizedParameters(node: AutomationProject['nodes'][number]): Record<
   const parameters = { ...defaultParameters[node.type], ...node.data.parameters }
   if (windowProgramNodes.includes(node.type)) {
     delete parameters.windowHandleVariable
+    delete parameters.windowHandleIndex
     return parameters
   }
   if (parameters.coordinateMode === 'screen') parameters.coordinateMode = 'absolute'

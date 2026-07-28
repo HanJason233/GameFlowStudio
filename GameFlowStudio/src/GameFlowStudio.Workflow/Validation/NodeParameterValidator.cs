@@ -100,7 +100,6 @@ internal sealed class NodeParameterValidator
     private static void WindowTarget(WorkflowNode node)
     {
         ValidateTitlePattern(node);
-        if (NodeParameterReader.Int(node, "windowHandleIndex", 0) < 0) throw new InvalidOperationException("窗口句柄索引不能为负数。");
     }
 
     private static void Coordinate(WorkflowNode node) => Coordinate(node, "x", "y");

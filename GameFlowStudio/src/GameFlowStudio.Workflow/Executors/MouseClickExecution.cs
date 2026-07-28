@@ -50,12 +50,10 @@ internal static class MouseClickParameterReader
 
 internal static class WindowHandleSelector
 {
-    public static nint Select(IWindowScopeService scopes, string titlePattern, int index)
+    public static nint Select(IWindowScopeService scopes, string titlePattern)
     {
-        if (index < 0) throw new InvalidOperationException("窗口句柄索引不能为负数。");
         var handles = SelectAll(scopes, titlePattern);
-        if (index >= handles.Count) throw new InvalidOperationException($"标题正则“{titlePattern}”匹配的窗口中没有索引为 {index} 的窗口句柄。");
-        return handles[index];
+        return handles[0];
     }
 
     internal static IReadOnlyList<nint> SelectAll(IWindowScopeService scopes, string titlePattern)
