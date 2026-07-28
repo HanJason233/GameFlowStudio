@@ -231,6 +231,21 @@ public sealed class WorkflowEngineTests
     }
 
     [Fact]
+    public async Task WindowPriorityWaitsBeforeSwitchingToAnotherWindow()
+    {
+        var executor = new WindowExecutionTrackingExecutor();
+        var runner = Runner(executor, new FixedWindowScopeService([(nint)101, (nint)202]));
+        var project = Chain(Action("one"));
+        project.WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.WindowPriority };
+        var timer = System.Diagnostics.Stopwatch.StartNew();
+
+        await runner.RunAsync(project, CancellationToken.None);
+
+        timer.Stop();
+        Assert.True(timer.ElapsedMilliseconds >= 900, $"窗口切换前应等待约 1 秒，实际耗时 {timer.ElapsedMilliseconds} ms。");
+    }
+
+    [Fact]
     public async Task ActionPriorityRunsEachWindowOneActionPerRound()
     {
         var executor = new WindowExecutionTrackingExecutor();

@@ -11,7 +11,7 @@
       "id": "script-basic-example",
       "name": "Main",
       "windowScope": { "enabled": false, "titlePattern": ".*", "executionMode": "firstOnly" },
-      "defaultNodeDelayMs": 0,
+      "defaultNodeDelayMs": 2000,
       "variables": {},
       "nodes": [
         { "id": "start-1", "type": "start", "position": { "x": 50, "y": 200 }, "data": { "displayName": "Start", "parameters": {} } },

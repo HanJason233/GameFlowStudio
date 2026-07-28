@@ -14,6 +14,7 @@ namespace GameFlowStudio.Workflow.Engine;
 /// <summary>负责单个脚本图执行。</summary>
 public sealed class WorkflowRunner : IWorkflowRunner
 {
+    private const int WindowSwitchDelayMilliseconds = 1000;
     private readonly Dictionary<string, INodeExecutor> _executors;
     private readonly IWorkflowValidator _validator;
     private readonly ILogger<WorkflowRunner> _logger;
@@ -145,8 +146,14 @@ public sealed class WorkflowRunner : IWorkflowRunner
         switch (initialScript.WindowScope.ExecutionMode)
         {
             case WindowExecutionMode.WindowPriority:
-                foreach (var handle in handles)
+                for (var index = 0; index < handles.Count; index++)
+                {
+                    if (index > 0)
+                        await WaitBetweenWindowsAsync(token).ConfigureAwait(false);
+
+                    var handle = handles[index];
                     await ExecuteGraphForWindowAsync(workflow, plan, [handle], budget, token).ConfigureAwait(false);
+                }
                 return;
             case WindowExecutionMode.ActionPriority:
                 await ExecuteGraphByActionPriorityAsync(workflow, plan, handles, budget, token).ConfigureAwait(false);
@@ -178,11 +185,19 @@ public sealed class WorkflowRunner : IWorkflowRunner
         var tracks = handles
             .Select(handle => CreateWindowTrack(workflow, plan.InitialGraph, [handle]))
             .ToList();
+        nint? lastWindowHandle = null;
         while (tracks.Count > 0)
         {
             for (var index = 0; index < tracks.Count;)
             {
                 var track = tracks[index];
+                if (track.WindowHandle is { } windowHandle)
+                {
+                    if (lastWindowHandle.HasValue && lastWindowHandle.Value != windowHandle)
+                        await WaitBetweenWindowsAsync(token).ConfigureAwait(false);
+                    lastWindowHandle = windowHandle;
+                }
+
                 if (await ExecuteTrackStepAsync(workflow, plan, track, budget, token).ConfigureAwait(false))
                 {
                     tracks.RemoveAt(index);
@@ -248,6 +263,7 @@ public sealed class WorkflowRunner : IWorkflowRunner
         public ScriptExecutionGraph Graph { get; set; } = graph;
         public WorkflowNode Current { get; set; } = current;
         public WorkflowExecutionContext Context { get; } = context;
+        public nint? WindowHandle { get; } = context.WindowHandles.Count == 1 ? context.WindowHandles[0] : null;
     }
 
     private sealed class ExecutionBudget
@@ -340,6 +356,9 @@ public sealed class WorkflowRunner : IWorkflowRunner
 
     private int GetDefaultNodeDelay(AutomationProject workflow, AutomationScript script) =>
         script.Id == "runtime" ? workflow.DefaultNodeDelayMs ?? DefaultNodeDelayMs : script.DefaultNodeDelayMs;
+
+    private Task WaitBetweenWindowsAsync(CancellationToken token) =>
+        PausableDelay.WaitAsync(WindowSwitchDelayMilliseconds, _pauseGate.WaitAsync, token);
 
     private static bool ShouldApplyDefaultDelay(int delay, WorkflowNode current, WorkflowNode next) =>
         delay > 0

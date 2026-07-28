@@ -5,6 +5,12 @@ namespace GameFlowStudio.Workflow.Tests;
 public sealed class AutomationProjectTests
 {
     [Fact]
+    public void NewScriptUsesTwoSecondDefaultDelay()
+    {
+        Assert.Equal(2000, new AutomationScript().DefaultNodeDelayMs);
+    }
+
+    [Fact]
     public void SetActiveScriptKeepsRuntimeViewConsistent()
     {
         var project = new AutomationProject();

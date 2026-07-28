@@ -42,10 +42,11 @@ public sealed class AutomationProject
 
 public sealed class AutomationScript
 {
+    public const int DefaultNodeDelayMilliseconds = 2000;
     public string Id { get; set; } = "1";
     public string Name { get; set; } = "主流程";
     public ScriptWindowScope WindowScope { get; set; } = new();
-    public int DefaultNodeDelayMs { get; set; }
+    public int DefaultNodeDelayMs { get; set; } = DefaultNodeDelayMilliseconds;
     public Dictionary<string, ProjectVariable> Variables { get; set; } = new(StringComparer.Ordinal);
     public List<WorkflowNode> Nodes { get; set; } = [];
     public List<WorkflowEdge> Edges { get; set; } = [];

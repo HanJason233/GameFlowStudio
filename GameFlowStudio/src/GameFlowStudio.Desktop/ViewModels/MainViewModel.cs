@@ -72,7 +72,7 @@ public sealed class MainViewModel : ObservableObject
     private string _scriptWindowTitlePattern = ".*";
     private WindowExecutionMode _scriptWindowExecutionMode = WindowExecutionMode.FirstOnly;
     private string _activeScriptName = string.Empty;
-    private int _scriptDefaultNodeDelayMs;
+    private int _scriptDefaultNodeDelayMs = AutomationScript.DefaultNodeDelayMilliseconds;
 
     public MainViewModel(IEditorBridge editor, IWorkflowRunner runner, IWorkflowValidator validator, IProjectStorageService storage,
         ISettingsStorageService settingsStorage, IFileDialogService dialogs, ICoordinatePickerService coordinatePicker,
