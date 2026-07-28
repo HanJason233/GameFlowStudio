@@ -27,13 +27,11 @@ public sealed class RuntimeViewModel : ObservableObject, IDisposable
     private readonly ILogger<RuntimeViewModel> _logger;
     private AutomationProject _project = new();
     private RuntimeScriptItem? _selectedScript;
-    private string _projectName = "未命名项目";
     private string _stateText = "未运行";
     private string _currentNodeText = "—";
     private string _progressText = "0 / 0";
     private string _errorText = string.Empty;
     private double _progressValue;
-    private bool _isEnabled;
     private bool _initialized;
     private int _completedNodes;
     private int _totalNodes = 1;
@@ -51,7 +49,6 @@ public sealed class RuntimeViewModel : ObservableObject, IDisposable
         _storage = storage;
         _logger = logger;
         ToggleRuntimeCommand = new RelayCommand(_ => ToggleRuntime());
-        PauseResumeCommand = new RelayCommand(_ => _ = PauseOrResumeAsync(), _ => CanPauseResume);
         StopCommand = new RelayCommand(_ => _ = StopAsync(), _ => IsWorkflowActive);
         _runner.NodeStarted += OnNodeStarted;
         _runner.NodeCompleted += OnNodeCompleted;
@@ -59,7 +56,6 @@ public sealed class RuntimeViewModel : ObservableObject, IDisposable
     }
 
     public ObservableCollection<RuntimeScriptItem> Scripts { get; } = [];
-    public string ProjectName { get => _projectName; private set => Set(ref _projectName, value); }
     public RuntimeScriptItem? SelectedScript
     {
         get => _selectedScript;
@@ -75,14 +71,16 @@ public sealed class RuntimeViewModel : ObservableObject, IDisposable
     public string ProgressText { get => _progressText; private set => Set(ref _progressText, value); }
     public string ErrorText { get => _errorText; private set => Set(ref _errorText, value); }
     public double ProgressValue { get => _progressValue; private set => Set(ref _progressValue, value); }
-    public bool IsEnabled { get => _isEnabled; private set { if (Set(ref _isEnabled, value)) Raise(nameof(RunSwitchText)); } }
     public bool IsWorkflowActive => _runner.State is WorkflowExecutionState.Running or WorkflowExecutionState.Paused or WorkflowExecutionState.Stopping;
     public bool IsSelectionEnabled => _initialized && !IsWorkflowActive;
-    public bool CanPauseResume => _runner.State is WorkflowExecutionState.Running or WorkflowExecutionState.Paused;
-    public string RunSwitchText => IsWorkflowActive ? "运行中（点击停止）" : "开启运行";
-    public string PauseResumeText => _runner.State == WorkflowExecutionState.Paused ? "继续" : "暂停";
+    public string RunSwitchText => _runner.State switch
+    {
+        WorkflowExecutionState.Running => "暂停",
+        WorkflowExecutionState.Paused => "继续运行",
+        WorkflowExecutionState.Stopping => "正在停止",
+        _ => "开始运行"
+    };
     public ICommand ToggleRuntimeCommand { get; }
-    public ICommand PauseResumeCommand { get; }
     public ICommand StopCommand { get; }
 
     public async Task InitializeAsync(string projectPath, string? scriptId, CancellationToken cancellationToken = default)
@@ -93,7 +91,6 @@ public sealed class RuntimeViewModel : ObservableObject, IDisposable
         OnUi(() =>
         {
             _project = project;
-            ProjectName = project.Project.Name;
             Scripts.Clear();
             foreach (var script in project.Scripts)
                 Scripts.Add(new(script));
@@ -111,14 +108,14 @@ public sealed class RuntimeViewModel : ObservableObject, IDisposable
     private void ToggleRuntime()
     {
         if (!_initialized) return;
-        if (IsWorkflowActive)
+        if (_runner.State is WorkflowExecutionState.Running or WorkflowExecutionState.Paused)
         {
-            _ = StopAsync();
+            _ = PauseOrResumeAsync();
             return;
         }
+        if (_runner.State == WorkflowExecutionState.Stopping) return;
 
         if (_runTask is { IsCompleted: false }) return;
-        IsEnabled = true;
         _runTask = RunSelectedAsync();
     }
 
@@ -130,7 +127,6 @@ public sealed class RuntimeViewModel : ObservableObject, IDisposable
         if (!validation.IsValid)
         {
             ErrorText = validation.Errors[0].Message;
-            IsEnabled = false;
             StateText = "验证失败";
             return;
         }
@@ -152,7 +148,6 @@ public sealed class RuntimeViewModel : ObservableObject, IDisposable
         {
             OnUi(() =>
             {
-                IsEnabled = false;
                 RaiseRuntimeCommands();
             });
         }
@@ -166,7 +161,6 @@ public sealed class RuntimeViewModel : ObservableObject, IDisposable
 
     private async Task StopAsync()
     {
-        IsEnabled = false;
         await _runner.StopAsync();
     }
 
@@ -187,12 +181,8 @@ public sealed class RuntimeViewModel : ObservableObject, IDisposable
     private void OnStateChanged(object? sender, WorkflowStateChangedEventArgs args) => OnUi(() =>
     {
         StateText = StateLabel(args.Current);
-        if (args.Current is WorkflowExecutionState.Completed or WorkflowExecutionState.Failed or WorkflowExecutionState.Idle)
-            IsEnabled = false;
         Raise(nameof(IsWorkflowActive));
         Raise(nameof(IsSelectionEnabled));
-        Raise(nameof(CanPauseResume));
-        Raise(nameof(PauseResumeText));
         Raise(nameof(RunSwitchText));
         RaiseRuntimeCommands();
     });
@@ -209,7 +199,6 @@ public sealed class RuntimeViewModel : ObservableObject, IDisposable
 
     private void RaiseRuntimeCommands()
     {
-        (PauseResumeCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (StopCommand as RelayCommand)?.RaiseCanExecuteChanged();
     }
 

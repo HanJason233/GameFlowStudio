@@ -2,7 +2,6 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Windows;
-using System.Windows.Input;
 using GameFlowStudio.Desktop.Services;
 using GameFlowStudio.Desktop.ViewModels;
 
@@ -29,23 +28,6 @@ public partial class RuntimeWindow : Window
         _projectPath = options.ProjectPath;
         await _viewModel.InitializeAsync(options.ProjectPath, options.ScriptId, cancellationToken);
     }
-
-    private void TitleBarMouseDown(object sender, MouseButtonEventArgs e)
-    {
-        if (e.ChangedButton != MouseButton.Left) return;
-
-        try
-        {
-            DragMove();
-            e.Handled = true;
-        }
-        catch (InvalidOperationException)
-        {
-            // 窗口正在关闭或尚未完成显示时，忽略本次拖动。
-        }
-    }
-
-    private void CloseClick(object sender, RoutedEventArgs e) => Close();
 
     private async void SwitchToEditorClick(object sender, RoutedEventArgs e)
     {
