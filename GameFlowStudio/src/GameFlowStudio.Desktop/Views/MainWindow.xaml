@@ -334,10 +334,48 @@
                                     </ItemsControl.ItemsPanel>
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <StackPanel Width="136" Margin="0,3,6,3">
+                                            <Grid Margin="0,3,6,3">
+                                                <Grid.Style>
+                                                    <Style TargetType="Grid">
+                                                        <Setter Property="Width" Value="136"/>
+                                                        <Style.Triggers>
+                                                            <MultiDataTrigger>
+                                                                <MultiDataTrigger.Conditions>
+                                                                    <Condition Binding="{Binding Name}" Value="path"/>
+                                                                    <Condition Binding="{Binding DataContext.SelectedNode.CanPickProgramPath, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/>
+                                                                </MultiDataTrigger.Conditions>
+                                                                <Setter Property="Width" Value="280"/>
+                                                            </MultiDataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Grid.Style>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="Auto"/>
+                                                </Grid.RowDefinitions>
                                                 <controls:SelectableTextBlock Text="{Binding Path=DisplayName, Mode=OneWay}" Foreground="#94A3B8" ToolTip="{Binding Description}"/>
-                                                <TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"/>
-                                            </StackPanel>
+                                                <DockPanel Grid.Row="1">
+                                                    <Button DockPanel.Dock="Right" Content="选择..."
+                                                            Command="{Binding DataContext.SelectProgramPathCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                            Width="58" Margin="6,0,0,0" Padding="4,2" ToolTip="选择要启动的程序文件">
+                                                        <Button.Style>
+                                                            <Style TargetType="Button">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                <Style.Triggers>
+                                                                    <MultiDataTrigger>
+                                                                        <MultiDataTrigger.Conditions>
+                                                                            <Condition Binding="{Binding Name}" Value="path"/>
+                                                                            <Condition Binding="{Binding DataContext.SelectedNode.CanPickProgramPath, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/>
+                                                                        </MultiDataTrigger.Conditions>
+                                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                                    </MultiDataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Button.Style>
+                                                    </Button>
+                                                    <TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"/>
+                                                </DockPanel>
+                                            </Grid>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>

@@ -172,6 +172,7 @@ public sealed class SelectedNodeViewModel : ObservableObject
         _ => "逻辑判断"
     };
     public bool CanPickCoordinate => Type is NodeTypes.ColorCondition or NodeTypes.ImageCondition or NodeTypes.OcrCondition or NodeTypes.MouseClick or NodeTypes.MouseMove or NodeTypes.MouseDrag or NodeTypes.MouseScroll;
+    public bool CanPickProgramPath => Type == NodeTypes.RunProgram && Parameters.Any(parameter => parameter.Name == "path");
     public string CoordinatePickButtonLabel => Type switch
     {
         NodeTypes.ColorCondition => "拾取色值点",
@@ -397,7 +398,7 @@ public sealed class MainViewModel : ObservableObject
     public ICommand NewCommand { get; private set; } = null!; public ICommand OpenCommand { get; private set; } = null!; public ICommand SaveCommand { get; private set; } = null!;
     public ICommand SaveAsCommand { get; private set; } = null!; public ICommand OpenSampleCommand { get; private set; } = null!; public ICommand RunCommand { get; private set; } = null!;
     public ICommand PauseCommand { get; private set; } = null!; public ICommand ResumeCommand { get; private set; } = null!; public ICommand StopCommand { get; private set; } = null!;
-    public ICommand AddNodeCommand { get; private set; } = null!; public ICommand PickCoordinateCommand { get; private set; } = null!;
+    public ICommand AddNodeCommand { get; private set; } = null!; public ICommand PickCoordinateCommand { get; private set; } = null!; public ICommand SelectProgramPathCommand { get; private set; } = null!;
     public ICommand OpenRecentProjectCommand { get; private set; } = null!;
     public ICommand NewScriptCommand { get; private set; } = null!;
     public ICommand SelectScriptCommand { get; private set; } = null!;
@@ -553,6 +554,19 @@ public sealed class MainViewModel : ObservableObject
         {
             SetParameter("x", first.X); SetParameter("y", first.Y);
         }
+        await UpdateSelectedNodeAsync();
+    }
+
+    private async Task SelectProgramPathAsync()
+    {
+        if (SelectedNode?.CanPickProgramPath != true) return;
+
+        var currentPath = SelectedNode.GetParameterValue("path", string.Empty);
+        var initialDirectory = Path.GetDirectoryName(currentPath);
+        var path = _dialogs.OpenProgram(initialDirectory);
+        if (path is null) return;
+
+        SetParameter("path", path);
         await UpdateSelectedNodeAsync();
     }
 
@@ -925,7 +939,7 @@ public sealed class MainViewModel : ObservableObject
     }
 
     private void OnNodeStarted(NodeExecutionEventArgs e) => Application.Current.Dispatcher.Invoke(() => { CurrentNodeText = e.Node.Data.DisplayName; _ = _editor.SendAsync("highlight_node", new { nodeId = e.Node.Id }); });
-    private void RaiseCommandStates() { foreach (var command in new[] { RunCommand, PauseCommand, ResumeCommand, StopCommand, PickCoordinateCommand }) if (command is AsyncRelayCommand asyncCommand) asyncCommand.RaiseCanExecuteChanged(); }
+    private void RaiseCommandStates() { foreach (var command in new[] { RunCommand, PauseCommand, ResumeCommand, StopCommand, PickCoordinateCommand, SelectProgramPathCommand }) if (command is AsyncRelayCommand asyncCommand) asyncCommand.RaiseCanExecuteChanged(); }
     private static string StateLabel(WorkflowExecutionState state) => state switch { WorkflowExecutionState.Running => "正在运行", WorkflowExecutionState.Paused => "已暂停", WorkflowExecutionState.Stopping => "正在停止", WorkflowExecutionState.Completed => "已完成", WorkflowExecutionState.Failed => "执行失败", _ => "未运行" };
     private static string DisplayValue(JsonElement value) => value.ValueKind == JsonValueKind.String ? value.GetString() ?? string.Empty : value.GetRawText();
 
@@ -995,6 +1009,7 @@ public sealed class MainViewModel : ObservableObject
         PauseCommand = new AsyncRelayCommand(_ => _runner.PauseAsync()); ResumeCommand = new AsyncRelayCommand(_ => _runner.ResumeAsync()); StopCommand = new AsyncRelayCommand(_ => _runner.StopAsync());
         AddNodeCommand = new AsyncRelayCommand(item => AddNodeAsync(item as ToolboxItem));
         PickCoordinateCommand = new AsyncRelayCommand(_ => PickCoordinateAsync(), _ => SelectedNode?.CanPickCoordinate == true);
+        SelectProgramPathCommand = new AsyncRelayCommand(_ => SelectProgramPathAsync(), _ => SelectedNode?.CanPickProgramPath == true);
         NewScriptCommand = new AsyncRelayCommand(_ => NewScriptAsync());
         SelectScriptCommand = new AsyncRelayCommand(item => SelectScriptAsync(item as ScriptListItem));
         OpenScriptPropertiesCommand = new AsyncRelayCommand(item => OpenScriptPropertiesAsync(item as ScriptListItem));

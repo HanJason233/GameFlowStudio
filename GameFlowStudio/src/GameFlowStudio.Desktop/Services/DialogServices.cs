@@ -10,6 +10,7 @@ namespace GameFlowStudio.Desktop.Services;
 public interface IFileDialogService
 {
     string? OpenProject(string? initialDirectory = null);
+    string? OpenProgram(string? initialDirectory = null);
     string? SaveProject(string? currentPath = null);
     bool ConfirmDiscardChanges();
     void ShowError(string message);
@@ -19,6 +20,17 @@ public interface IFileDialogService
 public sealed class FileDialogService : IFileDialogService
 {
     public string? OpenProject(string? initialDirectory = null) { var dialog = new OpenFileDialog { Filter = "GameFlow 项目 (*.gflow)|*.gflow|JSON 文件 (*.json)|*.json", InitialDirectory = initialDirectory }; return dialog.ShowDialog() == true ? dialog.FileName : null; }
+    public string? OpenProgram(string? initialDirectory = null)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Filter = "程序文件 (*.exe;*.com;*.bat;*.cmd;*.lnk)|*.exe;*.com;*.bat;*.cmd;*.lnk|所有文件 (*.*)|*.*",
+            CheckFileExists = true,
+            Multiselect = false,
+            InitialDirectory = Directory.Exists(initialDirectory) ? initialDirectory : null
+        };
+        return dialog.ShowDialog() == true ? dialog.FileName : null;
+    }
     public string? SaveProject(string? currentPath = null) { var dialog = new SaveFileDialog { Filter = "GameFlow 项目 (*.gflow)|*.gflow", DefaultExt = ".gflow", AddExtension = true, FileName = currentPath is null ? null : Path.GetFileName(currentPath), InitialDirectory = currentPath is null ? null : Path.GetDirectoryName(currentPath) }; return dialog.ShowDialog() == true ? dialog.FileName : null; }
     public bool ConfirmDiscardChanges() => MessageBox.Show("当前项目有未保存的更改，是否放弃？", "GameFlow Studio", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes;
     public void ShowError(string message) => MessageBox.Show(message, "GameFlow Studio", MessageBoxButton.OK, MessageBoxImage.Error);
