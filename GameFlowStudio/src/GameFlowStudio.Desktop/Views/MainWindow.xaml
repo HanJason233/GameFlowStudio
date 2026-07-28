@@ -321,16 +321,16 @@
                                                     <controls:SelectableTextBlock Text="数值参数" Foreground="#94A3B8" Margin="0,8,0,3"/>
                                                     <Border BorderBrush="#334155" BorderThickness="1" CornerRadius="4" Padding="6">
                                                         <DockPanel>
-                                                            <Button DockPanel.Dock="Right" Content="{Binding CoordinatePickButtonLabel}"
+                                                            <Button DockPanel.Dock="Right" Content="{Binding CoordinatePickButtonLabel, Mode=OneWay}"
                                                                     Command="{Binding DataContext.PickStateDetectorCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                                     CommandParameter="{Binding}" Width="76" Margin="8,0,0,0" Padding="4,3"
-                                                                    ToolTip="{Binding CoordinatePickButtonToolTip}"/>
+                                                                    ToolTip="{Binding CoordinatePickButtonToolTip, Mode=OneWay}"/>
                                                             <ItemsControl ItemsSource="{Binding NumericParameters}">
                                                                 <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                                                                 <ItemsControl.ItemTemplate>
                                                                     <DataTemplate>
                                                                         <StackPanel Width="100" Margin="0,2,6,2">
-                                                                            <controls:SelectableTextBlock Text="{Binding Name}" Foreground="#94A3B8" ToolTip="{Binding Description}"/>
+                                                                            <controls:SelectableTextBlock Text="{Binding Name, Mode=OneWay}" Foreground="#94A3B8" ToolTip="{Binding Description, Mode=OneWay}"/>
                                                                             <TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"/>
                                                                         </StackPanel>
                                                                     </DataTemplate>
@@ -340,7 +340,7 @@
                                                     </Border>
                                                     <StackPanel Visibility="{Binding HasConfidenceParameter, Converter={StaticResource BoolVisibility}}" Margin="0,8,0,2">
                                                         <DockPanel Margin="0,0,0,3">
-                                                            <controls:SelectableTextBlock Text="{Binding ConfidenceLabel}" Foreground="#94A3B8" ToolTip="{Binding ConfidenceHint}"/>
+                                                            <controls:SelectableTextBlock Text="{Binding ConfidenceLabel, Mode=OneWay}" Foreground="#94A3B8" ToolTip="{Binding ConfidenceHint, Mode=OneWay}"/>
                                                             <controls:SelectableTextBlock DockPanel.Dock="Right" Text="{Binding ConfidenceParameter.Value, Converter={StaticResource PercentText}}" Foreground="#60A5FA" FontWeight="SemiBold" Margin="8,0,0,0"/>
                                                         </DockPanel>
                                                         <Slider Minimum="0" Maximum="100" TickFrequency="1" IsSnapToTickEnabled="True" SmallChange="1" LargeChange="5"
@@ -353,7 +353,7 @@
                                                         <ItemsControl.ItemTemplate>
                                                             <DataTemplate>
                                                                 <StackPanel Width="260" Margin="0,3,6,3">
-                                                                    <controls:SelectableTextBlock Text="{Binding DisplayName}" Foreground="#94A3B8" ToolTip="{Binding Description}"/>
+                                                                    <controls:SelectableTextBlock Text="{Binding DisplayName, Mode=OneWay}" Foreground="#94A3B8" ToolTip="{Binding Description, Mode=OneWay}"/>
                                                                     <TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"/>
                                                                 </StackPanel>
                                                             </DataTemplate>
