@@ -20,7 +20,7 @@ export function GameNodeView({ data, selected }: NodeProps<GameFlowNode>) {
     : []
   const detectorSummary = detectors.length === 0
     ? '未配置检测器'
-    : `${detectors.length} 个检测器 · 全部命中`
+    : `${detectors.length} 个判断条件 · 全部命中`
   return <div className={`game-node status-${status} ${selected ? 'selected' : ''}`} style={{ '--node-color': colors[nodeType] } as React.CSSProperties}>
     {nodeType !== 'start' && <Handle type="target" id="input" position={Position.Left} />}
     <div className="node-heading">{data.displayName || nodeLabels[nodeType]}</div>

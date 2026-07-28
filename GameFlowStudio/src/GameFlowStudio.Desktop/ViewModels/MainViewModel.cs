@@ -36,6 +36,8 @@ public sealed record ProjectFileItem(string Name, string Path);
 
 public sealed record WindowExecutionModeOption(WindowExecutionMode Value, string Label, string Description);
 
+public sealed record DetectorTypeOption(DetectorType Value, string Label);
+
 public sealed class ScriptListItem(string id, string name, string description) : ObservableObject
 {
     private bool _isActive;
@@ -122,37 +124,137 @@ public sealed class DetectorEditorItem : ObservableObject
     private string _name;
     private DetectorType _type;
     private bool _enabled;
-    private string _parametersJson;
     private string _parametersError = string.Empty;
     public DetectorDefinition Definition { get; }
     public string Id => Definition.Id;
+    public ObservableCollection<NodeParameterItem> Parameters { get; } = [];
     public bool HasParametersError => !string.IsNullOrEmpty(_parametersError);
     public string ParametersError => _parametersError;
     public string Name { get => _name; set { if (Set(ref _name, value)) { Definition.Name = value; _changed(); } } }
-    public DetectorType Type { get => _type; set { if (Set(ref _type, value)) { Definition.Type = value; _changed(); } } }
-    public bool Enabled { get => _enabled; set { if (Set(ref _enabled, value)) { Definition.Enabled = value; _changed(); } } }
-    public string ParametersJson
+    public DetectorType Type
     {
-        get => _parametersJson;
+        get => _type;
         set
         {
-            if (!Set(ref _parametersJson, value)) return;
-            try
-            {
-                var parameters = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(value, ProjectJson.Options);
-                if (parameters is null) throw new JsonException();
-                Definition.Parameters = parameters.ToDictionary(pair => pair.Key, pair => pair.Value.Clone(), StringComparer.Ordinal);
-                SetParametersError(string.Empty);
-                _changed();
-            }
-            catch (JsonException) { SetParametersError("检测器参数必须是有效的 JSON 对象。"); }
+            if (!Set(ref _type, value)) return;
+            Definition.Type = value;
+            ReplaceParameters(CreateDefaultParameters(value));
+            RaiseDetectorProperties();
+            _changed();
         }
     }
+    public bool Enabled { get => _enabled; set { if (Set(ref _enabled, value)) { Definition.Enabled = value; _changed(); } } }
+
+    public bool IsColor => Type == DetectorType.Color;
+    public bool IsImage => Type == DetectorType.Image;
+    public bool IsOcr => Type == DetectorType.Ocr;
+    public bool IsSupported => IsColor || IsImage || IsOcr;
+    public bool HasCoordinateParameters => IsSupported;
+    public bool CanPickCoordinate => IsSupported;
+    public IEnumerable<NodeParameterItem> NumericParameters => Parameters.Where(parameter => parameter.Kind == JsonValueKind.Number
+        && parameter.Name is not ("minMatchRatio" or "matchThreshold"));
+    public IEnumerable<NodeParameterItem> TextParameters => Parameters.Where(parameter => parameter.Kind == JsonValueKind.String
+        && parameter.Name is not "coordinateMode");
+    public IEnumerable<NodeParameterItem> CoordinateParameters => Parameters.Where(parameter => parameter.Name == "coordinateMode");
+    public bool HasNumericParameters => NumericParameters.Any();
+    public bool HasTextParameters => TextParameters.Any();
+    public NodeParameterItem? ConfidenceParameter => Type switch
+    {
+        DetectorType.Color => Parameters.FirstOrDefault(parameter => parameter.Name == "minMatchRatio"),
+        DetectorType.Image or DetectorType.Ocr => Parameters.FirstOrDefault(parameter => parameter.Name == "matchThreshold"),
+        _ => null
+    };
+    public bool HasConfidenceParameter => ConfidenceParameter is not null;
+    public string ConfidenceLabel => Type switch
+    {
+        DetectorType.Color => "颜色匹配置信阈值",
+        DetectorType.Image => "图像匹配置信阈值",
+        DetectorType.Ocr => "OCR文本匹配阈值",
+        _ => "匹配置信阈值"
+    };
+    public string ConfidenceHint => Type switch
+    {
+        DetectorType.Color => "区域内达到此比例的像素匹配目标颜色时判定为命中。",
+        DetectorType.Image => "模板匹配得分达到此比例时判定为命中。",
+        DetectorType.Ocr => "识别文本与目标文本的相似度达到此比例时判定为命中。",
+        _ => string.Empty
+    };
+    public string CoordinatePickButtonLabel => Type switch
+    {
+        DetectorType.Color => "拾取色值点",
+        DetectorType.Image => "取图",
+        DetectorType.Ocr => "拾取区域",
+        _ => "拾取坐标"
+    };
+    public string CoordinatePickButtonToolTip => Type switch
+    {
+        DetectorType.Color => "选择拾取模式后点击屏幕，同时记录坐标和颜色值。",
+        DetectorType.Image => "选择拾取模式后拖动框选矩形截图，同时记录坐标和尺寸。",
+        DetectorType.Ocr => "选择拾取模式后拖动框选 OCR 识别区域，同时记录坐标和尺寸。",
+        _ => string.Empty
+    };
 
     public DetectorEditorItem(DetectorDefinition definition, Action changed)
     {
         Definition = definition; _changed = changed; _name = definition.Name; _type = definition.Type; _enabled = definition.Enabled;
-        _parametersJson = JsonSerializer.Serialize(definition.Parameters, ProjectJson.Options);
+        Parameters.CollectionChanged += (_, _) => RaiseDetectorProperties();
+        var defaults = CreateDefaultParameters(_type);
+        foreach (var pair in defaults)
+            if (!Definition.Parameters.ContainsKey(pair.Key)) Definition.Parameters[pair.Key] = pair.Value;
+        foreach (var pair in Definition.Parameters)
+            AddParameter(pair.Key, DisplayValue(pair.Value), pair.Value.ValueKind);
+    }
+
+    public void SetParameter(string name, int value) => SetParameter(name, value.ToString(CultureInfo.InvariantCulture), JsonValueKind.Number);
+
+    public void SetParameter(string name, string value) => SetParameter(name, value, JsonValueKind.String);
+
+    private void SetParameter(string name, string value, JsonValueKind kind)
+    {
+        var item = Parameters.FirstOrDefault(parameter => parameter.Name == name);
+        if (item is null)
+        {
+            AddParameter(name, value, kind);
+            OnParameterChanged(Parameters.Last());
+            return;
+        }
+
+        item.Value = value;
+    }
+
+    private void AddParameter(string name, string value, JsonValueKind kind)
+    {
+        NodeParameterItem? item = null;
+        item = new NodeParameterItem(name, value, kind, () => OnParameterChanged(item!));
+        Parameters.Add(item);
+    }
+
+    private void OnParameterChanged(NodeParameterItem item)
+    {
+        if (!TryParseValue(item, out var value))
+        {
+            SetParametersError($"参数“{item.Name}”格式无效，请检查输入。");
+            return;
+        }
+
+        Definition.Parameters[item.Name] = value;
+        SetParametersError(string.Empty);
+        _changed();
+    }
+
+    private void ReplaceParameters(IReadOnlyDictionary<string, JsonElement> defaults)
+    {
+        Definition.Parameters = defaults.ToDictionary(pair => pair.Key, pair => pair.Value.Clone(), StringComparer.Ordinal);
+        Parameters.Clear();
+        foreach (var pair in Definition.Parameters)
+            AddParameter(pair.Key, DisplayValue(pair.Value), pair.Value.ValueKind);
+    }
+
+    private void RaiseDetectorProperties()
+    {
+        Raise(nameof(NumericParameters)); Raise(nameof(TextParameters)); Raise(nameof(CoordinateParameters));
+        Raise(nameof(HasNumericParameters)); Raise(nameof(HasTextParameters));
+        Raise(nameof(HasCoordinateParameters)); Raise(nameof(ConfidenceParameter)); Raise(nameof(HasConfidenceParameter));
     }
 
     private void SetParametersError(string error)
@@ -163,6 +265,55 @@ public sealed class DetectorEditorItem : ObservableObject
             Raise(nameof(ParametersError));
         }
     }
+
+    private static IReadOnlyDictionary<string, JsonElement> CreateDefaultParameters(DetectorType type) => type switch
+    {
+        DetectorType.Color => new Dictionary<string, JsonElement>(StringComparer.Ordinal)
+        {
+            ["coordinateMode"] = ProjectJson.Element("followScript"), ["x"] = ProjectJson.Element(0), ["y"] = ProjectJson.Element(0),
+            ["width"] = ProjectJson.Element(1), ["height"] = ProjectJson.Element(1), ["targetColor"] = ProjectJson.Element("#FFFFFF"),
+            ["tolerance"] = ProjectJson.Element(10), ["minMatchRatio"] = ProjectJson.Element(1d)
+        },
+        DetectorType.Image => new Dictionary<string, JsonElement>(StringComparer.Ordinal)
+        {
+            ["coordinateMode"] = ProjectJson.Element("followScript"), ["x"] = ProjectJson.Element(0), ["y"] = ProjectJson.Element(0),
+            ["templatePath"] = ProjectJson.Element(string.Empty), ["tolerance"] = ProjectJson.Element(10), ["matchThreshold"] = ProjectJson.Element(0.95d)
+        },
+        DetectorType.Ocr => new Dictionary<string, JsonElement>(StringComparer.Ordinal)
+        {
+            ["coordinateMode"] = ProjectJson.Element("followScript"), ["x"] = ProjectJson.Element(0), ["y"] = ProjectJson.Element(0),
+            ["width"] = ProjectJson.Element(1), ["height"] = ProjectJson.Element(1), ["targetText"] = ProjectJson.Element(string.Empty),
+            ["matchThreshold"] = ProjectJson.Element(0.8d)
+        },
+        _ => new Dictionary<string, JsonElement>(StringComparer.Ordinal)
+    };
+
+    private static bool TryParseValue(NodeParameterItem item, out JsonElement value)
+    {
+        if (item.Kind == JsonValueKind.Number && double.TryParse(item.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var number))
+        {
+            value = ProjectJson.Element(number);
+            return true;
+        }
+
+        if (item.Kind is JsonValueKind.True or JsonValueKind.False && bool.TryParse(item.Value, out var boolean))
+        {
+            value = ProjectJson.Element(boolean);
+            return true;
+        }
+
+        if (item.Kind == JsonValueKind.String)
+        {
+            value = ProjectJson.Element(item.Value);
+            return true;
+        }
+
+        value = default;
+        return false;
+    }
+
+    private static string DisplayValue(JsonElement value) => value.ValueKind == JsonValueKind.String ? value.GetString() ?? string.Empty : value.GetRawText();
+
 }
 
 public sealed class SelectedNodeViewModel : ObservableObject
@@ -326,7 +477,13 @@ public sealed class MainViewModel : ObservableObject
     public ObservableCollection<DisplayLogEntry> Logs { get; } = [];
     public ObservableCollection<ProjectFileItem> RecentProjectFiles { get; } = [];
     public ObservableCollection<ScriptListItem> Scripts { get; } = [];
-    public IReadOnlyList<DetectorType> DetectorTypes { get; } = Enum.GetValues<DetectorType>();
+    public IReadOnlyList<DetectorTypeOption> DetectorTypes { get; } =
+    [
+        new(DetectorType.Color, "色判断"),
+        new(DetectorType.Image, "图判断"),
+        new(DetectorType.Ocr, "OCR判断"),
+        new(DetectorType.AiRecognition, "AI识别（暂未实现）")
+    ];
     public IReadOnlyList<WindowExecutionModeOption> WindowExecutionModes { get; } =
     [
         new(WindowExecutionMode.FirstOnly, "只操作第一个窗口", "匹配多个窗口时，只激活并操作第一个窗口。"),
@@ -454,7 +611,7 @@ public sealed class MainViewModel : ObservableObject
     public ICommand NewCommand { get; private set; } = null!; public ICommand OpenCommand { get; private set; } = null!; public ICommand SaveCommand { get; private set; } = null!;
     public ICommand SaveAsCommand { get; private set; } = null!; public ICommand OpenSampleCommand { get; private set; } = null!; public ICommand RunCommand { get; private set; } = null!;
     public ICommand PauseCommand { get; private set; } = null!; public ICommand ResumeCommand { get; private set; } = null!; public ICommand StopCommand { get; private set; } = null!;
-    public ICommand AddNodeCommand { get; private set; } = null!; public ICommand PickCoordinateCommand { get; private set; } = null!;
+    public ICommand AddNodeCommand { get; private set; } = null!; public ICommand PickCoordinateCommand { get; private set; } = null!; public ICommand PickStateDetectorCommand { get; private set; } = null!;
     public ICommand OpenRecentProjectCommand { get; private set; } = null!;
     public ICommand NewScriptCommand { get; private set; } = null!;
     public ICommand SelectScriptCommand { get; private set; } = null!;
@@ -584,12 +741,68 @@ public sealed class MainViewModel : ObservableObject
         var invalid = detectors.FirstOrDefault(detector => detector.HasParametersError);
         if (invalid is not null)
         {
-            error = $"检测器“{invalid.Name}”的参数 JSON 无效，请修正后再应用。";
+            error = $"检测器“{invalid.Name}”的参数格式无效，请修正后再应用。";
             return false;
         }
 
         error = string.Empty;
         return true;
+    }
+
+    private async Task PickStateDetectorAsync(DetectorEditorItem? detector)
+    {
+        if (SelectedNode?.IsStateCondition != true || detector is null) return;
+        var mode = _coordinatePickMode.Select();
+        if (mode is null) return;
+
+        WindowInfo? window = null;
+        if (mode == CoordinatePickMode.Window)
+        {
+            window = _windowSelection.SelectWindow();
+            if (window is null) return;
+        }
+
+        WindowBounds? bounds = window is null ? null : _windows.GetWindowBounds(window.Handle);
+        var xOffset = mode == CoordinatePickMode.Screen ? 0 : bounds!.Left;
+        var yOffset = mode == CoordinatePickMode.Screen ? 0 : bounds!.Top;
+
+        if (detector.IsColor)
+        {
+            var result = await _colorPicker.PickAsync(bounds);
+            if (result is null) return;
+            detector.SetParameter("coordinateMode", mode == CoordinatePickMode.Screen ? "absolute" : "relative");
+            detector.SetParameter("x", result.X - xOffset);
+            detector.SetParameter("y", result.Y - yOffset);
+            if (result.Color is not null) detector.SetParameter("targetColor", result.Color);
+        }
+        else if (detector.IsImage || detector.IsOcr)
+        {
+            var region = await _rectanglePicker.PickAsync(bounds);
+            if (region is null) return;
+            detector.SetParameter("coordinateMode", mode == CoordinatePickMode.Screen ? "absolute" : "relative");
+            detector.SetParameter("x", region.X - xOffset);
+            detector.SetParameter("y", region.Y - yOffset);
+            detector.SetParameter("width", region.Width);
+            detector.SetParameter("height", region.Height);
+
+            if (detector.IsImage)
+            {
+                var path = _imageCapture.CreatePrivateTemplatePath();
+                try
+                {
+                    await _imageCapture.SaveAsync(new CaptureRegion(region.X, region.Y, region.Width, region.Height), path);
+                }
+                catch (Exception exception)
+                {
+                    _logger.LogError(exception, "保存联合判断图像模板截图失败");
+                    _dialogs.ShowError($"保存截图失败：{exception.Message}");
+                    return;
+                }
+                detector.SetParameter("templatePath", path);
+            }
+        }
+
+        await UpdateSelectedNodeAsync();
     }
 
     private async Task PickCoordinateAsync()
@@ -963,7 +1176,7 @@ public sealed class MainViewModel : ObservableObject
     private void AddStateDetector()
     {
         if (SelectedNode is not { IsStateCondition: true }) return;
-        var detector = CreateColorDetector($"检测器 {SelectedNode.Detectors.Count + 1}");
+        var detector = CreateColorDetector($"判断 {SelectedNode.Detectors.Count + 1}");
         SelectedNode.Detectors.Add(new DetectorEditorItem(detector, OnSelectedNodeEditorChanged));
         OnSelectedNodeEditorChanged();
     }
@@ -978,6 +1191,7 @@ public sealed class MainViewModel : ObservableObject
         detector.Parameters["height"] = ProjectJson.Element(1);
         detector.Parameters["targetColor"] = ProjectJson.Element("#FFFFFF");
         detector.Parameters["tolerance"] = ProjectJson.Element(10);
+        detector.Parameters["minMatchRatio"] = ProjectJson.Element(1d);
         return detector;
     }
 
@@ -1040,7 +1254,7 @@ public sealed class MainViewModel : ObservableObject
     }
 
     private void OnNodeStarted(NodeExecutionEventArgs e) => Application.Current.Dispatcher.Invoke(() => { CurrentNodeText = e.Node.Data.DisplayName; _ = _editor.SendAsync("highlight_node", new { nodeId = e.Node.Id }); });
-    private void RaiseCommandStates() { foreach (var command in new[] { RunCommand, PauseCommand, ResumeCommand, StopCommand, PickCoordinateCommand }) if (command is AsyncRelayCommand asyncCommand) asyncCommand.RaiseCanExecuteChanged(); }
+    private void RaiseCommandStates() { foreach (var command in new[] { RunCommand, PauseCommand, ResumeCommand, StopCommand, PickCoordinateCommand, PickStateDetectorCommand }) if (command is AsyncRelayCommand asyncCommand) asyncCommand.RaiseCanExecuteChanged(); }
     private static string StateLabel(WorkflowExecutionState state) => state switch { WorkflowExecutionState.Running => "正在运行", WorkflowExecutionState.Paused => "已暂停", WorkflowExecutionState.Stopping => "正在停止", WorkflowExecutionState.Completed => "已完成", WorkflowExecutionState.Failed => "执行失败", _ => "未运行" };
     private static string DisplayValue(JsonElement value) => value.ValueKind == JsonValueKind.String ? value.GetString() ?? string.Empty : value.GetRawText();
 
@@ -1110,6 +1324,7 @@ public sealed class MainViewModel : ObservableObject
         PauseCommand = new AsyncRelayCommand(_ => _runner.PauseAsync()); ResumeCommand = new AsyncRelayCommand(_ => _runner.ResumeAsync()); StopCommand = new AsyncRelayCommand(_ => _runner.StopAsync());
         AddNodeCommand = new AsyncRelayCommand(item => AddNodeAsync(item as ToolboxItem));
         PickCoordinateCommand = new AsyncRelayCommand(_ => PickCoordinateAsync(), _ => SelectedNode?.CanPickCoordinate == true);
+        PickStateDetectorCommand = new AsyncRelayCommand(item => PickStateDetectorAsync(item as DetectorEditorItem), item => SelectedNode?.IsStateCondition == true && item is DetectorEditorItem detector && detector.CanPickCoordinate);
         NewScriptCommand = new AsyncRelayCommand(_ => NewScriptAsync());
         SelectScriptCommand = new AsyncRelayCommand(item => SelectScriptAsync(item as ScriptListItem));
         OpenScriptPropertiesCommand = new AsyncRelayCommand(item => OpenScriptPropertiesAsync(item as ScriptListItem));
