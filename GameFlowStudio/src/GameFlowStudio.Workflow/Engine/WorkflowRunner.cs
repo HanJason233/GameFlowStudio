@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Text.Json;
 using GameFlowStudio.Contracts.Enums;
 using GameFlowStudio.Contracts.Events;
+using GameFlowStudio.Contracts.Nodes;
 using GameFlowStudio.Contracts.Results;
 using GameFlowStudio.Contracts.Services;
 using GameFlowStudio.Contracts.Workflows;
@@ -260,7 +261,7 @@ public sealed class WorkflowRunner : IWorkflowRunner
         Raise(NodeStarted, new(node));
         try
         {
-            ActivateContextWindow(context);
+            if (!UsesIndependentWindowTarget(node.Type)) ActivateContextWindow(context);
             var result = await InvokeExecutorAsync(node, context, token).ConfigureAwait(false);
             timer.Stop();
             if (!result.Success) throw new InvalidOperationException(result.ErrorMessage ?? "节点执行失败。");
@@ -282,6 +283,9 @@ public sealed class WorkflowRunner : IWorkflowRunner
         if (_windows is null || context.WindowHandles.Count != 1) return;
         if (!_windows.ActivateWindow(context.WindowHandles[0])) throw new InvalidOperationException("无法激活当前窗口作用域中的目标窗口。");
     }
+
+    private static bool UsesIndependentWindowTarget(string nodeType) => nodeType is
+        NodeTypes.RunProgram or NodeTypes.CloseProgram or NodeTypes.MinimizeWindow or NodeTypes.ArrangeWindows or NodeTypes.SetWindowResolution;
 
     private static IReadOnlyList<nint>? CurrentWindowScope(WorkflowExecutionContext context) =>
         context.WindowHandles.Count == 1 ? context.WindowHandles : null;

@@ -23,9 +23,9 @@ public sealed class CloseProgramNodeExecutor(IWindowAutomationService windows, I
     public override Task<NodeExecutionResult> ExecuteAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var handle = WindowActionParameters.SelectTarget(node, scopes);
-        var result = WindowActionParameters.ActivateAndExecute(windows, handle, windows.CloseWindow, "关闭目标窗口失败。");
-        if (result.Success) ActionExecutionLogging.Write(context, node, $"关闭窗口句柄 {handle}。");
+        var handles = WindowActionParameters.SelectAll(node, scopes);
+        var result = WindowActionParameters.ActivateAndExecuteAll(windows, handles, windows.CloseWindow, "关闭目标窗口失败。");
+        if (result.Success) ActionExecutionLogging.Write(context, node, $"关闭 {handles.Count} 个匹配窗口。");
         return Task.FromResult(result);
     }
 }
@@ -35,9 +35,9 @@ public sealed class MinimizeWindowNodeExecutor(IWindowAutomationService windows,
     public override Task<NodeExecutionResult> ExecuteAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var handle = WindowActionParameters.SelectTarget(node, scopes);
-        var result = WindowActionParameters.ActivateAndExecute(windows, handle, windows.MinimizeWindow, "最小化目标窗口失败。");
-        if (result.Success) ActionExecutionLogging.Write(context, node, $"最小化窗口句柄 {handle}。");
+        var handles = WindowActionParameters.SelectAll(node, scopes);
+        var result = WindowActionParameters.ActivateAndExecuteAll(windows, handles, windows.MinimizeWindow, "最小化目标窗口失败。");
+        if (result.Success) ActionExecutionLogging.Write(context, node, $"最小化 {handles.Count} 个匹配窗口。");
         return Task.FromResult(result);
     }
 }
@@ -62,26 +62,28 @@ public sealed class SetWindowResolutionNodeExecutor(IWindowAutomationService win
     public override Task<NodeExecutionResult> ExecuteAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var handle = WindowActionParameters.SelectTarget(node, scopes);
+        var handles = WindowActionParameters.SelectAll(node, scopes);
         var width = NodeParameterReader.Int(node, "width");
         var height = NodeParameterReader.Int(node, "height");
-        var result = WindowActionParameters.ActivateAndExecute(windows, handle, target => windows.SetWindowResolution(target, width, height), "设置窗口分辨率失败。");
-        if (result.Success) ActionExecutionLogging.Write(context, node, $"设置窗口句柄 {handle} 分辨率为 {width}×{height}。");
+        var result = WindowActionParameters.ActivateAndExecuteAll(windows, handles, target => windows.SetWindowResolution(target, width, height), "设置窗口分辨率失败。");
+        if (result.Success) ActionExecutionLogging.Write(context, node, $"为 {handles.Count} 个匹配窗口设置分辨率为 {width}×{height}。");
         return Task.FromResult(result);
     }
 }
 
 internal static class WindowActionParameters
 {
-    public static nint SelectTarget(WorkflowNode node, IWindowScopeService scopes) =>
-        WindowHandleSelector.Select(scopes, NodeParameterReader.String(node, "titlePattern", ".*"));
-
     public static IReadOnlyList<nint> SelectAll(WorkflowNode node, IWindowScopeService scopes) =>
         WindowHandleSelector.SelectAll(scopes, NodeParameterReader.String(node, "titlePattern", ".*"));
 
-    public static NodeExecutionResult ActivateAndExecute(IWindowAutomationService windows, nint handle, Func<nint, bool> action, string failure)
+    public static NodeExecutionResult ActivateAndExecuteAll(IWindowAutomationService windows, IReadOnlyList<nint> handles, Func<nint, bool> action, string failure)
     {
-        if (!windows.ActivateWindow(handle)) return NodeExecutionResult.Fail("无法激活目标窗口。");
-        return action(handle) ? NodeExecutionResult.Ok() : NodeExecutionResult.Fail(failure);
+        foreach (var handle in handles)
+        {
+            if (!windows.ActivateWindow(handle)) return NodeExecutionResult.Fail($"无法激活目标窗口 {handle}。");
+            if (!action(handle)) return NodeExecutionResult.Fail($"{failure}（窗口句柄 {handle}）。");
+        }
+
+        return NodeExecutionResult.Ok();
     }
 }

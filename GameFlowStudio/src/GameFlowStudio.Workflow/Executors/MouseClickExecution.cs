@@ -50,12 +50,6 @@ internal static class MouseClickParameterReader
 
 internal static class WindowHandleSelector
 {
-    public static nint Select(IWindowScopeService scopes, string titlePattern)
-    {
-        var handles = SelectAll(scopes, titlePattern);
-        return handles[0];
-    }
-
     internal static IReadOnlyList<nint> SelectAll(IWindowScopeService scopes, string titlePattern)
     {
         var handles = scopes.ResolveWindowHandles(titlePattern);
