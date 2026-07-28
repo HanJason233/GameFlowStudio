@@ -51,6 +51,24 @@ public sealed class MouseClickExecutionTests
     }
 
     [Fact]
+    public void RelativeCoordinatesReadCurrentWindowBoundsForEachOperation()
+    {
+        var windows = new MovingWindowAutomationService(
+            new WindowBounds(101, 100, 200, 900, 800),
+            new WindowBounds(101, 400, 500, 1200, 1100));
+        var resolver = new MouseCoordinateResolver(windows);
+        var context = Context();
+        context.WindowHandles = [(nint)101];
+
+        var first = resolver.Resolve(25, 35, CoordinateMode.Relative, context);
+        var second = resolver.Resolve(25, 35, CoordinateMode.Relative, context);
+
+        Assert.Equal((125, 235), first);
+        Assert.Equal((425, 535), second);
+        Assert.Equal(2, windows.BoundsReadCount);
+    }
+
+    [Fact]
     public async Task RelativeClickAddsWindowOriginToOffset()
     {
         var input = new RecordingInputAutomationService();
@@ -99,6 +117,25 @@ public sealed class MouseClickExecutionTests
         public bool ArrangeWindows(IReadOnlyList<nint> handles, int x, int y, int width, int height, int columns, int gapX, int gapY) => true;
         public bool SetWindowResolution(nint handle, int width, int height) => true;
         public WindowBounds GetWindowBounds(nint handle) => bounds with { Handle = handle };
+    }
+
+    private sealed class MovingWindowAutomationService(params WindowBounds[] bounds) : IWindowAutomationService
+    {
+        private readonly Queue<WindowBounds> _bounds = new(bounds);
+
+        public int BoundsReadCount { get; private set; }
+        public IReadOnlyList<WindowInfo> GetOpenWindows() => [];
+        public bool ActivateWindow(nint handle) => true;
+        public bool CloseWindow(nint handle) => true;
+        public bool MinimizeWindow(nint handle) => true;
+        public bool ArrangeWindows(IReadOnlyList<nint> handles, int x, int y, int width, int height, int columns, int gapX, int gapY) => true;
+        public bool SetWindowResolution(nint handle, int width, int height) => true;
+
+        public WindowBounds GetWindowBounds(nint handle)
+        {
+            BoundsReadCount++;
+            return (_bounds.Count > 1 ? _bounds.Dequeue() : _bounds.Peek()) with { Handle = handle };
+        }
     }
 
     private sealed class RecordingInputAutomationService : IInputAutomationService

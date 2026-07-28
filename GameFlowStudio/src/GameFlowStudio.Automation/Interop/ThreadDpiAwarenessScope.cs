@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 
 namespace GameFlowStudio.Automation.Interop;
 
-/// <summary>Temporarily runs coordinate-sensitive Win32 calls in a per-monitor DPI context.</summary>
+/// <summary>临时在逐显示器 DPI 上下文中执行对坐标敏感的 Win32 调用。</summary>
 internal readonly struct ThreadDpiAwarenessScope : IDisposable
 {
     private readonly nint _previousContext;

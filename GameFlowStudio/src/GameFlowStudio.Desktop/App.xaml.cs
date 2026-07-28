@@ -1,4 +1,5 @@
 using System.Net.Http;
+using System.IO;
 using System.Windows;
 using GameFlowStudio.Desktop.Services;
 using GameFlowStudio.Desktop.ViewModels;
@@ -39,10 +40,35 @@ public partial class App : Application
                 services.AddSingleton<ICoordinatePickModeService, CoordinatePickModeService>();
                 services.AddSingleton<IWindowSelectionService, WindowSelectionService>();
                 services.AddSingleton<IRelativeCoordinatePickerService, RelativeCoordinatePickerService>();
+                services.AddSingleton<IRuntimeProcessLauncher, RuntimeProcessLauncher>();
                 services.AddSingleton<MainViewModel>();
                 services.AddSingleton<MainWindow>();
+                services.AddTransient<RuntimeViewModel>();
+                services.AddTransient<RuntimeWindow>();
             }).Build();
         await _host.StartAsync();
+
+        if (RuntimeLaunchOptions.TryParse(e.Args, out var runtimeOptions) && runtimeOptions is not null)
+        {
+            try
+            {
+                var runtimeWindow = _host.Services.GetRequiredService<RuntimeWindow>();
+                await runtimeWindow.InitializeAsync(runtimeOptions);
+                MainWindow = runtimeWindow;
+                runtimeWindow.Show();
+                return;
+            }
+            catch (Exception exception)
+            {
+                try { File.Delete(runtimeOptions.ProjectPath); }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+                MessageBox.Show(exception.Message, "纯运行启动失败", MessageBoxButton.OK, MessageBoxImage.Error);
+                Shutdown(1);
+                return;
+            }
+        }
+
         var window = _host.Services.GetRequiredService<MainWindow>();
         MainWindow = window; window.Show();
     }

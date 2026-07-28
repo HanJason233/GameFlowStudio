@@ -11,7 +11,7 @@ public sealed class AutomationProject
     public ProjectMetadata Project { get; set; } = new();
     public List<AutomationScript> Scripts { get; set; } = [];
 
-    // Runtime-only view of the active script. The project file persists scripts instead.
+    // 仅运行时使用的活动脚本视图；项目文件实际保存的是脚本集合。
     [JsonIgnore]
     public Dictionary<string, ProjectVariable> Variables { get; set; } = new(StringComparer.Ordinal);
     [JsonIgnore]
@@ -26,8 +26,7 @@ public sealed class AutomationProject
     public int? DefaultNodeDelayMs { get; set; }
 
     /// <summary>
-    /// Synchronizes the runtime-only flat view used by the editor and executor
-    /// with one persisted script.
+    /// 将编辑器和执行器使用的运行时平面视图同步到一个持久化脚本。
     /// </summary>
     public void SetActiveScript(AutomationScript script)
     {

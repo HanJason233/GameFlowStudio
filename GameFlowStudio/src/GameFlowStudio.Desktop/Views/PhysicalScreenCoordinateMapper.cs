@@ -3,8 +3,7 @@ using System.Windows;
 namespace GameFlowStudio.Desktop.Views;
 
 /// <summary>
-/// Converts Win32 physical screen pixels to the device-independent coordinate space
-/// used by a displayed WPF picker window.
+/// 将 Win32 物理屏幕像素转换为显示中的 WPF 拾取窗口使用的设备无关坐标空间。
 /// </summary>
 internal static class PhysicalScreenCoordinateMapper
 {

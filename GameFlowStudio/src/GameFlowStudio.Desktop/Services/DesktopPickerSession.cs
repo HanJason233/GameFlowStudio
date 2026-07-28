@@ -4,7 +4,7 @@ using GameFlowStudio.Automation.Windows;
 
 namespace GameFlowStudio.Desktop.Services;
 
-/// <summary>Keeps the main window out of picker captures and reliably restores it afterwards.</summary>
+/// <summary>让主窗口不出现在拾取截图中，并在结束后可靠恢复。</summary>
 internal sealed class DesktopPickerSession : IDisposable
 {
     private static readonly SemaphoreSlim SessionGate = new(1, 1);

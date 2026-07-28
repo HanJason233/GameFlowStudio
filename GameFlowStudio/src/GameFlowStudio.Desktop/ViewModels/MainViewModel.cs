@@ -33,6 +33,7 @@ public sealed class MainViewModel : ObservableObject
     private readonly IWindowSelectionService _windowSelection;
     private readonly IWindowAutomationService _windows;
     private readonly IRelativeCoordinatePickerService _relativeCoordinatePicker;
+    private readonly IRuntimeProcessLauncher _runtimeLauncher;
     private readonly ILogger<MainViewModel> _logger;
     private readonly object _settingsSaveSync = new();
     private Task _settingsSaveChain = Task.CompletedTask;
@@ -44,6 +45,7 @@ public sealed class MainViewModel : ObservableObject
     private string _currentNodeText = "—";
     private string _elapsedText = "—";
     private bool _dirty;
+    private bool _runtimeLaunchInProgress;
     private SelectedNodeViewModel? _selectedNode;
     private bool _suppressSelectedNodeUpdates;
     private readonly Stopwatch _executionTimer = new();
@@ -78,11 +80,11 @@ public sealed class MainViewModel : ObservableObject
         IRectanglePickerService rectanglePicker, IImageCaptureService imageCapture,
         ICoordinatePickModeService coordinatePickMode,
         IWindowSelectionService windowSelection, IWindowAutomationService windows, IRelativeCoordinatePickerService relativeCoordinatePicker,
-        GameFlowLogProvider logProvider, ILogger<MainViewModel> logger)
+        IRuntimeProcessLauncher runtimeLauncher, GameFlowLogProvider logProvider, ILogger<MainViewModel> logger)
     {
         _editor = editor; _runner = runner; _validator = validator; _storage = storage; _settingsStorage = settingsStorage;
         _dialogs = dialogs; _coordinatePicker = coordinatePicker; _colorPicker = colorPicker; _rectanglePicker = rectanglePicker; _imageCapture = imageCapture;
-        _coordinatePickMode = coordinatePickMode; _windowSelection = windowSelection; _windows = windows; _relativeCoordinatePicker = relativeCoordinatePicker; _logger = logger;
+        _coordinatePickMode = coordinatePickMode; _windowSelection = windowSelection; _windows = windows; _relativeCoordinatePicker = relativeCoordinatePicker; _runtimeLauncher = runtimeLauncher; _logger = logger;
         ToolboxGroups = NodeCatalog.Groups;
         EnsureScriptModel(_project);
         InitializeCommands();
@@ -218,6 +220,7 @@ public sealed class MainViewModel : ObservableObject
 
     public ICommand NewCommand { get; private set; } = null!; public ICommand OpenCommand { get; private set; } = null!; public ICommand SaveCommand { get; private set; } = null!;
     public ICommand SaveAsCommand { get; private set; } = null!; public ICommand OpenSampleCommand { get; private set; } = null!; public ICommand RunCommand { get; private set; } = null!;
+    public ICommand RuntimeLaunchCommand { get; private set; } = null!;
     public ICommand PauseCommand { get; private set; } = null!; public ICommand ResumeCommand { get; private set; } = null!; public ICommand StopCommand { get; private set; } = null!;
     public ICommand AddNodeCommand { get; private set; } = null!; public ICommand PickCoordinateCommand { get; private set; } = null!; public ICommand SelectProgramPathCommand { get; private set; } = null!;
     public ICommand OpenRecentProjectCommand { get; private set; } = null!;
@@ -245,7 +248,7 @@ public sealed class MainViewModel : ObservableObject
 
     public bool CanClose()
     {
-        if (_dirty && !_dialogs.ConfirmDiscardChanges()) return false;
+        if (!_runtimeLaunchInProgress && _dirty && !_dialogs.ConfirmDiscardChanges()) return false;
         StopActiveWorkflow();
         CaptureWindowSettings();
         CapturePaneLayout();
@@ -563,6 +566,24 @@ public sealed class MainViewModel : ObservableObject
         finally { await FinishRunAsync(); }
     }
 
+    private async Task LaunchRuntimeAsync()
+    {
+        if (IsWorkflowActive()) return;
+
+        try
+        {
+            var project = await ExportAsync();
+            if (!await ValidateForRunAsync(project)) return;
+            await _runtimeLauncher.LaunchAsync(project, CancellationToken.None);
+            _runtimeLaunchInProgress = true;
+            Application.Current?.Shutdown();
+        }
+        catch (Exception exception)
+        {
+            ReportOperationError(exception, "启动纯运行窗口失败");
+        }
+    }
+
     private async Task AddNodeAsync(ToolboxItem? item)
     {
         if (item is not null)
@@ -791,7 +812,7 @@ public sealed class MainViewModel : ObservableObject
         foreach (var command in new[]
         {
             NewCommand, OpenCommand, OpenRecentProjectCommand, SaveCommand, SaveAsCommand, OpenSampleCommand,
-            RunCommand, PauseCommand, ResumeCommand, StopCommand, AddNodeCommand, PickCoordinateCommand,
+            RunCommand, RuntimeLaunchCommand, PauseCommand, ResumeCommand, StopCommand, AddNodeCommand, PickCoordinateCommand,
             SelectProgramPathCommand, NewScriptCommand, SelectScriptCommand, OpenScriptPropertiesCommand,
             DeleteScriptCommand
         })
@@ -806,6 +827,7 @@ public sealed class MainViewModel : ObservableObject
         NewCommand = CreateAsyncCommand(_ => NewAsync(), _ => IsProjectEditingEnabled); OpenCommand = CreateAsyncCommand(_ => OpenAsync(), _ => IsProjectEditingEnabled); OpenRecentProjectCommand = CreateAsyncCommand(item => OpenRecentAsync(item as ProjectFileItem), _ => IsProjectEditingEnabled);
         SaveCommand = CreateAsyncCommand(_ => SaveAsync(false), _ => IsProjectEditingEnabled); SaveAsCommand = CreateAsyncCommand(_ => SaveAsync(true), _ => IsProjectEditingEnabled);
         OpenSampleCommand = CreateAsyncCommand(_ => OpenSampleAsync(), _ => IsProjectEditingEnabled); RunCommand = CreateAsyncCommand(_ => RunAsync(), _ => IsProjectEditingEnabled);
+        RuntimeLaunchCommand = CreateAsyncCommand(_ => LaunchRuntimeAsync(), _ => IsProjectEditingEnabled);
         PauseCommand = CreateAsyncCommand(_ => _runner.PauseAsync(), _ => _runner.State == WorkflowExecutionState.Running);
         ResumeCommand = CreateAsyncCommand(_ => _runner.ResumeAsync(), _ => _runner.State == WorkflowExecutionState.Paused);
         StopCommand = CreateAsyncCommand(_ => _runner.StopAsync(), _ => IsWorkflowActive());

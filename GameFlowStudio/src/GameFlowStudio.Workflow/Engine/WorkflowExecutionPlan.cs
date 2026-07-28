@@ -5,8 +5,8 @@ using GameFlowStudio.Contracts.Workflows;
 namespace GameFlowStudio.Workflow.Engine;
 
 /// <summary>
-/// Per-run, shallow indexes over the project scripts. Node and edge objects are not
-/// cloned; only their collection membership is fixed for the duration of a run.
+/// 为每次运行建立的项目脚本浅层索引。节点和边对象不会克隆，
+/// 只在运行期间固定其所属集合。
 /// </summary>
 internal sealed class WorkflowExecutionPlan
 {
@@ -39,7 +39,7 @@ internal sealed class WorkflowExecutionPlan
     }
 }
 
-/// <summary>Indexes one script by node ID and source-node/output-handle.</summary>
+/// <summary>按节点 ID 以及源节点/输出句柄索引一个脚本。</summary>
 internal sealed class ScriptExecutionGraph
 {
     private readonly Dictionary<string, WorkflowNode[]> _nodes;

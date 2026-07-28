@@ -6,7 +6,7 @@ using GameFlowStudio.Contracts.Results;
 
 namespace GameFlowStudio.Desktop.Views;
 
-/// <summary>Keeps one borderless overlay HWND aligned to the physical virtual desktop.</summary>
+/// <summary>让无边框覆盖窗口 HWND 与物理虚拟桌面对齐。</summary>
 internal static class PhysicalOverlayWindowPlacement
 {
     private const int WmDisplayChange = 0x007E;

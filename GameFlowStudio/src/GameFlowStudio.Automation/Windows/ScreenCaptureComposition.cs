@@ -2,7 +2,7 @@ using GameFlowStudio.Automation.Interop;
 
 namespace GameFlowStudio.Automation.Windows;
 
-/// <summary>Coordinates picker windows with the Windows desktop compositor.</summary>
+/// <summary>协调拾取窗口与 Windows 桌面合成器。</summary>
 public static class ScreenCaptureComposition
 {
     public static bool TryExcludeWindow(nint windowHandle)

@@ -29,6 +29,8 @@ public sealed class WindowAutomationService : IWindowAutomationService
     {
         if (handle == nint.Zero) return false;
         NativeMethods.ShowWindow(handle, NativeMethods.SwRestore);
+        // SetForegroundWindow 用于切换键盘焦点，BringWindowToTop 用于显式恢复目标窗口在普通 Z 顺序中的位置。
+        NativeMethods.BringWindowToTop(handle);
         return NativeMethods.SetForegroundWindow(handle);
     }
 

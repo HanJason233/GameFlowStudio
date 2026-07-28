@@ -246,6 +246,21 @@ public sealed class WorkflowEngineTests
     }
 
     [Fact]
+    public async Task ScopedActionsActivateTheTargetBeforeEachOperation()
+    {
+        var windows = new RecordingWindowAutomationService();
+        var executor = new ActivationAwareActionExecutor(windows);
+        var runner = Runner(executor, new FixedWindowScopeService([(nint)101]), windows: windows);
+        var project = Chain(Action("one"), Action("two"));
+        project.WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.FirstOnly };
+
+        await runner.RunAsync(project, CancellationToken.None);
+
+        Assert.Equal(5, windows.Activations.Count);
+        Assert.Equal([3, 4], executor.ActivationCounts);
+    }
+
+    [Fact]
     public async Task ExplicitWaitTakesPrecedenceOverDefaultDelay()
     {
         var runner = Runner(new TrackingActionExecutor());
@@ -264,9 +279,9 @@ public sealed class WorkflowEngineTests
         Assert.InRange(timer.ElapsedMilliseconds, 10, 90);
     }
 
-    private static WorkflowRunner Runner(INodeExecutor actionExecutor, IWindowScopeService? windowScopes = null, INodeExecutor? endExecutor = null) => new(
+    private static WorkflowRunner Runner(INodeExecutor actionExecutor, IWindowScopeService? windowScopes = null, INodeExecutor? endExecutor = null, IWindowAutomationService? windows = null) => new(
         [new StartNodeExecutor(), endExecutor ?? new EndNodeExecutor(), new WaitNodeExecutor(), new JumpNodeExecutor(), new MouseClickNodeExecutor(new NullInputAutomationService(), new NullCoordinateResolver()), actionExecutor],
-        new WorkflowValidator(), NullLogger<WorkflowRunner>.Instance, windowScopes);
+        new WorkflowValidator(), NullLogger<WorkflowRunner>.Instance, windowScopes, windows);
 
     private static async Task AssertCompletionBoundaryAsync(bool stop)
     {
@@ -405,9 +420,32 @@ public sealed class WorkflowEngineTests
         }
     }
 
+    private sealed class ActivationAwareActionExecutor(RecordingWindowAutomationService windows) : NodeExecutorBase(NodeTypes.TextInput)
+    {
+        public List<int> ActivationCounts { get; } = [];
+
+        public override Task<NodeExecutionResult> ExecuteAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken cancellationToken)
+        {
+            ActivationCounts.Add(windows.Activations.Count);
+            return Task.FromResult(NodeExecutionResult.Ok());
+        }
+    }
+
     private sealed class FixedWindowScopeService(IReadOnlyList<nint> handles) : IWindowScopeService
     {
         public IReadOnlyList<nint> ResolveWindowHandles(string titlePattern) => handles;
+    }
+
+    private sealed class RecordingWindowAutomationService : IWindowAutomationService
+    {
+        public List<nint> Activations { get; } = [];
+        public IReadOnlyList<WindowInfo> GetOpenWindows() => [];
+        public bool ActivateWindow(nint handle) { Activations.Add(handle); return true; }
+        public bool CloseWindow(nint handle) => true;
+        public bool MinimizeWindow(nint handle) => true;
+        public bool ArrangeWindows(IReadOnlyList<nint> handles, int x, int y, int width, int height, int columns, int gapX, int gapY) => true;
+        public bool SetWindowResolution(nint handle, int width, int height) => true;
+        public WindowBounds GetWindowBounds(nint handle) => throw new NotSupportedException();
     }
 
     private sealed class NullInputAutomationService : IInputAutomationService

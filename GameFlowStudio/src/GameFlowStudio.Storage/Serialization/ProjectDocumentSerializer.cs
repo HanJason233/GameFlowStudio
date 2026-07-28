@@ -4,8 +4,8 @@ using GameFlowStudio.Contracts.Workflows;
 namespace GameFlowStudio.Storage.Serialization;
 
 /// <summary>
-/// Defines the trusted persistence boundary for .gflow documents.
-/// Editor bridge messages continue to use the more tolerant shared JSON options.
+/// 定义 .gflow 文档可信的持久化边界。
+/// 编辑器桥接消息继续使用更宽松的共享 JSON 配置。
 /// </summary>
 internal static class ProjectDocumentSerializer
 {

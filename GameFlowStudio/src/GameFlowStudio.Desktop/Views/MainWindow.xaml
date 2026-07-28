@@ -56,6 +56,7 @@
                 <DockPanel Margin="8,3,8,7">
                     <StackPanel Orientation="Horizontal">
                         <Button Content="▶ 运行" Command="{Binding RunCommand}" Background="#2563EB" BorderBrush="#3B82F6"/>
+                        <Button Content="悬浮运行" Command="{Binding RuntimeLaunchCommand}" Background="#0F766E" BorderBrush="#14B8A6" ToolTip="关闭编辑器并启动轻量纯运行悬浮窗"/>
                         <Button Content="Ⅱ 暂停" Command="{Binding PauseCommand}"/>
                         <Button Content="继续" Command="{Binding ResumeCommand}"/>
                         <Button Content="■ 停止" Command="{Binding StopCommand}"/>

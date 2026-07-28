@@ -4,7 +4,7 @@ using System.Windows.Data;
 namespace GameFlowStudio.Desktop.Converters;
 
 /// <summary>
-/// Converts the workflow's decimal ratio (0-1) to a percentage slider value (0-100).
+/// 将工作流的小数比例（0-1）转换为百分比滑块值（0-100）。
 /// </summary>
 public sealed class StringPercentConverter : IValueConverter
 {

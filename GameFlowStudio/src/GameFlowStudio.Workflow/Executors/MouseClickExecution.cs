@@ -25,6 +25,7 @@ public sealed class MouseCoordinateResolver(IWindowAutomationService windows) : 
     {
         if (!CoordinateModeReader.UsesWindow(mode, context.WindowHandles)) return (x, y);
 
+        // 目标窗口可能在两个工作流节点之间移动或改变大小，因此每次都读取当前边界，不复用旧快照。
         var bounds = CoordinateModeReader.GetWindowBounds(context.WindowHandles, windows);
         return WindowCoordinateCalculator.AddOffset(bounds, x, y);
     }

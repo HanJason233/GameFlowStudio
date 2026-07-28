@@ -5,7 +5,7 @@ using GameFlowStudio.Contracts.Results;
 
 namespace GameFlowStudio.Automation.Windows;
 
-/// <summary>Places a borderless picker HWND using virtual-desktop physical pixels.</summary>
+/// <summary>使用虚拟桌面物理像素放置无边框拾取窗口 HWND。</summary>
 public static class PhysicalWindowPlacement
 {
     public static void Apply(nint windowHandle, CaptureRegion bounds)
