@@ -93,7 +93,6 @@ public sealed class MainViewModel : ObservableObject
     }
 
     public ObservableCollection<DisplayLogEntry> Logs { get; } = [];
-    public ObservableCollection<ProjectFileItem> RecentProjectFiles { get; } = [];
     public ObservableCollection<ScriptListItem> Scripts { get; } = [];
     public IReadOnlyList<WindowExecutionModeOption> WindowExecutionModes { get; } =
     [
@@ -202,10 +201,44 @@ public sealed class MainViewModel : ObservableObject
     public GridLength PropertiesPaneWidth { get => _propertiesPaneWidth; set => Set(ref _propertiesPaneWidth, value); }
     public GridLength OutputPaneHeight { get => _outputPaneHeight; set => Set(ref _outputPaneHeight, value); }
     public GridLength StepsPaneHeight { get => _stepsPaneHeight; set => Set(ref _stepsPaneHeight, value); }
-    public GridLength ProjectFilesPaneWidth { get => _projectFilesPaneWidth; set => Set(ref _projectFilesPaneWidth, value); }
-    public GridLength ScriptListPaneWidth { get => _scriptListPaneWidth; set => Set(ref _scriptListPaneWidth, value); }
-    public bool IsProjectFilesPaneVisible { get => _isProjectFilesPaneVisible; private set { if (Set(ref _isProjectFilesPaneVisible, value)) Raise(nameof(ProjectFilesPaneMinWidth)); } }
-    public bool IsScriptListPaneVisible { get => _isScriptListPaneVisible; private set { if (Set(ref _isScriptListPaneVisible, value)) Raise(nameof(ScriptListPaneMinWidth)); } }
+    public GridLength ProjectFilesPaneWidth { get => _projectFilesPaneWidth; set { if (Set(ref _projectFilesPaneWidth, value)) Raise(nameof(LeftSidebarWidth)); } }
+    public GridLength ScriptListPaneWidth { get => _scriptListPaneWidth; set { if (Set(ref _scriptListPaneWidth, value)) Raise(nameof(LeftSidebarWidth)); } }
+    public GridLength LeftSidebarWidth
+    {
+        get
+        {
+            if (IsProjectFilesPaneVisible && IsScriptListPaneVisible)
+                return new GridLength(Math.Max(ProjectFilesPaneWidth.Value, ScriptListPaneWidth.Value));
+            if (IsProjectFilesPaneVisible) return ProjectFilesPaneWidth;
+            if (IsScriptListPaneVisible) return ScriptListPaneWidth;
+            return new GridLength(0);
+        }
+        set
+        {
+            if (IsProjectFilesPaneVisible) ProjectFilesPaneWidth = value;
+            if (IsScriptListPaneVisible) ScriptListPaneWidth = value;
+        }
+    }
+    public bool IsProjectFilesPaneVisible
+    {
+        get => _isProjectFilesPaneVisible;
+        private set
+        {
+            if (!Set(ref _isProjectFilesPaneVisible, value)) return;
+            RaiseLeftSidebarLayout();
+            Raise(nameof(ProjectFilesPaneMinWidth));
+        }
+    }
+    public bool IsScriptListPaneVisible
+    {
+        get => _isScriptListPaneVisible;
+        private set
+        {
+            if (!Set(ref _isScriptListPaneVisible, value)) return;
+            RaiseLeftSidebarLayout();
+            Raise(nameof(ScriptListPaneMinWidth));
+        }
+    }
     public bool IsToolboxPaneVisible { get => _isToolboxPaneVisible; private set { if (Set(ref _isToolboxPaneVisible, value)) { Raise(nameof(ToolboxPaneMinWidth)); Raise(nameof(StepsPaneMinHeight)); } } }
     public bool IsPropertiesPaneVisible { get => _isPropertiesPaneVisible; private set { if (Set(ref _isPropertiesPaneVisible, value)) Raise(nameof(PropertiesPaneMinWidth)); } }
     public bool IsOutputPaneVisible { get => _isOutputPaneVisible; private set { if (Set(ref _isOutputPaneVisible, value)) Raise(nameof(OutputPaneMinHeight)); } }
@@ -216,6 +249,12 @@ public sealed class MainViewModel : ObservableObject
     public double StepsPaneMinHeight => IsToolboxPaneVisible ? 170 : 0;
     public double ProjectFilesPaneMinWidth => IsProjectFilesPaneVisible ? 180 : 0;
     public double ScriptListPaneMinWidth => IsScriptListPaneVisible ? 190 : 0;
+    public double LeftSidebarMinWidth => IsProjectFilesPaneVisible || IsScriptListPaneVisible ? 190 : 0;
+    public bool IsLeftSidebarVisible => IsProjectFilesPaneVisible || IsScriptListPaneVisible;
+    public bool IsBothLeftPanesVisible => IsProjectFilesPaneVisible && IsScriptListPaneVisible;
+    public GridLength ProjectFilesPaneRowHeight => IsProjectFilesPaneVisible ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
+    public GridLength ScriptListPaneRowHeight => IsScriptListPaneVisible ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
+    public GridLength LeftPaneSplitterHeight => IsBothLeftPanesVisible ? new GridLength(5) : new GridLength(0);
     public event EventHandler? HotkeysChanged;
 
     public ICommand NewCommand { get; private set; } = null!; public ICommand OpenCommand { get; private set; } = null!; public ICommand SaveCommand { get; private set; } = null!;
@@ -223,7 +262,6 @@ public sealed class MainViewModel : ObservableObject
     public ICommand RuntimeLaunchCommand { get; private set; } = null!;
     public ICommand PauseCommand { get; private set; } = null!; public ICommand ResumeCommand { get; private set; } = null!; public ICommand StopCommand { get; private set; } = null!;
     public ICommand AddNodeCommand { get; private set; } = null!; public ICommand PickCoordinateCommand { get; private set; } = null!; public ICommand SelectProgramPathCommand { get; private set; } = null!;
-    public ICommand OpenRecentProjectCommand { get; private set; } = null!;
     public ICommand NewScriptCommand { get; private set; } = null!;
     public ICommand SelectScriptCommand { get; private set; } = null!;
     public ICommand OpenScriptPropertiesCommand { get; private set; } = null!;
@@ -238,7 +276,6 @@ public sealed class MainViewModel : ObservableObject
     public async Task InitializeAsync()
     {
         Settings = await _settingsStorage.LoadAsync(CancellationToken.None);
-        RefreshRecentProjectFiles();
         ApplyPaneLayout();
         ApplyStepLayout();
         ApplyTheme();
@@ -514,14 +551,6 @@ public sealed class MainViewModel : ObservableObject
         await LoadProjectAsync(path);
     }
 
-    private async Task OpenRecentAsync(ProjectFileItem? item)
-    {
-        if (item is null) return;
-        if (!File.Exists(item.Path)) { _dialogs.ShowError("找不到项目文件。请重新打开或移除该记录。"); return; }
-        if (_dirty && !_dialogs.ConfirmDiscardChanges()) return;
-        await LoadProjectAsync(item.Path);
-    }
-
     private async Task OpenSampleAsync()
     {
         if (_dirty && !_dialogs.ConfirmDiscardChanges()) return;
@@ -684,13 +713,6 @@ public sealed class MainViewModel : ObservableObject
         HotkeysChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    private void AddRecent(string path)
-    {
-        UpdateRecentProjects(path);
-        RefreshRecentProjectFiles();
-        PersistSettings();
-    }
-
     private AutomationScript ActiveScript =>
         _project.Scripts.First(script => script.Id == _activeScriptId);
 
@@ -797,13 +819,6 @@ public sealed class MainViewModel : ObservableObject
         return name;
     }
 
-    private void RefreshRecentProjectFiles()
-    {
-        RecentProjectFiles.Clear();
-        foreach (var path in Settings.RecentProjects.Where(File.Exists))
-            RecentProjectFiles.Add(new(Path.GetFileName(path), path));
-    }
-
     private void OnNodeStarted(NodeExecutionEventArgs e) => Application.Current.Dispatcher.Invoke(() =>
     {
         CurrentNodeText = e.Node.Data.DisplayName;
@@ -813,7 +828,7 @@ public sealed class MainViewModel : ObservableObject
     {
         foreach (var command in new[]
         {
-            NewCommand, OpenCommand, OpenRecentProjectCommand, SaveCommand, SaveAsCommand, OpenSampleCommand,
+            NewCommand, OpenCommand, SaveCommand, SaveAsCommand, OpenSampleCommand,
             RunCommand, RuntimeLaunchCommand, PauseCommand, ResumeCommand, StopCommand, AddNodeCommand, PickCoordinateCommand,
             SelectProgramPathCommand, NewScriptCommand, SelectScriptCommand, OpenScriptPropertiesCommand,
             DeleteScriptCommand
@@ -826,7 +841,7 @@ public sealed class MainViewModel : ObservableObject
 
     private void InitializeCommands()
     {
-        NewCommand = CreateAsyncCommand(_ => NewAsync(), _ => IsProjectEditingEnabled); OpenCommand = CreateAsyncCommand(_ => OpenAsync(), _ => IsProjectEditingEnabled); OpenRecentProjectCommand = CreateAsyncCommand(item => OpenRecentAsync(item as ProjectFileItem), _ => IsProjectEditingEnabled);
+        NewCommand = CreateAsyncCommand(_ => NewAsync(), _ => IsProjectEditingEnabled); OpenCommand = CreateAsyncCommand(_ => OpenAsync(), _ => IsProjectEditingEnabled);
         SaveCommand = CreateAsyncCommand(_ => SaveAsync(false), _ => IsProjectEditingEnabled); SaveAsCommand = CreateAsyncCommand(_ => SaveAsync(true), _ => IsProjectEditingEnabled);
         OpenSampleCommand = CreateAsyncCommand(_ => OpenSampleAsync(), _ => IsProjectEditingEnabled); RunCommand = CreateAsyncCommand(_ => RunAsync(), _ => IsProjectEditingEnabled);
         RuntimeLaunchCommand = CreateAsyncCommand(_ => LaunchRuntimeAsync(), _ => IsProjectEditingEnabled);
@@ -910,6 +925,17 @@ public sealed class MainViewModel : ObservableObject
         _lastProjectFilesPaneWidth = new GridLength(210);
         _lastScriptListPaneWidth = new GridLength(220);
         ApplyPaneVisibility();
+    }
+
+    private void RaiseLeftSidebarLayout()
+    {
+        Raise(nameof(LeftSidebarWidth));
+        Raise(nameof(LeftSidebarMinWidth));
+        Raise(nameof(IsLeftSidebarVisible));
+        Raise(nameof(IsBothLeftPanesVisible));
+        Raise(nameof(ProjectFilesPaneRowHeight));
+        Raise(nameof(ScriptListPaneRowHeight));
+        Raise(nameof(LeftPaneSplitterHeight));
     }
 
     private void ApplyPaneVisibility()
@@ -1058,7 +1084,6 @@ public sealed class MainViewModel : ObservableObject
         _project = project; _activeScriptId = string.Empty; EnsureScriptModel(_project);
         _currentPath = rememberPath ? path : null; _dirty = false; Raise(nameof(CurrentFileName)); Raise(nameof(CurrentPathText));
         ProjectName = project.Project.Name; SelectedNode = null;
-        if (rememberPath) AddRecent(path);
     }
 
     private string? ResolveSavePath(bool saveAs) => saveAs || _currentPath is null ? _dialogs.SaveProject(_currentPath) : _currentPath;
@@ -1066,7 +1091,7 @@ public sealed class MainViewModel : ObservableObject
     private void ApplySavedProject(AutomationProject project, string path)
     {
         _project = project; EnsureScriptModel(_project);
-        _currentPath = path; _dirty = false; Raise(nameof(CurrentFileName)); Raise(nameof(CurrentPathText)); ProjectName = project.Project.Name; AddRecent(path);
+        _currentPath = path; _dirty = false; Raise(nameof(CurrentFileName)); Raise(nameof(CurrentPathText)); ProjectName = project.Project.Name;
     }
 
     private async Task<bool> ValidateForRunAsync(AutomationProject project)
@@ -1094,12 +1119,6 @@ public sealed class MainViewModel : ObservableObject
         _executionTimer.Stop(); ElapsedText = $"{_executionTimer.ElapsedMilliseconds} ms";
         await _editor.SendAsync("set_editor_readonly", new { readOnly = false });
         RaiseCommandStates();
-    }
-
-    private void UpdateRecentProjects(string path)
-    {
-        Settings.RecentProjects.Remove(path); Settings.RecentProjects.Insert(0, path);
-        while (Settings.RecentProjects.Count > 10) Settings.RecentProjects.RemoveAt(10);
     }
 
     private void ReportOperationError(Exception exception, string operation)

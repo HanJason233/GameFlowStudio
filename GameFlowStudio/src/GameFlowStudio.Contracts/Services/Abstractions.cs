@@ -138,7 +138,6 @@ public sealed class AppSettings
     public string StepCategoryLayout { get; set; } = "vertical";
     public double? WindowLeft { get; set; }
     public double? WindowTop { get; set; }
-    public List<string> RecentProjects { get; set; } = [];
     public string DefaultProjectDirectory { get; set; } = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
     public string GeminiApiKey { get; set; } = string.Empty;
     public string RunHotkey { get; set; } = "F8";

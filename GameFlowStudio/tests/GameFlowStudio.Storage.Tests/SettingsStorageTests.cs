@@ -21,7 +21,6 @@ public sealed class SettingsStorageTests : IDisposable
         var loaded = await storage.LoadAsync(CancellationToken.None);
         var index = int.Parse(loaded.DefaultProjectDirectory);
         Assert.Equal($"theme-{index}", loaded.Theme);
-        Assert.Equal([$"project-{index}"], loaded.RecentProjects);
         Assert.Empty(Directory.EnumerateFiles(_directory, "*.tmp"));
     }
 
@@ -39,7 +38,6 @@ public sealed class SettingsStorageTests : IDisposable
         var loaded = await new SettingsStorageService(path).LoadAsync(CancellationToken.None);
         var index = int.Parse(loaded.DefaultProjectDirectory);
         Assert.Equal($"theme-{index}", loaded.Theme);
-        Assert.Equal([$"project-{index}"], loaded.RecentProjects);
         Assert.Empty(Directory.EnumerateFiles(_directory, "*.tmp"));
     }
 
@@ -53,7 +51,6 @@ public sealed class SettingsStorageTests : IDisposable
             """
             {
               "stepCategoryLayout": null,
-              "recentProjects": null,
               "defaultProjectDirectory": null,
               "geminiApiKey": null,
               "runHotkey": null,
@@ -67,7 +64,6 @@ public sealed class SettingsStorageTests : IDisposable
         var defaults = new AppSettings();
 
         Assert.Equal(defaults.StepCategoryLayout, loaded.StepCategoryLayout);
-        Assert.Empty(loaded.RecentProjects);
         Assert.Equal(defaults.DefaultProjectDirectory, loaded.DefaultProjectDirectory);
         Assert.Equal(defaults.GeminiApiKey, loaded.GeminiApiKey);
         Assert.Equal(defaults.RunHotkey, loaded.RunHotkey);
@@ -86,13 +82,11 @@ public sealed class SettingsStorageTests : IDisposable
         var save = storage.SaveAsync(settings, CancellationToken.None);
         settings.Theme = "mutated";
         settings.DefaultProjectDirectory = "mutated";
-        settings.RecentProjects.Add("mutated");
         await save;
 
         var loaded = await storage.LoadAsync(CancellationToken.None);
         Assert.Equal("theme-7", loaded.Theme);
         Assert.Equal("7", loaded.DefaultProjectDirectory);
-        Assert.Equal(["project-7"], loaded.RecentProjects);
     }
 
     [Fact]
@@ -113,8 +107,7 @@ public sealed class SettingsStorageTests : IDisposable
     private static AppSettings CreateSettings(int index) => new()
     {
         Theme = $"theme-{index}",
-        DefaultProjectDirectory = index.ToString(),
-        RecentProjects = [$"project-{index}"]
+        DefaultProjectDirectory = index.ToString()
     };
 
     public void Dispose()

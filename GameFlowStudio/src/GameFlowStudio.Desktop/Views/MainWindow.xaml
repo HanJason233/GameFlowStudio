@@ -23,14 +23,6 @@
                 </ItemsControl>
             </Expander>
         </DataTemplate>
-        <DataTemplate x:Key="ProjectFileTemplate">
-            <Button Command="{Binding DataContext.OpenRecentProjectCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" HorizontalContentAlignment="Stretch" Padding="8,7" Margin="0,2">
-                <StackPanel>
-                    <controls:SelectableTextBlock Text="{Binding Path=Name, Mode=OneWay}" Foreground="#E2E8F0" TextTrimming="CharacterEllipsis"/>
-                    <controls:SelectableTextBlock Text="{Binding Path=Path, Mode=OneWay}" Foreground="#64748B" FontSize="10" TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
-                </StackPanel>
-            </Button>
-        </DataTemplate>
         <DataTemplate x:Key="ScriptItemTemplate">
                 <Grid Margin="0,2">
                     <Grid.ColumnDefinitions>
@@ -48,6 +40,17 @@
                 <Button Grid.Column="2" Content="×" Command="{Binding DataContext.DeleteScriptCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" ToolTip="删除脚本" Padding="0"/>
                 </Grid>
         </DataTemplate>
+        <Style x:Key="ProjectFileActionButton" TargetType="Button" BasedOn="{StaticResource PaneHeaderButton}">
+            <Setter Property="Width" Value="21"/>
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="Margin" Value="0,5,1,5"/>
+            <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
+            <Setter Property="FontSize" Value="14"/>
+        </Style>
+        <Style x:Key="ProjectPaneCollapseButton" TargetType="Button" BasedOn="{StaticResource PaneHeaderButton}">
+            <Setter Property="Width" Value="24"/>
+            <Setter Property="Margin" Value="0,5,4,5"/>
+        </Style>
     </Window.Resources>
 
     <DockPanel>
@@ -87,20 +90,31 @@
                 <RowDefinition Height="{Binding OutputPaneHeight, Mode=TwoWay}" MinHeight="{Binding OutputPaneMinHeight}"/>
             </Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="{Binding ProjectFilesPaneWidth, Mode=TwoWay}" MinWidth="{Binding ProjectFilesPaneMinWidth}"/>
-                <ColumnDefinition Width="5"/>
-                <ColumnDefinition Width="{Binding ScriptListPaneWidth, Mode=TwoWay}" MinWidth="{Binding ScriptListPaneMinWidth}"/>
+                <ColumnDefinition Width="{Binding LeftSidebarWidth, Mode=TwoWay}" MinWidth="{Binding LeftSidebarMinWidth}"/>
                 <ColumnDefinition Width="5"/>
                 <ColumnDefinition Width="*" MinWidth="420"/>
                 <ColumnDefinition Width="5"/>
                 <ColumnDefinition Width="{Binding PropertiesPaneWidth, Mode=TwoWay}" MinWidth="{Binding PropertiesPaneMinWidth}"/>
             </Grid.ColumnDefinitions>
 
-            <Border Grid.Row="0" Grid.Column="0" Background="{StaticResource PanelBackground}" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="0,0,1,0" Visibility="{Binding IsProjectFilesPaneVisible, Converter={StaticResource BoolVisibility}}">
+            <Grid Grid.Row="0" Grid.Column="0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="{Binding ProjectFilesPaneRowHeight}"/>
+                    <RowDefinition Height="{Binding LeftPaneSplitterHeight}"/>
+                    <RowDefinition Height="{Binding ScriptListPaneRowHeight}"/>
+                </Grid.RowDefinitions>
+
+            <Border Grid.Row="0" Background="{StaticResource PanelBackground}" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="0,0,1,0" Visibility="{Binding IsProjectFilesPaneVisible, Converter={StaticResource BoolVisibility}}">
                 <DockPanel>
                     <Grid DockPanel.Dock="Top" Height="38" Background="#141D2E" Margin="0,0,0,6">
-                        <controls:SelectableTextBlock Text="项目文件" FontWeight="SemiBold" FontSize="13" Margin="12,0" VerticalAlignment="Center"/>
-                        <Button Content="—" Style="{StaticResource PaneHeaderButton}" HorizontalAlignment="Right" Command="{Binding ToggleProjectFilesPaneCommand}" ToolTip="最小化项目文件"/>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="8,0,0,0">
+                            <controls:SelectableTextBlock Text="项目文件" FontWeight="SemiBold" FontSize="13" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                            <Button Content="&#xE710;" Style="{StaticResource ProjectFileActionButton}" Command="{Binding NewCommand}" ToolTip="新建项目"/>
+                            <Button Content="&#xE8E5;" Style="{StaticResource ProjectFileActionButton}" Command="{Binding OpenCommand}" ToolTip="打开项目"/>
+                            <Button Content="&#xE74E;" Style="{StaticResource ProjectFileActionButton}" Command="{Binding SaveCommand}" ToolTip="保存项目"/>
+                            <Button Content="&#xE792;" Style="{StaticResource ProjectFileActionButton}" Command="{Binding SaveAsCommand}" ToolTip="项目另存为"/>
+                        </StackPanel>
+                        <Button Content="—" Style="{StaticResource ProjectPaneCollapseButton}" HorizontalAlignment="Right" Command="{Binding ToggleProjectFilesPaneCommand}" ToolTip="最小化项目文件"/>
                     </Grid>
                     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="8,0,8,8">
                         <StackPanel>
@@ -111,23 +125,14 @@
                                     <controls:SelectableTextBlock Text="{Binding Path=CurrentPathText, Mode=OneWay}" Foreground="#94A3B8" FontSize="10" TextTrimming="CharacterEllipsis" Margin="0,3,0,0"/>
                                 </StackPanel>
                             </Border>
-                            <controls:SelectableTextBlock Text="文件操作" Foreground="#64748B" FontSize="11" Margin="3,0,3,4"/>
-                            <WrapPanel Margin="0,0,0,12">
-                                <Button Content="新建" Command="{Binding NewCommand}" Width="84" Padding="5,5"/>
-                                <Button Content="打开" Command="{Binding OpenCommand}" Width="84" Padding="5,5"/>
-                                <Button Content="保存" Command="{Binding SaveCommand}" Width="84" Padding="5,5"/>
-                                <Button Content="另存为" Command="{Binding SaveAsCommand}" Width="84" Padding="5,5"/>
-                            </WrapPanel>
-                            <controls:SelectableTextBlock Text="最近项目" Foreground="#64748B" FontSize="11" Margin="3,0,3,4"/>
-                            <ItemsControl ItemsSource="{Binding RecentProjectFiles}" ItemTemplate="{StaticResource ProjectFileTemplate}"/>
                         </StackPanel>
                     </ScrollViewer>
                 </DockPanel>
             </Border>
 
-            <GridSplitter Grid.Row="0" Grid.Column="1" Grid.RowSpan="3" Style="{StaticResource VerticalGridSplitter}" Visibility="{Binding IsProjectFilesPaneVisible, Converter={StaticResource BoolVisibility}}"/>
+            <GridSplitter Grid.Row="1" Style="{StaticResource HorizontalGridSplitter}" Visibility="{Binding IsBothLeftPanesVisible, Converter={StaticResource BoolVisibility}}"/>
 
-            <Border Grid.Row="0" Grid.Column="2" Background="{StaticResource PanelBackground}" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="0,0,1,0" Visibility="{Binding IsScriptListPaneVisible, Converter={StaticResource BoolVisibility}}">
+            <Border Grid.Row="2" Background="{StaticResource PanelBackground}" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="0,0,1,0" Visibility="{Binding IsScriptListPaneVisible, Converter={StaticResource BoolVisibility}}">
                 <DockPanel>
                     <Grid DockPanel.Dock="Top" Height="38" Background="#141D2E" Margin="0,0,0,6">
                         <controls:SelectableTextBlock Text="脚本列表" FontWeight="SemiBold" FontSize="13" Margin="12,0" VerticalAlignment="Center"/>
@@ -143,10 +148,11 @@
                     </ScrollViewer>
                 </DockPanel>
             </Border>
+            </Grid>
 
-            <GridSplitter Grid.Row="0" Grid.Column="3" Grid.RowSpan="3" Style="{StaticResource VerticalGridSplitter}" Visibility="{Binding IsScriptListPaneVisible, Converter={StaticResource BoolVisibility}}"/>
+            <GridSplitter Grid.Row="0" Grid.Column="1" Grid.RowSpan="3" Style="{StaticResource VerticalGridSplitter}" Visibility="{Binding IsLeftSidebarVisible, Converter={StaticResource BoolVisibility}}"/>
 
-            <Grid Grid.Row="0" Grid.Column="4">
+            <Grid Grid.Row="0" Grid.Column="2">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="*" MinHeight="260"/>
                     <RowDefinition Height="5"/>
@@ -181,9 +187,9 @@
                 </Border>
             </Grid>
 
-            <GridSplitter Grid.Row="0" Grid.Column="5" Grid.RowSpan="3" Style="{StaticResource VerticalGridSplitter}" Visibility="{Binding IsPropertiesPaneVisible, Converter={StaticResource BoolVisibility}}"/>
+            <GridSplitter Grid.Row="0" Grid.Column="3" Grid.RowSpan="3" Style="{StaticResource VerticalGridSplitter}" Visibility="{Binding IsPropertiesPaneVisible, Converter={StaticResource BoolVisibility}}"/>
 
-            <Border Grid.Row="0" Grid.Column="6" Background="{StaticResource PanelBackground}" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="1,0,0,0" Visibility="{Binding IsPropertiesPaneVisible, Converter={StaticResource BoolVisibility}}">
+            <Border Grid.Row="0" Grid.Column="4" Background="{StaticResource PanelBackground}" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="1,0,0,0" Visibility="{Binding IsPropertiesPaneVisible, Converter={StaticResource BoolVisibility}}">
                 <DockPanel>
                     <Grid DockPanel.Dock="Top" Height="38" Background="#141D2E" Margin="0,0,0,6">
                         <controls:SelectableTextBlock Text="属性" FontWeight="SemiBold" FontSize="13" Margin="12,0" VerticalAlignment="Center"/>
@@ -505,9 +511,9 @@
                 </DockPanel>
             </Border>
 
-            <GridSplitter Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="7" Style="{StaticResource HorizontalGridSplitter}" Visibility="{Binding IsOutputPaneVisible, Converter={StaticResource BoolVisibility}}"/>
+            <GridSplitter Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="5" Style="{StaticResource HorizontalGridSplitter}" Visibility="{Binding IsOutputPaneVisible, Converter={StaticResource BoolVisibility}}"/>
 
-            <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="7" Background="#0F172A" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="0,1,0,0" Visibility="{Binding IsOutputPaneVisible, Converter={StaticResource BoolVisibility}}">
+            <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="5" Background="#0F172A" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="0,1,0,0" Visibility="{Binding IsOutputPaneVisible, Converter={StaticResource BoolVisibility}}">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="38"/>

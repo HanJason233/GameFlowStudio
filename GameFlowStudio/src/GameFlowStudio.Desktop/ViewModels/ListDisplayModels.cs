@@ -16,8 +16,6 @@ public sealed class ToolboxGroup(string name, IReadOnlyList<ToolboxItem> items) 
     public bool IsExpanded { get => _isExpanded; set => Set(ref _isExpanded, value); }
 }
 
-public sealed record ProjectFileItem(string Name, string Path);
-
 public sealed record WindowExecutionModeOption(WindowExecutionMode Value, string Label, string Description);
 
 public sealed class ScriptListItem(string id, string name, string description) : ObservableObject

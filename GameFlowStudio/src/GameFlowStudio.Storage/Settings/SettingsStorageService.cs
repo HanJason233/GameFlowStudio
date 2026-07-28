@@ -97,7 +97,6 @@ public sealed class SettingsStorageService : ISettingsStorageService
 
         var defaults = new AppSettings();
         settings.StepCategoryLayout ??= defaults.StepCategoryLayout;
-        settings.RecentProjects ??= [];
         settings.DefaultProjectDirectory ??= defaults.DefaultProjectDirectory;
         settings.GeminiApiKey ??= defaults.GeminiApiKey;
         settings.RunHotkey ??= defaults.RunHotkey;
