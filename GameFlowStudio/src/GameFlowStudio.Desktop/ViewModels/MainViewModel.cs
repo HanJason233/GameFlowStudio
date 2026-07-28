@@ -156,7 +156,7 @@ public sealed class SelectedNodeViewModel : ObservableObject
     {
         NodeTypes.ColorCondition => "颜色匹配置信阈值",
         NodeTypes.ImageCondition => "图像匹配置信阈值",
-        NodeTypes.OcrCondition => "OCR文本匹配阈值",
+        NodeTypes.OcrCondition => "Gemini OCR文本匹配阈值",
         _ => "匹配置信阈值"
     };
     public string ConfidenceHint => Type == NodeTypes.ColorCondition
@@ -168,7 +168,7 @@ public sealed class SelectedNodeViewModel : ObservableObject
     {
         NodeTypes.ColorCondition => "色判断",
         NodeTypes.ImageCondition => "图判断",
-        NodeTypes.OcrCondition => "OCR判断",
+        NodeTypes.OcrCondition => "Gemini OCR判断",
         _ => "逻辑判断"
     };
     public bool CanPickCoordinate => Type is NodeTypes.ColorCondition or NodeTypes.ImageCondition or NodeTypes.OcrCondition or NodeTypes.MouseClick or NodeTypes.MouseMove or NodeTypes.MouseDrag or NodeTypes.MouseScroll;

@@ -37,7 +37,7 @@ export interface AutomationProject {
 export interface BridgeMessage<T = unknown> { type: string; requestId?: string; payload?: T }
 
 export const nodeLabels: Record<NodeType, string> = {
-  colorCondition: '色判断', imageCondition: '图判断', ocrCondition: 'OCR判断',
+  colorCondition: '色判断', imageCondition: '图判断', ocrCondition: 'Gemini OCR判断',
   jump: '跳转',
   start: '开始', windowScope: '窗口作用域', mouseClick: '点击', mouseMove: '鼠标移动', mouseDrag: '鼠标拖动', mouseScroll: '鼠标滑动', keyPress: '键盘按键',
   textInput: '输入文本', wait: '等待', runProgram: '启动程序', closeProgram: '关闭程序',
