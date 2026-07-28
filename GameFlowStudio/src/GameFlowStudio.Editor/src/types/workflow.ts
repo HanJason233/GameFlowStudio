@@ -59,7 +59,7 @@ export const defaultParameters: Record<NodeType, Record<string, unknown>> = {
   keyPress: { key: 'A', durationMs: 50, repeatCount: 1, intervalMs: 100 },
   textInput: { text: 'Hello GameFlow', intervalMs: 30 },
   wait: { durationMs: 1000 },
-  runProgram: { path: '', arguments: '', workingDirectory: '', waitForExit: false },
+  runProgram: { path: '', arguments: '' },
   closeProgram: { windowHandleVariable: 'windowHandles', windowHandleIndex: 0 },
   minimizeWindow: { windowHandleVariable: 'windowHandles', windowHandleIndex: 0 },
   arrangeWindows: { windowHandleVariable: 'windowHandles', x: 0, y: 0, width: 800, height: 600, columns: 2, gapX: 20, gapY: 20 },

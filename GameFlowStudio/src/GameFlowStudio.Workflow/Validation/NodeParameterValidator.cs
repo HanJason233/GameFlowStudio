@@ -48,7 +48,7 @@ internal sealed class NodeParameterValidator
             case NodeTypes.Jump:
                 RequiredText(node, "scriptId"); RequiredText(node, "actionId"); break;
             case NodeTypes.RunProgram:
-                RequiredText(node, "path"); NodeParameterReader.Bool(node, "waitForExit", false); break;
+                RequiredText(node, "path"); break;
             case NodeTypes.CloseProgram:
             case NodeTypes.MinimizeWindow:
                 WindowTarget(node); break;

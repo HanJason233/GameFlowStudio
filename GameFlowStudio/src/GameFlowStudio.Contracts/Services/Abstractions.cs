@@ -102,7 +102,7 @@ public interface IWindowAutomationService
 
 public interface IProgramAutomationService
 {
-    Task StartAsync(string filePath, string arguments, string workingDirectory, bool waitForExit, CancellationToken cancellationToken);
+    Task StartAsync(string filePath, string arguments, CancellationToken cancellationToken);
 }
 
 /// <summary>通过窗口标题规则解析自动化操作的目标窗口作用域。</summary>

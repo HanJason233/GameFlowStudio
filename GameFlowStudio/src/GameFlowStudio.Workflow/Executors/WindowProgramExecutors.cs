@@ -10,12 +10,10 @@ public sealed class RunProgramNodeExecutor(IProgramAutomationService programs) :
     {
         var path = NodeParameterReader.String(node, "path");
         var arguments = NodeParameterReader.String(node, "arguments", string.Empty);
-        var workingDirectory = NodeParameterReader.String(node, "workingDirectory", string.Empty);
-        var waitForExit = NodeParameterReader.Bool(node, "waitForExit", false);
         await programs.StartAsync(
-            path, arguments, workingDirectory, waitForExit,
+            path, arguments,
             cancellationToken).ConfigureAwait(false);
-        ActionExecutionLogging.Write(context, node, $"启动程序「{path}」{(string.IsNullOrWhiteSpace(arguments) ? string.Empty : $"，参数：{arguments}")}，等待退出：{(waitForExit ? "是" : "否")}。");
+        ActionExecutionLogging.Write(context, node, $"启动程序「{path}」{(string.IsNullOrWhiteSpace(arguments) ? string.Empty : $"，参数：{arguments}")}。");
         return NodeExecutionResult.Ok();
     }
 }

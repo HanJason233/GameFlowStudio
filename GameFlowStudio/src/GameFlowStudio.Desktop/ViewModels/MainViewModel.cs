@@ -74,8 +74,6 @@ public sealed class NodeParameterItem(string name, string value, JsonValueKind k
         ["level"] = "日志级别",
         ["path"] = "程序路径",
         ["arguments"] = "启动参数",
-        ["workingDirectory"] = "工作目录",
-        ["waitForExit"] = "等待程序退出",
         ["width"] = "宽度",
         ["height"] = "高度",
         ["targetColor"] = "目标颜色（#RRGGBB）",

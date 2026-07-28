@@ -42,7 +42,7 @@
 | `colorCondition` | `coordinateMode`, `x`, `y`, `width`, `height`, `targetColor`, `tolerance`, `minMatchRatio` | `true`, `false` |
 | `imageCondition` | `coordinateMode`, `templatePath`, `x`, `y`, 可选 `width`/`height`、`tolerance`、`matchThreshold` | `true`, `false` |
 | `ocrCondition` | `coordinateMode`, `x`, `y`, `width`, `height`, `targetText`, `matchThreshold` | `true`, `false` |
-| `runProgram` | `path`, `arguments`, `workingDirectory`, `waitForExit` | `output` |
+| `runProgram` | `path`, `arguments` | `output` |
 | `closeProgram` | `windowHandleVariable`, `windowHandleIndex` | `output` |
 | `minimizeWindow` | `windowHandleVariable`, `windowHandleIndex` | `output` |
 | `arrangeWindows` | `windowHandleVariable`, `x`, `y`, `width`, `height`, `columns`, `gapX`, `gapY` | `output` |
