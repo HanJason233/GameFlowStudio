@@ -45,8 +45,6 @@ internal sealed class NodeParameterValidator
             case NodeTypes.ImageCondition:
             case NodeTypes.OcrCondition:
                 CoordinateMode(node); break;
-            case NodeTypes.StateCondition:
-                _ = StateDetectorReader.Read(node); break;
             case NodeTypes.Jump:
                 RequiredText(node, "scriptId"); RequiredText(node, "actionId"); break;
             case NodeTypes.RunProgram:

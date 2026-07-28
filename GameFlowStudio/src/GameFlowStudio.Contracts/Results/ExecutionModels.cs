@@ -79,10 +79,6 @@ public sealed record DetectorEvaluationResult(
     public bool IsOn => State == 1;
 }
 
-public sealed record StateConditionEvaluation(
-    bool Matched,
-    IReadOnlyDictionary<string, DetectorEvaluationResult> DetectorResults);
-
 public sealed class DetectorEvaluationContext
 {
     private readonly Dictionary<CaptureRegion, CapturedFrame> _frames = [];

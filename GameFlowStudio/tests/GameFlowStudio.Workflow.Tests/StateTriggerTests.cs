@@ -9,7 +9,7 @@ using GameFlowStudio.Workflow.Executors;
 
 namespace GameFlowStudio.Workflow.Tests;
 
-public sealed class StateConditionTests
+public sealed class DetectorConditionTests
 {
     [Fact]
     public async Task ColorDetectorReadsBgraPixels()
@@ -26,20 +26,6 @@ public sealed class StateConditionTests
 
         Assert.True(result.Supported);
         Assert.Equal(1, result.State);
-    }
-
-    [Fact]
-    public async Task MultipleRulesUseAndSemantics()
-    {
-        var capture = new FakeCapture(new CapturedFrame(0, 0, 2, 1, [0, 0, 255, 255, 0, 255, 0, 255]));
-        var red = Color("red", "#FF0000");
-        var green = Color("green", "#00FF00");
-        var evaluator = new StateConditionEvaluator(new StateDetectorService([new ColorStateDetector()]), capture);
-        var matched = await evaluator.EvaluateAsync([red, green], [], CancellationToken.None);
-        Assert.True(matched.Matched);
-
-        var notMatched = await evaluator.EvaluateAsync([red, Color("green", "#0000FF")], [], CancellationToken.None);
-        Assert.False(notMatched.Matched);
     }
 
     [Fact]
@@ -71,7 +57,7 @@ public sealed class StateConditionTests
     public async Task SingleColorConditionUsesOneDetector()
     {
         var capture = new FakeCapture(new CapturedFrame(0, 0, 1, 1, [0, 0, 255, 255]));
-        var evaluator = new StateConditionEvaluator(new StateDetectorService([new ColorStateDetector()]), capture);
+        var evaluator = new DetectorEvaluator(new StateDetectorService([new ColorStateDetector()]), capture);
         var logs = new List<WorkflowLogEntry>();
         var node = new WorkflowNode
         {
@@ -99,44 +85,12 @@ public sealed class StateConditionTests
             Log = logs.Add
         };
 
-        var result = await new SingleStateConditionNodeExecutor(NodeTypes.ColorCondition, DetectorType.Color, evaluator)
+        var result = await new SingleConditionNodeExecutor(NodeTypes.ColorCondition, DetectorType.Color, evaluator)
             .ExecuteAsync(node, context, CancellationToken.None);
 
         Assert.True(result.Success);
         Assert.Equal("true", result.NextHandle);
         Assert.Contains(logs, entry => entry.Message.Contains("实际色值") && entry.Message.Contains("匹配比例"));
-    }
-
-    [Fact]
-    public async Task JointConditionReadsDetectorsFromItsOwnParameters()
-    {
-        var capture = new FakeCapture(new CapturedFrame(0, 0, 1, 1, [0, 0, 255, 255]));
-        var evaluator = new StateConditionEvaluator(new StateDetectorService([new ColorStateDetector()]), capture);
-        var detector = Color("red", "#FF0000");
-        var node = new WorkflowNode
-        {
-            Id = "state-condition",
-            Type = NodeTypes.StateCondition,
-            Data = new()
-            {
-                DisplayName = "联合判断",
-                Parameters = new Dictionary<string, System.Text.Json.JsonElement>
-                {
-                    ["detectors"] = ProjectJson.Element(new[] { detector })
-                }
-            }
-        };
-        var context = new WorkflowExecutionContext
-        {
-            Workflow = new AutomationProject(),
-            WaitIfPausedAsync = _ => Task.CompletedTask,
-            Log = _ => { }
-        };
-
-        var result = await new StateConditionNodeExecutor(evaluator).ExecuteAsync(node, context, CancellationToken.None);
-
-        Assert.True(result.Success);
-        Assert.Equal("true", result.NextHandle);
     }
 
     [Fact]
@@ -189,16 +143,6 @@ public sealed class StateConditionTests
 
         Assert.False(result.Supported);
         Assert.Equal(0, result.State);
-    }
-
-    private static DetectorDefinition Color(string id, string value)
-    {
-        var detector = new DetectorDefinition { Id = id, Type = DetectorType.Color };
-        detector.Parameters["width"] = ProjectJson.Element(2);
-        detector.Parameters["height"] = ProjectJson.Element(1);
-        detector.Parameters["targetColor"] = ProjectJson.Element(value);
-        detector.Parameters["minMatchRatio"] = ProjectJson.Element(.5d);
-        return detector;
     }
 
     private static DetectorEvaluationContext Context(FakeCapture capture) => new() { Capture = capture };

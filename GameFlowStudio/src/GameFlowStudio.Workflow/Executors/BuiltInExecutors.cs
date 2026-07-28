@@ -141,20 +141,6 @@ public sealed class TextInputNodeExecutor(IInputAutomationService input) : NodeE
     }
 }
 
-/// <summary>脚本逻辑判断：流程走到节点时只检测一次，并分出 true/false。</summary>
-public sealed class StateConditionNodeExecutor(IStateConditionEvaluator evaluator) : NodeExecutorBase(NodeTypes.StateCondition)
-{
-    public override async Task<NodeExecutionResult> ExecuteAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken cancellationToken)
-    {
-        var detectors = StateDetectorReader.Read(node);
-        var evaluation = await evaluator.EvaluateAsync(detectors, context.WindowHandles, cancellationToken).ConfigureAwait(false);
-        foreach (var result in evaluation.DetectorResults.Values)
-            ActionExecutionLogging.Write(context, node, $"检测器 {result.Type}：{result.Message ?? "无详细结果"}；状态 {result.State}。");
-        ActionExecutionLogging.Write(context, node, $"联合判断最终结果：{ActionExecutionLogging.Outcome(evaluation.Matched)}。");
-        return NodeExecutionResult.Ok(evaluation.Matched ? "true" : "false");
-    }
-}
-
 /// <summary>跳转到项目中指定脚本的指定动作。</summary>
 public sealed class JumpNodeExecutor() : NodeExecutorBase(NodeTypes.Jump)
 {
@@ -167,7 +153,7 @@ public sealed class JumpNodeExecutor() : NodeExecutorBase(NodeTypes.Jump)
 }
 
 /// <summary>单一底层检测判断节点，检测内容直接来自节点参数。</summary>
-public sealed class SingleStateConditionNodeExecutor(string nodeType, DetectorType expectedType, IStateConditionEvaluator evaluator) : NodeExecutorBase(nodeType)
+public sealed class SingleConditionNodeExecutor(string nodeType, DetectorType expectedType, IDetectorEvaluator evaluator) : NodeExecutorBase(nodeType)
 {
     public override async Task<NodeExecutionResult> ExecuteAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken cancellationToken)
     {
@@ -178,10 +164,10 @@ public sealed class SingleStateConditionNodeExecutor(string nodeType, DetectorTy
             Type = expectedType,
             Parameters = node.Data.Parameters.ToDictionary(pair => pair.Key, pair => pair.Value.Clone(), StringComparer.Ordinal)
         };
-        var evaluation = await evaluator.EvaluateAsync([detector], context.WindowHandles, cancellationToken).ConfigureAwait(false);
-        var detail = evaluation.DetectorResults.TryGetValue(detector.Id, out var detectorResult) ? detectorResult.Message ?? "无详细结果" : "无检测结果";
-        ActionExecutionLogging.Write(context, node, $"{detail}；条件结果：{ActionExecutionLogging.Outcome(evaluation.Matched)}。");
-        return NodeExecutionResult.Ok(evaluation.Matched ? "true" : "false");
+        var evaluation = await evaluator.EvaluateAsync(detector, context.WindowHandles, cancellationToken).ConfigureAwait(false);
+        var detail = evaluation.Message ?? "无详细结果";
+        ActionExecutionLogging.Write(context, node, $"{detail}；条件结果：{ActionExecutionLogging.Outcome(evaluation.Supported && evaluation.IsOn)}。");
+        return NodeExecutionResult.Ok(evaluation.Supported && evaluation.IsOn ? "true" : "false");
     }
 }
 

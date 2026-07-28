@@ -15,7 +15,6 @@ public static class NodeTypes
     public const string ColorCondition = "colorCondition";
     public const string ImageCondition = "imageCondition";
     public const string OcrCondition = "ocrCondition";
-    public const string StateCondition = "stateCondition";
     public const string Jump = "jump";
     public const string RunProgram = "runProgram";
     public const string CloseProgram = "closeProgram";
@@ -27,11 +26,11 @@ public static class NodeTypes
     public static readonly IReadOnlySet<string> All = new HashSet<string>(StringComparer.Ordinal)
     {
         Start, WindowScope, MouseClick, MouseMove, MouseDrag, MouseScroll, KeyPress, TextInput, Wait,
-        ColorCondition, ImageCondition, OcrCondition, StateCondition, Jump, RunProgram, CloseProgram, MinimizeWindow, ArrangeWindows, SetWindowResolution, End
+        ColorCondition, ImageCondition, OcrCondition, Jump, RunProgram, CloseProgram, MinimizeWindow, ArrangeWindows, SetWindowResolution, End
     };
 
     public static readonly IReadOnlySet<string> Structural = new HashSet<string>(StringComparer.Ordinal)
     {
-        Start, ColorCondition, ImageCondition, OcrCondition, StateCondition, End
+        Start, ColorCondition, ImageCondition, OcrCondition, End
     };
 }

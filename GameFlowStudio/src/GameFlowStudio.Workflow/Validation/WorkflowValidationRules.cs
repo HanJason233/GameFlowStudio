@@ -79,7 +79,6 @@ internal sealed class NodeConnectionRule : IWorkflowValidationRule
             case NodeTypes.ColorCondition:
             case NodeTypes.ImageCondition:
             case NodeTypes.OcrCondition:
-            case NodeTypes.StateCondition:
                 RequireHandles(result, node, outgoing, "true", "false");
                 break;
             default:
@@ -169,18 +168,6 @@ internal sealed class StateConfigurationRule : IWorkflowValidationRule
 {
     public void Validate(WorkflowValidationContext context, WorkflowValidationResult result)
     {
-        foreach (var node in context.Workflow.Nodes.Where(node => node.Type == NodeTypes.StateCondition))
-        {
-            try
-            {
-                var detectors = StateDetectorReader.Read(node);
-                ValidateDetectors(detectors, result, node.Id);
-                if (detectors.Count == 0) result.Add("state_detectors", "联合判断至少需要一个检测器。", node.Id);
-            }
-            catch (Exception exception) when (exception is InvalidOperationException or JsonException)
-            { result.Add("state_detectors", exception.Message, node.Id); }
-        }
-
         foreach (var node in context.Workflow.Nodes.Where(node => node.Type is NodeTypes.ColorCondition or NodeTypes.ImageCondition or NodeTypes.OcrCondition))
         {
             try
@@ -201,19 +188,6 @@ internal sealed class StateConfigurationRule : IWorkflowValidationRule
             }
             catch (Exception exception) when (exception is InvalidOperationException or JsonException)
             { result.Add("state_parameters", exception.Message, node.Id); }
-        }
-    }
-
-    private static void ValidateDetectors(IReadOnlyList<DetectorDefinition> detectors, WorkflowValidationResult result, string nodeId)
-    {
-        foreach (var group in detectors.GroupBy(detector => detector.Id).Where(group => string.IsNullOrWhiteSpace(group.Key) || group.Count() > 1))
-            result.Add("detector_id", "检测器 ID 不能为空且必须唯一。", nodeId);
-
-        foreach (var detector in detectors)
-        {
-            if (string.IsNullOrWhiteSpace(detector.Name)) result.Add("detector_name", "检测器名称不能为空。", nodeId);
-            if (!Enum.IsDefined(detector.Type)) result.Add("detector_type", "检测器类型无效。", nodeId);
-            ValidateDetectorParameters(detector, result, nodeId);
         }
     }
 

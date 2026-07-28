@@ -212,7 +212,7 @@
                             <controls:SelectableTextBlock Text="设置为 0 表示关闭；显式等待节点仍使用自身等待时间。以上配置只对当前脚本生效。" Foreground="#64748B" TextWrapping="Wrap" Margin="3,6,3,0"/>
                         </StackPanel>
                     </ScrollViewer>
-                    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,0,8,8" Visibility="{Binding HasSingleStateConditionSelection, Converter={StaticResource BoolVisibility}}">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,0,8,8" Visibility="{Binding HasDetectorConditionSelection, Converter={StaticResource BoolVisibility}}">
                         <StackPanel DataContext="{Binding SelectedNode}">
                             <controls:SelectableTextBlock Text="{Binding Path=LogicLabel, Mode=OneWay}" FontWeight="SemiBold" Foreground="#FBBF24" Margin="3,4,3,2"/>
                             <controls:SelectableTextBlock Text="动作 ID" Foreground="#94A3B8"/>
@@ -279,96 +279,6 @@
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
                             <controls:SelectableTextBlock Text="命中输出 true，未命中输出 false。" Foreground="#64748B" FontSize="10" TextWrapping="Wrap" Margin="3,6,3,12"/>
-                        </StackPanel>
-                    </ScrollViewer>
-                    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,0,8,8" Visibility="{Binding HasStateConditionSelection, Converter={StaticResource BoolVisibility}}">
-                        <StackPanel DataContext="{Binding SelectedNode}">
-                            <controls:SelectableTextBlock Text="联合判断" FontWeight="SemiBold" Foreground="#FBBF24" Margin="3,4,3,2"/>
-                            <controls:SelectableTextBlock Text="动作 ID" Foreground="#94A3B8"/>
-                            <controls:SelectableTextBlock Text="{Binding Path=Id, Mode=OneWay}" Foreground="#E2E8F0" TextWrapping="Wrap" Margin="0,0,0,8"/>
-                            <controls:SelectableTextBlock Text="添加多个判断条件，所有条件都命中时从 true 分支继续，否则从 false 分支继续。每个条件都可以像单判断一样直接填写参数。" Foreground="#94A3B8" FontSize="10" TextWrapping="Wrap" Margin="3,0,3,10"/>
-                            <DockPanel Margin="0,4,0,3">
-                                <Button Content="添加判断" Width="78" DockPanel.Dock="Right" Command="{Binding DataContext.AddStateDetectorCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>
-                                <controls:SelectableTextBlock Text="判断条件" Foreground="#94A3B8" VerticalAlignment="Center"/>
-                            </DockPanel>
-                            <ItemsControl ItemsSource="{Binding Detectors}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Border BorderBrush="#334155" BorderThickness="1" Padding="6" Margin="0,3">
-                                            <StackPanel>
-                                                <DockPanel>
-                                                    <Button Content="×" Width="26" DockPanel.Dock="Right" Command="{Binding DataContext.RemoveStateDetectorCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" ToolTip="删除此判断"/>
-                                                    <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,0" ToolTip="判断名称"/>
-                                                </DockPanel>
-                                                <Grid Margin="0,4,0,0">
-                                                    <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                                    <ComboBox ItemsSource="{Binding DataContext.DetectorTypes, RelativeSource={RelativeSource AncestorType=Window}}" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding Type, UpdateSourceTrigger=PropertyChanged}"/>
-                                                    <CheckBox Grid.Column="1" Content="启用" IsChecked="{Binding Enabled, UpdateSourceTrigger=PropertyChanged}" Margin="8,0,0,0" VerticalAlignment="Center"/>
-                                                </Grid>
-                                                <StackPanel Visibility="{Binding IsSupported, Converter={StaticResource BoolVisibility}}">
-                                                    <controls:SelectableTextBlock Text="坐标基准" Foreground="#94A3B8" Margin="0,8,0,3"/>
-                                                    <ItemsControl ItemsSource="{Binding CoordinateParameters}">
-                                                        <ItemsControl.ItemTemplate>
-                                                            <DataTemplate>
-                                                                <ComboBox SelectedValue="{Binding Value, UpdateSourceTrigger=PropertyChanged}" SelectedValuePath="Tag">
-                                                                    <ComboBoxItem Tag="followScript" Content="跟随脚本"/>
-                                                                    <ComboBoxItem Tag="absolute" Content="强制绝对"/>
-                                                                    <ComboBoxItem Tag="relative" Content="强制相对"/>
-                                                                </ComboBox>
-                                                            </DataTemplate>
-                                                        </ItemsControl.ItemTemplate>
-                                                    </ItemsControl>
-                                                    <controls:SelectableTextBlock Text="数值参数" Foreground="#94A3B8" Margin="0,8,0,3"/>
-                                                    <Border BorderBrush="#334155" BorderThickness="1" CornerRadius="4" Padding="6">
-                                                        <DockPanel>
-                                                            <Button DockPanel.Dock="Right" Content="{Binding CoordinatePickButtonLabel, Mode=OneWay}"
-                                                                    Command="{Binding DataContext.PickStateDetectorCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                                    CommandParameter="{Binding}" Width="76" Margin="8,0,0,0" Padding="4,3"
-                                                                    ToolTip="{Binding CoordinatePickButtonToolTip, Mode=OneWay}"/>
-                                                            <ItemsControl ItemsSource="{Binding NumericParameters}">
-                                                                <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-                                                                <ItemsControl.ItemTemplate>
-                                                                    <DataTemplate>
-                                                                        <StackPanel Width="100" Margin="0,2,6,2">
-                                                                            <controls:SelectableTextBlock Text="{Binding Name, Mode=OneWay}" Foreground="#94A3B8" ToolTip="{Binding Description, Mode=OneWay}"/>
-                                                                            <TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"/>
-                                                                        </StackPanel>
-                                                                    </DataTemplate>
-                                                                </ItemsControl.ItemTemplate>
-                                                            </ItemsControl>
-                                                        </DockPanel>
-                                                    </Border>
-                                                    <StackPanel Visibility="{Binding HasConfidenceParameter, Converter={StaticResource BoolVisibility}}" Margin="0,8,0,2">
-                                                        <DockPanel Margin="0,0,0,3">
-                                                            <controls:SelectableTextBlock Text="{Binding ConfidenceLabel, Mode=OneWay}" Foreground="#94A3B8" ToolTip="{Binding ConfidenceHint, Mode=OneWay}"/>
-                                                            <controls:SelectableTextBlock DockPanel.Dock="Right" Text="{Binding ConfidenceParameter.Value, Converter={StaticResource PercentText}}" Foreground="#60A5FA" FontWeight="SemiBold" Margin="8,0,0,0"/>
-                                                        </DockPanel>
-                                                        <Slider Minimum="0" Maximum="100" TickFrequency="1" IsSnapToTickEnabled="True" SmallChange="1" LargeChange="5"
-                                                                Value="{Binding ConfidenceParameter.Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource StringPercent}}"
-                                                                ToolTip="{Binding ConfidenceHint}"/>
-                                                    </StackPanel>
-                                                    <controls:SelectableTextBlock Text="文本参数" Foreground="#94A3B8" Margin="0,8,0,3" Visibility="{Binding HasTextParameters, Converter={StaticResource BoolVisibility}}"/>
-                                                    <ItemsControl ItemsSource="{Binding TextParameters}">
-                                                        <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-                                                        <ItemsControl.ItemTemplate>
-                                                            <DataTemplate>
-                                                                <StackPanel Width="260" Margin="0,3,6,3">
-                                                                    <controls:SelectableTextBlock Text="{Binding DisplayName, Mode=OneWay}" Foreground="#94A3B8" ToolTip="{Binding Description, Mode=OneWay}"/>
-                                                                    <TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"/>
-                                                                </StackPanel>
-                                                            </DataTemplate>
-                                                        </ItemsControl.ItemTemplate>
-                                                    </ItemsControl>
-                                                    <controls:SelectableTextBlock Text="降低置信阈值可以增强抗噪能力，但可能增加误判。" Foreground="#64748B" FontSize="10" TextWrapping="Wrap" Margin="3,4,3,0" Visibility="{Binding HasConfidenceParameter, Converter={StaticResource BoolVisibility}}"/>
-                                                </StackPanel>
-                                                <controls:SelectableTextBlock Text="AI 识别暂未实现，请选择色判断、图判断或 OCR 判断。" Foreground="#FBBF24" FontSize="10" TextWrapping="Wrap" Margin="3,8,3,2" Visibility="{Binding IsSupported, Converter={StaticResource InverseBoolVisibility}}"/>
-                                                <controls:SelectableTextBlock Text="{Binding Path=ParametersError, Mode=OneWay}" Foreground="#F87171" FontSize="10" Margin="0,3,0,0" Visibility="{Binding HasParametersError, Converter={StaticResource BoolVisibility}}" TextWrapping="Wrap"/>
-                                            </StackPanel>
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                            <controls:SelectableTextBlock Text="所有判断都命中时输出 true，否则输出 false。" Foreground="#64748B" FontSize="10" TextWrapping="Wrap" Margin="3,6,3,12"/>
                         </StackPanel>
                     </ScrollViewer>
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,0,8,8" Visibility="{Binding IsRegularNodeSelection, Converter={StaticResource BoolVisibility}}">

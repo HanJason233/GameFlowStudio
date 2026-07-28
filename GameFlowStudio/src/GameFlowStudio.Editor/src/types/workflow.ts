@@ -1,7 +1,7 @@
 import type { Edge, Node } from '@xyflow/react'
 
 export type NodeType = 'start' | 'windowScope' | 'mouseClick' | 'mouseMove' | 'mouseDrag' | 'mouseScroll' | 'keyPress' | 'textInput' | 'wait' |
-  'colorCondition' | 'imageCondition' | 'ocrCondition' | 'stateCondition' | 'jump' | 'runProgram' | 'closeProgram' |
+  'colorCondition' | 'imageCondition' | 'ocrCondition' | 'jump' | 'runProgram' | 'closeProgram' |
   'minimizeWindow' | 'arrangeWindows' | 'setWindowResolution' | 'end'
 
 export type ExecutionStatus = 'none' | 'running' | 'success' | 'error'
@@ -38,7 +38,7 @@ export interface BridgeMessage<T = unknown> { type: string; requestId?: string; 
 
 export const nodeLabels: Record<NodeType, string> = {
   colorCondition: '色判断', imageCondition: '图判断', ocrCondition: 'OCR判断',
-  stateCondition: '联合判断', jump: '跳转',
+  jump: '跳转',
   start: '开始', windowScope: '窗口作用域', mouseClick: '点击', mouseMove: '鼠标移动', mouseDrag: '鼠标拖动', mouseScroll: '鼠标滑动', keyPress: '键盘按键',
   textInput: '输入文本', wait: '等待', runProgram: '启动程序', closeProgram: '关闭程序',
   minimizeWindow: '最小化窗口', arrangeWindows: '窗口整理',
@@ -49,7 +49,6 @@ export const defaultParameters: Record<NodeType, Record<string, unknown>> = {
   colorCondition: { coordinateMode: 'followScript', x: 0, y: 0, width: 1, height: 1, targetColor: '#FFFFFF', tolerance: 10, minMatchRatio: 1 },
   imageCondition: { coordinateMode: 'followScript', templatePath: '', x: 0, y: 0, tolerance: 10, matchThreshold: 0.95 },
   ocrCondition: { coordinateMode: 'followScript', x: 0, y: 0, width: 1, height: 1, targetText: '', matchThreshold: 0.8 },
-  stateCondition: { detectors: [] },
   jump: { scriptId: '', actionId: '' },
   start: {}, end: {},
   windowScope: { titlePattern: '.*', outputVariable: 'windowHandles' },

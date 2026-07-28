@@ -57,10 +57,10 @@ public interface IStateDetectorService
     Task<DetectorEvaluationResult> EvaluateAsync(DetectorDefinition detector, DetectorEvaluationContext context, CancellationToken cancellationToken);
 }
 
-public interface IStateConditionEvaluator
+public interface IDetectorEvaluator
 {
-    Task<StateConditionEvaluation> EvaluateAsync(
-        IReadOnlyList<DetectorDefinition> detectors,
+    Task<DetectorEvaluationResult> EvaluateAsync(
+        DetectorDefinition detector,
         IReadOnlyList<nint> windowHandles,
         CancellationToken cancellationToken);
 }

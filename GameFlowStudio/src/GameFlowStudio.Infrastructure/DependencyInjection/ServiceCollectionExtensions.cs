@@ -32,7 +32,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IStateDetector, OcrStateDetector>();
         services.AddSingleton<IStateDetector>(new TodoStateDetector(DetectorType.AiRecognition));
         services.AddSingleton<IStateDetectorService, StateDetectorService>();
-        services.AddSingleton<IStateConditionEvaluator, StateConditionEvaluator>();
+        services.AddSingleton<IDetectorEvaluator, DetectorEvaluator>();
         services.AddSingleton<IMouseCoordinateResolver, MouseCoordinateResolver>();
         services.AddSingleton<IProjectStorageService, ProjectStorageService>();
         services.AddSingleton<ISettingsStorageService, SettingsStorageService>();
@@ -49,10 +49,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<INodeExecutor, MouseClickNodeExecutor>();
         services.AddSingleton<INodeExecutor, KeyPressNodeExecutor>();
         services.AddSingleton<INodeExecutor, TextInputNodeExecutor>();
-        services.AddSingleton<INodeExecutor>(serviceProvider => new SingleStateConditionNodeExecutor(NodeTypes.ColorCondition, DetectorType.Color, serviceProvider.GetRequiredService<IStateConditionEvaluator>()));
-        services.AddSingleton<INodeExecutor>(serviceProvider => new SingleStateConditionNodeExecutor(NodeTypes.ImageCondition, DetectorType.Image, serviceProvider.GetRequiredService<IStateConditionEvaluator>()));
-        services.AddSingleton<INodeExecutor>(serviceProvider => new SingleStateConditionNodeExecutor(NodeTypes.OcrCondition, DetectorType.Ocr, serviceProvider.GetRequiredService<IStateConditionEvaluator>()));
-        services.AddSingleton<INodeExecutor, StateConditionNodeExecutor>();
+        services.AddSingleton<INodeExecutor>(serviceProvider => new SingleConditionNodeExecutor(NodeTypes.ColorCondition, DetectorType.Color, serviceProvider.GetRequiredService<IDetectorEvaluator>()));
+        services.AddSingleton<INodeExecutor>(serviceProvider => new SingleConditionNodeExecutor(NodeTypes.ImageCondition, DetectorType.Image, serviceProvider.GetRequiredService<IDetectorEvaluator>()));
+        services.AddSingleton<INodeExecutor>(serviceProvider => new SingleConditionNodeExecutor(NodeTypes.OcrCondition, DetectorType.Ocr, serviceProvider.GetRequiredService<IDetectorEvaluator>()));
         services.AddSingleton<INodeExecutor, JumpNodeExecutor>();
         services.AddSingleton<INodeExecutor, RunProgramNodeExecutor>();
         services.AddSingleton<INodeExecutor, CloseProgramNodeExecutor>();

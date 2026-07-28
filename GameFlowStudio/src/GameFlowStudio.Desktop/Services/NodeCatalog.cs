@@ -10,7 +10,6 @@ internal static class NodeCatalog
         new(NodeTypes.ColorCondition, "色判断", "逻辑类"),
         new(NodeTypes.ImageCondition, "图判断", "逻辑类"),
         new(NodeTypes.OcrCondition, "OCR判断", "逻辑类"),
-        new(NodeTypes.StateCondition, "联合判断", "逻辑类"),
         new(NodeTypes.Jump, "跳转", "逻辑类"),
         new(NodeTypes.Start, "开始", "基础类"),
         new(NodeTypes.End, "结束", "基础类"),
