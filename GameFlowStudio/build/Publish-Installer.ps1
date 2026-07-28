@@ -1,5 +1,7 @@
 param(
-    [string]$Version
+    [string]$Version,
+    [switch]$TestSign,
+    [switch]$TrustTestCertificate
 )
 
 $ErrorActionPreference = 'Stop'
@@ -29,11 +31,59 @@ function Reset-ArtifactDirectory {
     New-Item -ItemType Directory -Path $resolvedPath -Force | Out-Null
 }
 
+function Get-TestSigningCertificate {
+    $subject = 'CN=GameFlow Studio Test Publisher'
+    $certificate = Get-ChildItem Cert:\CurrentUser\My |
+        Where-Object {
+            $_.Subject -eq $subject -and
+            $_.HasPrivateKey -and
+            $_.NotAfter -gt (Get-Date).AddDays(30)
+        } |
+        Sort-Object NotAfter -Descending |
+        Select-Object -First 1
+
+    if ($null -eq $certificate) {
+        $certificate = New-SelfSignedCertificate `
+            -Type CodeSigningCert `
+            -Subject $subject `
+            -FriendlyName 'GameFlow Studio Local Test Signing' `
+            -CertStoreLocation Cert:\CurrentUser\My `
+            -KeyAlgorithm RSA `
+            -KeyLength 3072 `
+            -HashAlgorithm SHA256 `
+            -NotAfter (Get-Date).AddYears(2)
+    }
+
+    return $certificate
+}
+
+function Sign-TestFile {
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)]$Certificate
+    )
+
+    $signature = Set-AuthenticodeSignature `
+        -FilePath $Path `
+        -Certificate $Certificate `
+        -HashAlgorithm SHA256
+    if ($null -eq $signature.SignerCertificate -or
+        $signature.SignerCertificate.Thumbprint -ne $Certificate.Thumbprint) {
+        throw "Test signing failed: $Path"
+    }
+    if ($TrustTestCertificate -and $signature.Status -ne 'Valid') {
+        throw "The trusted test signature is not valid: $Path ($($signature.Status))"
+    }
+}
+
 if ([string]::IsNullOrWhiteSpace($Version)) {
     $Version = (& dotnet msbuild $desktopProject -nologo -getProperty:Version).Trim()
 }
 if ($Version -notmatch '^\d+\.\d+\.\d+$') {
     throw "The installer version must use major.minor.patch format: $Version"
+}
+if ($TrustTestCertificate -and !$TestSign) {
+    throw 'TrustTestCertificate requires TestSign.'
 }
 
 Reset-ArtifactDirectory $publishDirectory
@@ -66,6 +116,21 @@ if ($LASTEXITCODE -ne 0) { throw '.NET tests failed.' }
     -o $publishDirectory
 if ($LASTEXITCODE -ne 0) { throw '.NET publish failed.' }
 
+$testCertificate = $null
+if ($TestSign) {
+    $testCertificate = Get-TestSigningCertificate
+    $certificatePath = Join-Path $installerDirectory 'GameFlowStudio-TestPublisher.cer'
+    Export-Certificate -Cert $testCertificate -FilePath $certificatePath -Force | Out-Null
+    if ($TrustTestCertificate) {
+        Import-Certificate -FilePath $certificatePath -CertStoreLocation Cert:\CurrentUser\Root | Out-Null
+        Import-Certificate -FilePath $certificatePath -CertStoreLocation Cert:\CurrentUser\TrustedPublisher | Out-Null
+    }
+
+    Sign-TestFile `
+        -Path (Join-Path $publishDirectory 'GameFlowStudio.Desktop.exe') `
+        -Certificate $testCertificate
+}
+
 & dotnet build $installerProject `
     -c Release `
     -p:AppVersion=$Version `
@@ -77,6 +142,10 @@ $installer = Get-ChildItem -LiteralPath $installerDirectory -Filter '*.msi' -Fil
     Sort-Object LastWriteTimeUtc -Descending |
     Select-Object -First 1
 if ($null -eq $installer) { throw 'MSI build completed without producing an installer.' }
+
+if ($TestSign) {
+    Sign-TestFile -Path $installer.FullName -Certificate $testCertificate
+}
 
 $hash = Get-FileHash -LiteralPath $installer.FullName -Algorithm SHA256
 $checksumPath = "$($installer.FullName).sha256"

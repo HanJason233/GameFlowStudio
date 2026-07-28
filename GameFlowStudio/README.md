@@ -64,7 +64,22 @@ cd C:\auto\GameFlowStudio
 powershell -NoProfile -ExecutionPolicy Bypass -File .\build\Publish-Installer.ps1
 ```
 
-脚本会重新安装锁定版本的前端依赖，执行 lint、前端构建和全部 .NET 测试，然后将自包含应用发布到 `artifacts\publish\win-x64`，最终安装包及 SHA-256 校验文件输出到 `artifacts\installer`。可通过 `-Version 0.1.1` 显式指定三段式版本号；未指定时使用项目的 `VersionPrefix`。
+脚本会重新安装锁定版本的前端依赖，执行 lint、前端构建和全部 .NET 测试，然后将自包含应用发布到 `artifacts\publish\win-x64`，最终安装包及 SHA-256 校验文件输出到 `artifacts\installer`。可通过 `-Version 0.2.0` 显式指定三段式版本号；未指定时使用项目的 `VersionPrefix`。
+
+本机测试可以生成自签名代码证书，并仅在当前用户证书存储区信任它：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\build\Publish-Installer.ps1 -TestSign -TrustTestCertificate
+```
+
+测试证书的公钥会输出到 `artifacts\installer\GameFlowStudio-TestPublisher.cer`，私钥只保存在生成证书的当前 Windows 用户证书存储区，不会写入项目或提交到 Git。自签名证书不具备公共信誉，其他电脑需要先显式信任该测试证书；正式分发必须改用受信任 CA 签发的代码签名证书。
+
+在另一台测试机上信任证书时，以该测试用户运行：
+
+```powershell
+Import-Certificate -FilePath .\GameFlowStudio-TestPublisher.cer -CertStoreLocation Cert:\CurrentUser\Root
+Import-Certificate -FilePath .\GameFlowStudio-TestPublisher.cer -CertStoreLocation Cert:\CurrentUser\TrustedPublisher
+```
 
 ## Gemini OCR 配置
 

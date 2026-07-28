@@ -5,5 +5,9 @@
     <PublishDir Condition="'$(PublishDir)' == ''">..\artifacts\publish\win-x64</PublishDir>
     <DefineConstants>AppVersion=$(AppVersion);PublishDir=$([System.IO.Path]::GetFullPath('$(PublishDir)'))</DefineConstants>
     <OutputName>GameFlowStudio-$(AppVersion)-win-x64</OutputName>
+    <Cultures>zh-CN</Cultures>
   </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="WixToolset.UI.wixext" Version="5.0.2" />
+  </ItemGroup>
 </Project>
