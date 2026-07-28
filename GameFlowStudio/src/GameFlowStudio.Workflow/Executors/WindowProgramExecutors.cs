@@ -18,36 +18,36 @@ public sealed class RunProgramNodeExecutor(IProgramAutomationService programs) :
     }
 }
 
-public sealed class CloseProgramNodeExecutor(IWindowAutomationService windows) : NodeExecutorBase(Contracts.Nodes.NodeTypes.CloseProgram)
+public sealed class CloseProgramNodeExecutor(IWindowAutomationService windows, IWindowScopeService scopes) : NodeExecutorBase(Contracts.Nodes.NodeTypes.CloseProgram)
 {
     public override Task<NodeExecutionResult> ExecuteAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var handle = WindowActionParameters.SelectTarget(node, context);
+        var handle = WindowActionParameters.SelectTarget(node, scopes);
         var result = WindowActionParameters.ActivateAndExecute(windows, handle, windows.CloseWindow, "关闭目标窗口失败。");
         if (result.Success) ActionExecutionLogging.Write(context, node, $"关闭窗口句柄 {handle}。");
         return Task.FromResult(result);
     }
 }
 
-public sealed class MinimizeWindowNodeExecutor(IWindowAutomationService windows) : NodeExecutorBase(Contracts.Nodes.NodeTypes.MinimizeWindow)
+public sealed class MinimizeWindowNodeExecutor(IWindowAutomationService windows, IWindowScopeService scopes) : NodeExecutorBase(Contracts.Nodes.NodeTypes.MinimizeWindow)
 {
     public override Task<NodeExecutionResult> ExecuteAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var handle = WindowActionParameters.SelectTarget(node, context);
+        var handle = WindowActionParameters.SelectTarget(node, scopes);
         var result = WindowActionParameters.ActivateAndExecute(windows, handle, windows.MinimizeWindow, "最小化目标窗口失败。");
         if (result.Success) ActionExecutionLogging.Write(context, node, $"最小化窗口句柄 {handle}。");
         return Task.FromResult(result);
     }
 }
 
-public sealed class ArrangeWindowsNodeExecutor(IWindowAutomationService windows) : NodeExecutorBase(Contracts.Nodes.NodeTypes.ArrangeWindows)
+public sealed class ArrangeWindowsNodeExecutor(IWindowAutomationService windows, IWindowScopeService scopes) : NodeExecutorBase(Contracts.Nodes.NodeTypes.ArrangeWindows)
 {
     public override Task<NodeExecutionResult> ExecuteAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var handles = WindowHandleSelector.SelectAll(context);
+        var handles = WindowActionParameters.SelectAll(node, scopes);
         var arranged = windows.ArrangeWindows(handles,
             NodeParameterReader.Int(node, "x", 0), NodeParameterReader.Int(node, "y", 0),
             NodeParameterReader.Int(node, "width", 800), NodeParameterReader.Int(node, "height", 600),
@@ -57,12 +57,12 @@ public sealed class ArrangeWindowsNodeExecutor(IWindowAutomationService windows)
     }
 }
 
-public sealed class SetWindowResolutionNodeExecutor(IWindowAutomationService windows) : NodeExecutorBase(Contracts.Nodes.NodeTypes.SetWindowResolution)
+public sealed class SetWindowResolutionNodeExecutor(IWindowAutomationService windows, IWindowScopeService scopes) : NodeExecutorBase(Contracts.Nodes.NodeTypes.SetWindowResolution)
 {
     public override Task<NodeExecutionResult> ExecuteAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var handle = WindowActionParameters.SelectTarget(node, context);
+        var handle = WindowActionParameters.SelectTarget(node, scopes);
         var width = NodeParameterReader.Int(node, "width");
         var height = NodeParameterReader.Int(node, "height");
         var result = WindowActionParameters.ActivateAndExecute(windows, handle, target => windows.SetWindowResolution(target, width, height), "设置窗口分辨率失败。");
@@ -73,8 +73,13 @@ public sealed class SetWindowResolutionNodeExecutor(IWindowAutomationService win
 
 internal static class WindowActionParameters
 {
-    public static nint SelectTarget(WorkflowNode node, WorkflowExecutionContext context) =>
-        WindowHandleSelector.Select(context, NodeParameterReader.Int(node, "windowHandleIndex", 0));
+    public static nint SelectTarget(WorkflowNode node, IWindowScopeService scopes) =>
+        WindowHandleSelector.Select(scopes,
+            NodeParameterReader.String(node, "titlePattern", ".*"),
+            NodeParameterReader.Int(node, "windowHandleIndex", 0));
+
+    public static IReadOnlyList<nint> SelectAll(WorkflowNode node, IWindowScopeService scopes) =>
+        WindowHandleSelector.SelectAll(scopes, NodeParameterReader.String(node, "titlePattern", ".*"));
 
     public static NodeExecutionResult ActivateAndExecute(IWindowAutomationService windows, nint handle, Func<nint, bool> action, string failure)
     {

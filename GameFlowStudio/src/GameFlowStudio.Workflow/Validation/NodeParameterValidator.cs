@@ -55,16 +55,21 @@ internal sealed class NodeParameterValidator
             case NodeTypes.SetWindowResolution:
                 WindowTarget(node); Positive(node, "width", 0); Positive(node, "height", 0); break;
             case NodeTypes.ArrangeWindows:
-                Positive(node, "columns", 2); Positive(node, "width", 800); Positive(node, "height", 600);
+                ValidateTitlePattern(node); Positive(node, "columns", 2); Positive(node, "width", 800); Positive(node, "height", 600);
                 NonNegative(node, "gapX", 0); NonNegative(node, "gapY", 0); break;
         }
     }
 
     private static void ValidateWindowScope(WorkflowNode node)
     {
+        ValidateTitlePattern(node);
+        RequiredText(node, "outputVariable");
+    }
+
+    private static void ValidateTitlePattern(WorkflowNode node)
+    {
         var pattern = NodeParameterReader.String(node, "titlePattern");
         RequiredText(node, "titlePattern");
-        RequiredText(node, "outputVariable");
         try
         {
             _ = new Regex(pattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(250));
@@ -94,6 +99,7 @@ internal sealed class NodeParameterValidator
 
     private static void WindowTarget(WorkflowNode node)
     {
+        ValidateTitlePattern(node);
         if (NodeParameterReader.Int(node, "windowHandleIndex", 0) < 0) throw new InvalidOperationException("窗口句柄索引不能为负数。");
     }
 

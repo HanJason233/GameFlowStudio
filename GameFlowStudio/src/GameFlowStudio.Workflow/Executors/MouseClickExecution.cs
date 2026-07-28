@@ -50,15 +50,20 @@ internal static class MouseClickParameterReader
 
 internal static class WindowHandleSelector
 {
-    public static nint Select(WorkflowExecutionContext context, int index)
+    public static nint Select(IWindowScopeService scopes, string titlePattern, int index)
     {
         if (index < 0) throw new InvalidOperationException("窗口句柄索引不能为负数。");
-        var handles = context.WindowHandles;
-        if (index >= handles.Count) throw new InvalidOperationException($"当前窗口作用域中没有索引为 {index} 的窗口句柄。");
+        var handles = SelectAll(scopes, titlePattern);
+        if (index >= handles.Count) throw new InvalidOperationException($"标题正则“{titlePattern}”匹配的窗口中没有索引为 {index} 的窗口句柄。");
         return handles[index];
     }
 
-    internal static IReadOnlyList<nint> SelectAll(WorkflowExecutionContext context) => context.WindowHandles;
+    internal static IReadOnlyList<nint> SelectAll(IWindowScopeService scopes, string titlePattern)
+    {
+        var handles = scopes.ResolveWindowHandles(titlePattern);
+        if (handles.Count == 0) throw new InvalidOperationException($"没有找到标题匹配正则“{titlePattern}”的窗口。");
+        return handles;
+    }
 }
 
 public static class WindowCoordinateCalculator

@@ -60,10 +60,10 @@ export const defaultParameters: Record<NodeType, Record<string, unknown>> = {
   textInput: { text: 'Hello GameFlow', intervalMs: 30 },
   wait: { durationMs: 1000 },
   runProgram: { path: '', arguments: '' },
-  closeProgram: { windowHandleIndex: 0 },
-  minimizeWindow: { windowHandleIndex: 0 },
-  arrangeWindows: { x: 0, y: 0, width: 800, height: 600, columns: 2, gapX: 20, gapY: 20 },
-  setWindowResolution: { windowHandleIndex: 0, width: 1280, height: 720 },
+  closeProgram: { titlePattern: '.*', windowHandleIndex: 0 },
+  minimizeWindow: { titlePattern: '.*', windowHandleIndex: 0 },
+  arrangeWindows: { titlePattern: '.*', x: 0, y: 0, width: 800, height: 600, columns: 2, gapX: 20, gapY: 20 },
+  setWindowResolution: { titlePattern: '.*', windowHandleIndex: 0, width: 1280, height: 720 },
 }
 
 function normalizedParameters(node: AutomationProject['nodes'][number]): Record<string, unknown> {
