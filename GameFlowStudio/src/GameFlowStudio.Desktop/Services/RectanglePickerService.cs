@@ -1,37 +1,46 @@
-using System.Windows;
 using GameFlowStudio.Automation.Coordinates;
 using GameFlowStudio.Contracts.Results;
+using GameFlowStudio.Contracts.Services;
 using GameFlowStudio.Desktop.Views;
 
 namespace GameFlowStudio.Desktop.Services;
 
-public sealed record RectanglePickResult(int X, int Y, int Width, int Height);
+public readonly record struct RectangleCaptureResult(CaptureRegion Region, CapturedFrame Frame);
 
 public interface IRectanglePickerService
 {
-    Task<RectanglePickResult?> PickAsync(WindowBounds? relativeTo = null);
+    Task<CaptureRegion?> PickAsync(WindowBounds? relativeTo = null);
+    Task<RectangleCaptureResult?> PickAndCaptureAsync(WindowBounds? relativeTo = null);
 }
 
-public sealed class RectanglePickerService(CursorPositionService cursor) : IRectanglePickerService
+public sealed class RectanglePickerService(
+    CursorPositionService cursor,
+    IDesktopCaptureService capture) : IRectanglePickerService
 {
-    public Task<RectanglePickResult?> PickAsync(WindowBounds? relativeTo = null)
+    public Task<CaptureRegion?> PickAsync(WindowBounds? relativeTo = null) =>
+        RunPickerAsync(relativeTo, static region => Task.FromResult(region));
+
+    public Task<RectangleCaptureResult?> PickAndCaptureAsync(WindowBounds? relativeTo = null) =>
+        RunPickerAsync(relativeTo, async region =>
+        {
+            var frame = await capture.CaptureAsync(region, CancellationToken.None).ConfigureAwait(true);
+            return new RectangleCaptureResult(region, frame);
+        });
+
+    private async Task<TResult?> RunPickerAsync<TResult>(
+        WindowBounds? relativeTo,
+        Func<CaptureRegion, Task<TResult>> completeSelection)
+        where TResult : struct
     {
-        var main = Application.Current.MainWindow;
-        var previous = main.WindowState;
-        main.WindowState = WindowState.Minimized;
-        RectanglePickResult? result = null;
-        try
-        {
-            var picker = new RectanglePickerWindow(cursor, relativeTo);
-            picker.ShowDialog();
-            if (picker.SelectedRegion is { } region)
-                result = new(region.X, region.Y, region.Width, region.Height);
-        }
-        finally
-        {
-            main.WindowState = previous;
-            main.Activate();
-        }
-        return Task.FromResult(result);
+        ArgumentNullException.ThrowIfNull(completeSelection);
+        using var session = DesktopPickerSession.Start();
+        await session.WaitForDesktopUpdateAsync();
+        var picker = new RectanglePickerWindow(cursor, capture, relativeTo);
+        picker.ShowDialog();
+        if (picker.SelectedRegion is not { } region) return null;
+
+        await session.WaitForDesktopUpdateAsync();
+        var result = new CaptureRegion(region.X, region.Y, region.Width, region.Height);
+        return await completeSelection(result).ConfigureAwait(true);
     }
 }

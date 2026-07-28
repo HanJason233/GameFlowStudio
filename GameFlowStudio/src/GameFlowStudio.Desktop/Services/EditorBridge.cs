@@ -58,6 +58,9 @@ public sealed class EditorBridge(ILogger<EditorBridge> logger) : IEditorBridge, 
                 ThrowIfDisposed();
                 if (!ReferenceEquals(_webView, webView)) throw new InvalidOperationException("编辑器桥接初始化状态已改变。");
                 core.Settings.AreDevToolsEnabled = true;
+                core.Settings.IsZoomControlEnabled = false;
+                core.Settings.IsPinchZoomEnabled = false;
+                webView.ZoomFactor = 1.0;
                 core.WebMessageReceived += OnWebMessageReceived;
                 _subscribedCore = core;
                 core.SetVirtualHostNameToFolderMapping("app.gameflow", assets, CoreWebView2HostResourceAccessKind.DenyCors);

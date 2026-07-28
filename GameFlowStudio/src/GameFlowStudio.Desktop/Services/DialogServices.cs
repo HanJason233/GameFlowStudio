@@ -1,6 +1,5 @@
 using System.IO;
 using System.Windows;
-using GameFlowStudio.Contracts.Results;
 using GameFlowStudio.Contracts.Services;
 using GameFlowStudio.Desktop.Views;
 using Microsoft.Win32;
@@ -41,46 +40,5 @@ public sealed class FileDialogService : IFileDialogService
         settings.IsProjectFilesPaneVisible = copy.IsProjectFilesPaneVisible; settings.IsScriptListPaneVisible = copy.IsScriptListPaneVisible; settings.IsToolboxPaneVisible = copy.IsToolboxPaneVisible; settings.IsPropertiesPaneVisible = copy.IsPropertiesPaneVisible; settings.IsOutputPaneVisible = copy.IsOutputPaneVisible;
         settings.DefaultProjectDirectory = copy.DefaultProjectDirectory; settings.GeminiApiKey = copy.GeminiApiKey; settings.RunHotkey = copy.RunHotkey; settings.PauseHotkey = copy.PauseHotkey; settings.StopHotkey = copy.StopHotkey; settings.Theme = copy.Theme; settings.StepCategoryLayout = copy.StepCategoryLayout;
         return true;
-    }
-}
-
-public sealed record CoordinatePickResult(int X, int Y, string? Color = null);
-
-public interface ICoordinatePickerService { Task<CoordinatePickResult?> PickAsync(WindowBounds? relativeTo = null); }
-public sealed class CoordinatePickerService(
-    Automation.Coordinates.CursorPositionService cursor,
-    IDesktopCaptureService capture) : ICoordinatePickerService
-{
-    public Task<CoordinatePickResult?> PickAsync(WindowBounds? relativeTo = null)
-    {
-        var main = Application.Current.MainWindow; var previous = main.WindowState;
-        main.WindowState = WindowState.Minimized;
-        var picker = new CoordinatePickerWindow(cursor, relativeTo); picker.ShowDialog();
-        CoordinatePickResult? result = null;
-        try
-        {
-            if (picker.SelectedPosition is { } position)
-            {
-                string? color = null;
-                try
-                {
-                    var frame = capture.CaptureAsync(new CaptureRegion(position.X, position.Y, 1, 1), CancellationToken.None)
-                        .GetAwaiter().GetResult();
-                    var pixel = frame.Pixel(0, 0);
-                    if (pixel.Length >= 3) color = $"#{pixel[2]:X2}{pixel[1]:X2}{pixel[0]:X2}";
-                }
-                catch
-                {
-                    // 坐标拾取仍然有效，颜色读取失败时保留空值。
-                }
-                result = new CoordinatePickResult(position.X, position.Y, color);
-            }
-        }
-        finally
-        {
-            main.WindowState = previous;
-            main.Activate();
-        }
-        return Task.FromResult(result);
     }
 }

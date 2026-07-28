@@ -416,14 +416,16 @@ public sealed class MainViewModel : ObservableObject
     private async Task PickImageAsync(CoordinatePickMode mode, WindowInfo? window)
     {
         WindowBounds? bounds = window is null ? null : _windows.GetWindowBounds(window.Handle);
-        var region = await _rectanglePicker.PickAsync(bounds);
-        if (region is null) return;
-
-        var path = _imageCapture.CreatePrivateTemplatePath();
+        CaptureRegion region;
+        string path;
 
         try
         {
-            await _imageCapture.SaveAsync(new CaptureRegion(region.X, region.Y, region.Width, region.Height), path);
+            if (await _rectanglePicker.PickAndCaptureAsync(bounds) is not { } selection) return;
+
+            region = selection.Region;
+            path = _imageCapture.CreatePrivateTemplatePath();
+            await _imageCapture.SaveAsync(selection.Frame, path);
         }
         catch (Exception exception)
         {
@@ -448,8 +450,7 @@ public sealed class MainViewModel : ObservableObject
     private async Task PickOcrRegionAsync(CoordinatePickMode mode, WindowInfo? window)
     {
         WindowBounds? bounds = window is null ? null : _windows.GetWindowBounds(window.Handle);
-        var region = await _rectanglePicker.PickAsync(bounds);
-        if (region is null) return;
+        if (await _rectanglePicker.PickAsync(bounds) is not { } region) return;
 
         var x = mode == CoordinatePickMode.Screen ? region.X : region.X - bounds!.Left;
         var y = mode == CoordinatePickMode.Screen ? region.Y : region.Y - bounds!.Top;

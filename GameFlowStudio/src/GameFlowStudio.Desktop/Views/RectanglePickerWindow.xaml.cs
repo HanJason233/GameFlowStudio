@@ -4,6 +4,7 @@ using System.Windows.Input;
 using System.Windows.Threading;
 using GameFlowStudio.Automation.Coordinates;
 using GameFlowStudio.Contracts.Results;
+using GameFlowStudio.Contracts.Services;
 
 namespace GameFlowStudio.Desktop.Views;
 
@@ -17,15 +18,15 @@ public partial class RectanglePickerWindow : Window
 
     public (int X, int Y, int Width, int Height)? SelectedRegion { get; private set; }
 
-    public RectanglePickerWindow(CursorPositionService cursor, WindowBounds? relativeTo = null)
+    public RectanglePickerWindow(
+        CursorPositionService cursor,
+        IDesktopCaptureService capture,
+        WindowBounds? relativeTo = null)
     {
         InitializeComponent();
+        PhysicalOverlayWindowPlacement.Attach(this, () => capture.VirtualScreenBounds);
         _cursor = cursor;
         _relativeTo = relativeTo;
-        Left = SystemParameters.VirtualScreenLeft;
-        Top = SystemParameters.VirtualScreenTop;
-        Width = SystemParameters.VirtualScreenWidth;
-        Height = SystemParameters.VirtualScreenHeight;
         _timer = new(TimeSpan.FromMilliseconds(33), DispatcherPriority.Render, (_, _) => UpdatePosition(), Dispatcher);
         Loaded += (_, _) => { Activate(); Focus(); _timer.Start(); };
         Closed += (_, _) => { _timer.Stop(); if (IsMouseCaptured) ReleaseMouseCapture(); };
@@ -34,6 +35,7 @@ public partial class RectanglePickerWindow : Window
     private void UpdatePosition()
     {
         var point = _cursor.GetPosition();
+        var localPoint = PhysicalScreenCoordinateMapper.ToLocalDip(this, point.X, point.Y);
         if (_start is { } start && _isSelecting)
         {
             DrawSelection(start, point);
@@ -45,8 +47,8 @@ public partial class RectanglePickerWindow : Window
             CoordinateText.Text = FormatCoordinates(point, null);
         }
 
-        Canvas.SetLeft(CoordinateBadge, Math.Clamp(point.X - Left + 18, 0, Math.Max(0, Width - 210)));
-        Canvas.SetTop(CoordinateBadge, Math.Clamp(point.Y - Top + 18, 0, Math.Max(0, Height - 52)));
+        Canvas.SetLeft(CoordinateBadge, Math.Clamp(localPoint.X + 18, 0, Math.Max(0, ActualWidth - CoordinateBadge.ActualWidth)));
+        Canvas.SetTop(CoordinateBadge, Math.Clamp(localPoint.Y + 18, 0, Math.Max(0, ActualHeight - CoordinateBadge.ActualHeight)));
     }
 
     private void OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -91,10 +93,15 @@ public partial class RectanglePickerWindow : Window
     private void DrawSelection((int X, int Y) start, (int X, int Y) end)
     {
         var region = Normalize(start, end);
-        Canvas.SetLeft(SelectionRectangle, region.X - Left);
-        Canvas.SetTop(SelectionRectangle, region.Y - Top);
-        SelectionRectangle.Width = region.Width;
-        SelectionRectangle.Height = region.Height;
+        var topLeft = PhysicalScreenCoordinateMapper.ToLocalDip(this, region.X, region.Y);
+        var bottomRight = PhysicalScreenCoordinateMapper.ToLocalDip(
+            this,
+            checked(region.X + region.Width),
+            checked(region.Y + region.Height));
+        Canvas.SetLeft(SelectionRectangle, Math.Min(topLeft.X, bottomRight.X));
+        Canvas.SetTop(SelectionRectangle, Math.Min(topLeft.Y, bottomRight.Y));
+        SelectionRectangle.Width = Math.Abs(bottomRight.X - topLeft.X);
+        SelectionRectangle.Height = Math.Abs(bottomRight.Y - topLeft.Y);
         SelectionRectangle.Visibility = Visibility.Visible;
     }
 

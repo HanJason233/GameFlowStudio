@@ -5,6 +5,9 @@ namespace GameFlowStudio.Automation.Interop;
 
 internal static class NativeMethods
 {
+    public static readonly nint DpiAwarenessContextPerMonitorAware = new(-3);
+    public static readonly nint DpiAwarenessContextPerMonitorAwareV2 = new(-4);
+
     public const uint InputMouse = 0;
     public const uint InputKeyboard = 1;
     public const uint KeyUp = 0x0002;
@@ -22,10 +25,14 @@ internal static class NativeMethods
     public const uint SwpNoZOrder = 0x0004;
     public const uint SwpNoActivate = 0x0010;
     public const uint SwpShowWindow = 0x0040;
+    public const uint WdaExcludeFromCapture = 0x00000011;
 
     [DllImport("user32.dll", SetLastError = true)] public static extern uint SendInput(uint count, INPUT[] inputs, int size);
-    [DllImport("user32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)] public static extern bool SetCursorPos(int x, int y);
-    [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] public static extern bool GetCursorPos(out POINT point);
+    [DllImport("user32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)] public static extern bool SetPhysicalCursorPos(int x, int y);
+    [DllImport("user32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)] public static extern bool GetPhysicalCursorPos(out POINT point);
+    [DllImport("user32.dll", SetLastError = true)] public static extern nint SetThreadDpiAwarenessContext(nint dpiContext);
+    [DllImport("user32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool EnumDisplayMonitors(nint deviceContext, nint clipRectangle, MonitorEnumProc callback, nint data);
     [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] public static extern bool EnumWindows(EnumWindowsProc callback, nint parameter);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetWindowText(nint window, StringBuilder text, int count);
     [DllImport("user32.dll")] public static extern int GetWindowTextLength(nint window);
@@ -38,6 +45,11 @@ internal static class NativeMethods
     [DllImport("user32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)] public static extern bool GetWindowRect(nint window, out RECT rectangle);
     [DllImport("user32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)] public static extern bool RegisterHotKey(nint window, int id, uint modifiers, uint virtualKey);
     [DllImport("user32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)] public static extern bool UnregisterHotKey(nint window, int id);
+    [DllImport("user32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)] public static extern bool SetWindowDisplayAffinity(nint window, uint affinity);
+    [DllImport("dwmapi.dll", PreserveSig = true)] public static extern int DwmFlush();
+
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public delegate bool MonitorEnumProc(nint monitor, nint monitorDeviceContext, ref RECT monitorRectangle, nint data);
 
     public delegate bool EnumWindowsProc(nint window, nint parameter);
 }

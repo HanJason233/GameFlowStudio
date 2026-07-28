@@ -14,7 +14,8 @@ public sealed class InputAutomationService : IInputAutomationService
     public Task MoveMouseAsync(int x, int y, int durationMs, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (!NativeMethods.SetCursorPos(x, y)) throw new Win32Exception(Marshal.GetLastWin32Error(), "移动鼠标失败。");
+        if (!NativeMethods.SetPhysicalCursorPos(x, y))
+            throw new Win32Exception(Marshal.GetLastWin32Error(), "移动鼠标到物理像素坐标失败。");
         return Task.CompletedTask;
     }
 

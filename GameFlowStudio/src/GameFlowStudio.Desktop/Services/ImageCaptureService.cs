@@ -11,6 +11,7 @@ public interface IImageCaptureService
 {
     string CreatePrivateTemplatePath();
     Task SaveAsync(CaptureRegion region, string path, CancellationToken cancellationToken = default);
+    Task SaveAsync(CapturedFrame frame, string path, CancellationToken cancellationToken = default);
 }
 
 public sealed class ImageCaptureService(IDesktopCaptureService capture) : IImageCaptureService
@@ -24,11 +25,24 @@ public sealed class ImageCaptureService(IDesktopCaptureService capture) : IImage
     public async Task SaveAsync(CaptureRegion region, string path, CancellationToken cancellationToken = default)
     {
         if (!region.IsValid) throw new ArgumentException("截图区域无效。", nameof(region));
-        if (string.IsNullOrWhiteSpace(path)) throw new ArgumentException("截图路径不能为空。", nameof(path));
+        ValidatePath(path);
 
         var frame = await capture.CaptureAsync(region, cancellationToken).ConfigureAwait(true);
+        await SaveAsync(frame, path, cancellationToken).ConfigureAwait(true);
+    }
+
+    public async Task SaveAsync(CapturedFrame frame, string path, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(frame);
+        if (frame.Width <= 0 || frame.Width > int.MaxValue / 4 || frame.Height <= 0)
+            throw new ArgumentException("截图帧无效。", nameof(frame));
+        var stride = checked(frame.Width * 4);
+        if (frame.Bgra32 is null || frame.Bgra32.LongLength < (long)stride * frame.Height)
+            throw new ArgumentException("截图帧像素数据不完整。", nameof(frame));
+        ValidatePath(path);
+
         cancellationToken.ThrowIfCancellationRequested();
-        var bitmap = BitmapSource.Create(frame.Width, frame.Height, 96, 96, PixelFormats.Bgra32, null, frame.Bgra32, frame.Width * 4);
+        var bitmap = BitmapSource.Create(frame.Width, frame.Height, 96, 96, PixelFormats.Bgra32, null, frame.Bgra32, stride);
         bitmap.Freeze();
 
         var directory = Path.GetDirectoryName(Path.GetFullPath(path));
@@ -37,5 +51,11 @@ public sealed class ImageCaptureService(IDesktopCaptureService capture) : IImage
         var encoder = new PngBitmapEncoder();
         encoder.Frames.Add(BitmapFrame.Create(bitmap));
         encoder.Save(stream);
+    }
+
+    private static void ValidatePath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            throw new ArgumentException("截图路径不能为空。", nameof(path));
     }
 }

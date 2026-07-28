@@ -38,6 +38,19 @@ public sealed class MouseClickExecutionTests
     }
 
     [Fact]
+    public void WindowRelativeCoordinatesRoundTripAcrossNegativeDesktopOrigins()
+    {
+        var bounds = new WindowBounds(101, -1600, -120, -800, 780);
+        const int screenX = -1234;
+        const int screenY = 456;
+
+        var relative = WindowCoordinateCalculator.ToRelative(bounds, screenX, screenY);
+        var restored = WindowCoordinateCalculator.AddOffset(bounds, relative.X, relative.Y);
+
+        Assert.Equal((screenX, screenY), restored);
+    }
+
+    [Fact]
     public async Task RelativeClickAddsWindowOriginToOffset()
     {
         var input = new RecordingInputAutomationService();

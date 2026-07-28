@@ -15,6 +15,14 @@ WPF Desktop ── WebView2 JSON ── React Flow Editor
 
 Desktop 负责窗口生命周期、文件对话框、运行命令和可视状态，不绘制流程。Editor 负责图形编辑，不执行自动化。Workflow 只依赖 Contracts 中的接口，因此测试可注入假的输入或节点执行器。Automation 是唯一允许调用 `user32.dll` 的项目。
 
+## 屏幕坐标契约
+
+- Automation、Workflow 和项目参数中的屏幕坐标统一使用虚拟桌面物理像素；`CursorPositionService`、`CaptureRegion`、`CapturedFrame` 和鼠标输入必须保持同一坐标系，并允许多显示器负坐标。
+- 拾取遮罩 HWND 使用 PMv2 `SetWindowPos` 按物理虚拟桌面边界放置，并在 DPI/显示配置变化后重新应用；WPF Canvas 仍使用 DIP，只能在绘制边界通过 `PointFromScreen` 把物理屏幕像素转换为窗口本地 DIP，不能直接用物理坐标减 `Window.Left`。
+- 窗口相对坐标继续以 `GetWindowRect` 的窗口外框左上角为原点，以兼容已有项目；取点和执行必须使用同一原点语义。
+- 取色窗口通过 `WDA_EXCLUDEFROMCAPTURE` 排除于现代 Windows 捕获；不支持时仅隐藏与采样区域相交的拾取 UI。颜色确认会在遮罩关闭并完成 DWM 刷新后重采样所选物理像素。模板截图会在主窗口恢复前冻结为 `CapturedFrame`，保存阶段不得再次从桌面捕获。
+- React Flow 的画布坐标属于 WebView2/CSS 世界坐标，不与桌面物理像素互换；WebView2 页面缩放固定为 100%，系统 DPI 仍由 WPF/WebView2 自身处理。
+
 ## 生命周期和数据流
 
 1. WPF Host 创建服务容器、日志提供程序、MainViewModel 和主窗口。

@@ -38,6 +38,7 @@ public sealed class WindowAutomationService : IWindowAutomationService
 
     public bool ArrangeWindows(IReadOnlyList<nint> handles, int x, int y, int width, int height, int columns, int gapX, int gapY)
     {
+        using var dpiScope = ThreadDpiAwarenessScope.EnterPerMonitorAware();
         if (handles.Count == 0 || columns <= 0 || width <= 0 || height <= 0) return false;
         var succeeded = true;
         for (var index = 0; index < handles.Count; index++)
@@ -53,6 +54,7 @@ public sealed class WindowAutomationService : IWindowAutomationService
 
     public bool SetWindowResolution(nint handle, int width, int height)
     {
+        using var dpiScope = ThreadDpiAwarenessScope.EnterPerMonitorAware();
         if (!TryGetPosition(handle, out var bounds) || !NativeMethods.GetClientRect(handle, out var client)) return false;
         var frameWidth = bounds.Right - bounds.Left - client.Right;
         var frameHeight = bounds.Bottom - bounds.Top - client.Bottom;
@@ -62,6 +64,7 @@ public sealed class WindowAutomationService : IWindowAutomationService
 
     public WindowBounds GetWindowBounds(nint handle)
     {
+        using var dpiScope = ThreadDpiAwarenessScope.EnterPerMonitorAware();
         if (handle == nint.Zero) throw new ArgumentException("窗口句柄不能为空。", nameof(handle));
         if (!NativeMethods.GetWindowRect(handle, out var rectangle))
             throw new Win32Exception(Marshal.GetLastWin32Error(), "无法获取目标窗口边界。");
@@ -70,6 +73,7 @@ public sealed class WindowAutomationService : IWindowAutomationService
 
     private static bool TryGetPosition(nint handle, out WindowBounds bounds)
     {
+        using var dpiScope = ThreadDpiAwarenessScope.EnterPerMonitorAware();
         if (handle == nint.Zero || !NativeMethods.GetWindowRect(handle, out var rectangle))
         {
             bounds = default!;
