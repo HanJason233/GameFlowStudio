@@ -43,10 +43,10 @@
 | `imageCondition` | `coordinateMode`, `templatePath`, `x`, `y`, 可选 `width`/`height`、`tolerance`、`matchThreshold` | `true`, `false` |
 | `ocrCondition` | `coordinateMode`, `x`, `y`, `width`, `height`, `targetText`, `matchThreshold` | `true`, `false` |
 | `runProgram` | `path`, `arguments` | `output` |
-| `closeProgram` | `windowHandleVariable`, `windowHandleIndex` | `output` |
-| `minimizeWindow` | `windowHandleVariable`, `windowHandleIndex` | `output` |
-| `arrangeWindows` | `windowHandleVariable`, `x`, `y`, `width`, `height`, `columns`, `gapX`, `gapY` | `output` |
-| `setWindowResolution` | `windowHandleVariable`, `windowHandleIndex`, `width`, `height` | `output` |
+| `closeProgram` | `windowHandleIndex` | `output` |
+| `minimizeWindow` | `windowHandleIndex` | `output` |
+| `arrangeWindows` | `x`, `y`, `width`, `height`, `columns`, `gapX`, `gapY` | `output` |
+| `setWindowResolution` | `windowHandleIndex`, `width`, `height` | `output` |
 | `end` | 无 | 无 |
 
 `coordinateMode` 默认为 `followScript`（跟随脚本）：脚本使用整个屏幕时按屏幕绝对坐标，脚本使用正则匹配窗口时按当前目标窗口的相对坐标。`absolute`（强制绝对）和 `relative`（强制相对）会覆盖脚本窗口范围。

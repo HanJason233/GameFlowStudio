@@ -47,7 +47,7 @@ public sealed class ArrangeWindowsNodeExecutor(IWindowAutomationService windows)
     public override Task<NodeExecutionResult> ExecuteAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var handles = WindowHandleSelector.SelectAll(context, NodeParameterReader.String(node, "windowHandleVariable", "windowHandles"));
+        var handles = WindowHandleSelector.SelectAll(context);
         var arranged = windows.ArrangeWindows(handles,
             NodeParameterReader.Int(node, "x", 0), NodeParameterReader.Int(node, "y", 0),
             NodeParameterReader.Int(node, "width", 800), NodeParameterReader.Int(node, "height", 600),
@@ -74,9 +74,7 @@ public sealed class SetWindowResolutionNodeExecutor(IWindowAutomationService win
 internal static class WindowActionParameters
 {
     public static nint SelectTarget(WorkflowNode node, WorkflowExecutionContext context) =>
-        WindowHandleSelector.Select(context,
-            NodeParameterReader.String(node, "windowHandleVariable", "windowHandles"),
-            NodeParameterReader.Int(node, "windowHandleIndex", 0));
+        WindowHandleSelector.Select(context, NodeParameterReader.Int(node, "windowHandleIndex", 0));
 
     public static NodeExecutionResult ActivateAndExecute(IWindowAutomationService windows, nint handle, Func<nint, bool> action, string failure)
     {

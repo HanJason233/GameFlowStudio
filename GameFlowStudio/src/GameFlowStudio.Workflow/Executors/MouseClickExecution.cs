@@ -1,4 +1,3 @@
-using System.Text.Json;
 using GameFlowStudio.Contracts.Enums;
 using GameFlowStudio.Contracts.Results;
 using GameFlowStudio.Contracts.Services;
@@ -51,37 +50,15 @@ internal static class MouseClickParameterReader
 
 internal static class WindowHandleSelector
 {
-    public static nint Select(WorkflowExecutionContext context, string variableName, int index)
+    public static nint Select(WorkflowExecutionContext context, int index)
     {
         if (index < 0) throw new InvalidOperationException("窗口句柄索引不能为负数。");
-        var handles = ReadHandles(context, variableName);
-        if (index >= handles.Count) throw new InvalidOperationException($"窗口句柄变量 {variableName} 中没有索引为 {index} 的句柄。");
+        var handles = context.WindowHandles;
+        if (index >= handles.Count) throw new InvalidOperationException($"当前窗口作用域中没有索引为 {index} 的窗口句柄。");
         return handles[index];
     }
 
-    internal static IReadOnlyList<nint> SelectAll(WorkflowExecutionContext context, string variableName) => ReadHandles(context, variableName);
-
-    private static IReadOnlyList<nint> ReadHandles(WorkflowExecutionContext context, string variableName)
-    {
-        if (!context.Variables.TryGetValue(variableName, out var value) || value is null)
-        {
-            if (variableName.Equals("windowHandles", StringComparison.Ordinal) && context.WindowHandles.Count > 0)
-                return context.WindowHandles;
-            throw new InvalidOperationException($"找不到窗口句柄变量：{variableName}。");
-        }
-
-        return value switch
-        {
-            long[] handles => handles.Select(handle => (nint)handle).ToArray(),
-            int[] handles => handles.Select(handle => (nint)handle).ToArray(),
-            nint[] handles => handles,
-            JsonElement element when element.ValueKind == JsonValueKind.Array =>
-                element.EnumerateArray().Select(element => (nint)element.GetInt64()).ToArray(),
-            long handle => [(nint)handle],
-            int handle => [(nint)handle],
-            _ => throw new InvalidOperationException($"窗口句柄变量 {variableName} 的值不是有效句柄集合。")
-        };
-    }
+    internal static IReadOnlyList<nint> SelectAll(WorkflowExecutionContext context) => context.WindowHandles;
 }
 
 public static class WindowCoordinateCalculator

@@ -66,7 +66,6 @@ public sealed class NodeParameterItem(string name, string value, JsonValueKind k
         ["text"] = "输入文本",
         ["titlePattern"] = "窗口标题正则",
         ["outputVariable"] = "句柄输出变量",
-        ["windowHandleVariable"] = "窗口句柄变量",
         ["windowHandleIndex"] = "窗口句柄索引",
         ["randomMinMs"] = "随机最短时间，毫秒",
         ["randomMaxMs"] = "随机最长时间，毫秒",

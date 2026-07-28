@@ -60,22 +60,24 @@ export const defaultParameters: Record<NodeType, Record<string, unknown>> = {
   textInput: { text: 'Hello GameFlow', intervalMs: 30 },
   wait: { durationMs: 1000 },
   runProgram: { path: '', arguments: '' },
-  closeProgram: { windowHandleVariable: 'windowHandles', windowHandleIndex: 0 },
-  minimizeWindow: { windowHandleVariable: 'windowHandles', windowHandleIndex: 0 },
-  arrangeWindows: { windowHandleVariable: 'windowHandles', x: 0, y: 0, width: 800, height: 600, columns: 2, gapX: 20, gapY: 20 },
-  setWindowResolution: { windowHandleVariable: 'windowHandles', windowHandleIndex: 0, width: 1280, height: 720 },
+  closeProgram: { windowHandleIndex: 0 },
+  minimizeWindow: { windowHandleIndex: 0 },
+  arrangeWindows: { x: 0, y: 0, width: 800, height: 600, columns: 2, gapX: 20, gapY: 20 },
+  setWindowResolution: { windowHandleIndex: 0, width: 1280, height: 720 },
 }
 
 function normalizedParameters(node: AutomationProject['nodes'][number]): Record<string, unknown> {
   const coordinateNodes: NodeType[] = ['colorCondition', 'imageCondition', 'ocrCondition', 'mouseClick', 'mouseMove', 'mouseDrag', 'mouseScroll']
-  if (!coordinateNodes.includes(node.type)) return node.data.parameters
+  const windowProgramNodes: NodeType[] = ['closeProgram', 'minimizeWindow', 'arrangeWindows', 'setWindowResolution']
+  if (!coordinateNodes.includes(node.type) && !windowProgramNodes.includes(node.type)) return node.data.parameters
   const parameters = { ...defaultParameters[node.type], ...node.data.parameters }
+  if (windowProgramNodes.includes(node.type)) {
+    delete parameters.windowHandleVariable
+    return parameters
+  }
   if (parameters.coordinateMode === 'screen') parameters.coordinateMode = 'absolute'
   if (parameters.coordinateMode === 'windowRelative') parameters.coordinateMode = 'relative'
-  if (node.type === 'mouseClick') {
-    delete parameters.windowHandleVariable
-    delete parameters.windowHandleIndex
-  }
+  if (node.type === 'mouseClick') delete parameters.windowHandleIndex
   return parameters
 }
 
