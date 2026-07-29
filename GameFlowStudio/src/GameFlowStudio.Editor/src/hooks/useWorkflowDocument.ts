@@ -72,6 +72,26 @@ export function useWorkflowDocument() {
 
   const clearExecutionState = useCallback(() => setNodes(current => current.map(node => ({ ...node, data: { ...node.data, executionStatus: 'none' } }))), [setNodes])
 
+  const selectNodes = useCallback((nodeIds: string[]) => {
+    const selectedIds = new Set(nodeIds)
+    setNodes(current => current.map(node => ({ ...node, selected: selectedIds.has(node.id) })))
+  }, [setNodes])
+
+  const deleteNodes = useCallback((nodeIds: string[]) => {
+    if (readOnly || nodeIds.length === 0) return
+    const deletedIds = new Set(nodeIds)
+    setNodes(current => current.filter(node => !deletedIds.has(node.id)))
+    setEdges(current => current.filter(edge => !deletedIds.has(edge.source) && !deletedIds.has(edge.target)))
+    markChanged()
+  }, [markChanged, readOnly, setEdges, setNodes])
+
+  const deleteEdges = useCallback((edgeIds: string[]) => {
+    if (readOnly || edgeIds.length === 0) return
+    const deletedIds = new Set(edgeIds)
+    setEdges(current => current.filter(edge => !deletedIds.has(edge.id)))
+    markChanged()
+  }, [markChanged, readOnly, setEdges])
+
   const onConnect = useCallback((connection: Connection) => {
     if (readOnly) return
     setEdges(current => addEdge({ ...connection, id: `edge-${crypto.randomUUID()}`, type: 'smoothstep' }, current))
@@ -99,7 +119,7 @@ export function useWorkflowDocument() {
 
   return {
     nodes, edges, readOnly, setNodes, setReadOnly, exportDocument, importDocument, addNode,
-    updateNodeData, updateExecutionStatus, clearExecutionState, markChanged,
+    updateNodeData, updateExecutionStatus, clearExecutionState, selectNodes, deleteNodes, deleteEdges, markChanged,
     onConnect, onNodesChange, onEdgesChange, arrangeNodes,
   }
 }

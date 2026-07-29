@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { nextActionId, type GameFlowNode } from '../types/workflow'
 
 interface ClipboardNode {
@@ -11,22 +11,39 @@ export function useNodeClipboard(
   setNodes: React.Dispatch<React.SetStateAction<GameFlowNode[]>>,
   readOnly: boolean,
   markChanged: () => void,
-): void {
+): { copyNodes: (nodeIds: string[]) => void; pasteNodes: () => void; hasCopiedNodes: boolean } {
   const clipboard = useRef<ClipboardNode[]>([])
+  const [hasCopiedNodes, setHasCopiedNodes] = useState(false)
+
+  const copyNodes = useCallback((nodeIds: string[]) => {
+    if (readOnly) return
+    const ids = new Set(nodeIds)
+    setHasCopiedNodes(copyNodesToClipboard(nodes.filter(node => ids.has(node.id)), clipboard))
+  }, [nodes, readOnly])
+
+  const pasteNodes = useCallback(() => {
+    if (readOnly || clipboard.current.length === 0) return
+    pasteNodesFromClipboard(clipboard.current, setNodes, markChanged)
+  }, [markChanged, readOnly, setNodes])
 
   useEffect(() => {
     const keyHandler = (event: KeyboardEvent) => {
       if (readOnly) return
-      if (event.ctrlKey && event.key.toLowerCase() === 'c') copySelectedNodes(nodes, clipboard)
-      if (event.ctrlKey && event.key.toLowerCase() === 'v' && clipboard.current.length) pasteNodes(event, clipboard.current, setNodes, markChanged)
+      if (event.ctrlKey && event.key.toLowerCase() === 'c') setHasCopiedNodes(copyNodesToClipboard(nodes.filter(node => node.selected), clipboard))
+      if (event.ctrlKey && event.key.toLowerCase() === 'v' && clipboard.current.length) {
+        event.preventDefault()
+        pasteNodesFromClipboard(clipboard.current, setNodes, markChanged)
+      }
     }
     window.addEventListener('keydown', keyHandler)
     return () => window.removeEventListener('keydown', keyHandler)
   }, [markChanged, nodes, readOnly, setNodes])
+
+  return { copyNodes, pasteNodes, hasCopiedNodes }
 }
 
-function copySelectedNodes(nodes: GameFlowNode[], clipboard: React.MutableRefObject<ClipboardNode[]>): void {
-  clipboard.current = nodes.filter(node => node.selected).map(node => ({
+function copyNodesToClipboard(nodes: GameFlowNode[], clipboard: React.MutableRefObject<ClipboardNode[]>): boolean {
+  clipboard.current = nodes.map(node => ({
     position: { ...node.position },
     data: {
       nodeType: node.data.nodeType,
@@ -34,10 +51,10 @@ function copySelectedNodes(nodes: GameFlowNode[], clipboard: React.MutableRefObj
       parameters: structuredClone(node.data.parameters),
     },
   }))
+  return clipboard.current.length > 0
 }
 
-function pasteNodes(event: KeyboardEvent, clipboard: ClipboardNode[], setNodes: React.Dispatch<React.SetStateAction<GameFlowNode[]>>, markChanged: () => void): void {
-  event.preventDefault()
+function pasteNodesFromClipboard(clipboard: ClipboardNode[], setNodes: React.Dispatch<React.SetStateAction<GameFlowNode[]>>, markChanged: () => void): void {
   setNodes(current => {
     let nextId = Number(nextActionId(current))
     const pasted = clipboard.map((node): GameFlowNode => ({
