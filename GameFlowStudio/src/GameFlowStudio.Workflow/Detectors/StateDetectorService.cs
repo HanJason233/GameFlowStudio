@@ -4,6 +4,7 @@ using GameFlowStudio.Contracts.Results;
 using GameFlowStudio.Contracts.Services;
 using GameFlowStudio.Contracts.States;
 using GameFlowStudio.Workflow.Coordinates;
+using OpenCvSharp;
 
 namespace GameFlowStudio.Workflow.Detectors;
 
@@ -95,7 +96,13 @@ public sealed class ImageStateDetector : IStateDetector
         var frame = await context.CaptureAsync(search, cancellationToken).ConfigureAwait(false);
         var tolerance = Math.Clamp(DetectorParameterReader.Int(detector, "tolerance", 10), 0, 255);
         var threshold = Math.Clamp(DetectorParameterReader.Double(detector, "matchThreshold", 0.95), 0, 1);
-        var best = FindBestMatch(frame, template, tolerance, cancellationToken);
+        var engine = DetectorParameterReader.String(detector, "imageMatchEngine", "custom").Trim().ToLowerInvariant();
+        var best = engine switch
+        {
+            "custom" or "" => FindBestMatch(frame, template, tolerance, cancellationToken),
+            "opencv" => FindBestMatchWithOpenCv(frame, template, cancellationToken),
+            _ => throw new InvalidOperationException("图像匹配引擎只支持自实现或 OpenCV。")
+        };
         var state = best >= threshold ? 1 : 0;
         return StateDetectorService.Result(detector, state, true,
             $"最佳匹配置信度 {best:P1} / 要求 {threshold:P1}；容差 ±{tolerance}；搜索区域 ({search.X},{search.Y},{search.Width}×{search.Height})；结果 {DetectorLogFormatting.Outcome(state == 1)}。");
@@ -139,6 +146,23 @@ public sealed class ImageStateDetector : IStateDetector
             if (best >= 1) return best;
         }
         return best;
+    }
+
+    private static double FindBestMatchWithOpenCv(CapturedFrame frame, DetectorImage template, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (template.Width > frame.Width || template.Height > frame.Height) return 0;
+
+        using var frameBgra = Mat.FromPixelData(frame.Height, frame.Width, MatType.CV_8UC4, frame.Bgra32);
+        using var templateBgra = Mat.FromPixelData(template.Height, template.Width, MatType.CV_8UC4, template.Bgra32);
+        using var frameBgr = new Mat();
+        using var templateBgr = new Mat();
+        using var result = new Mat();
+        Cv2.CvtColor(frameBgra, frameBgr, ColorConversionCodes.BGRA2BGR);
+        Cv2.CvtColor(templateBgra, templateBgr, ColorConversionCodes.BGRA2BGR);
+        Cv2.MatchTemplate(frameBgr, templateBgr, result, TemplateMatchModes.SqDiffNormed);
+        Cv2.MinMaxLoc(result, out var minimum, out _, out _, out _);
+        return Math.Clamp(1d - minimum, 0, 1);
     }
 }
 

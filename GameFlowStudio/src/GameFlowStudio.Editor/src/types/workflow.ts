@@ -57,7 +57,7 @@ export const nodeLabels: Record<NodeType, string> = {
 
 export const defaultParameters: Record<NodeType, Record<string, unknown>> = {
   colorCondition: { coordinateMode: 'followScript', x: 0, y: 0, width: 1, height: 1, targetColor: '#FFFFFF', tolerance: 10, minMatchRatio: 1 },
-  imageCondition: { coordinateMode: 'followScript', templatePath: '', x: 0, y: 0, tolerance: 10, matchThreshold: 0.95 },
+  imageCondition: { coordinateMode: 'followScript', imageMatchEngine: 'custom', templatePath: '', x: 0, y: 0, tolerance: 10, matchThreshold: 0.95 },
   ocrCondition: { coordinateMode: 'followScript', x: 0, y: 0, width: 1, height: 1, targetText: '', matchThreshold: 0.8 },
   jump: { scriptId: '', actionId: '' },
   start: {}, end: {},

@@ -215,8 +215,8 @@
                             <controls:SelectableTextBlock Text="动作 ID" Foreground="#94A3B8"/>
                             <controls:SelectableTextBlock Text="{Binding Path=Id, Mode=OneWay}" Foreground="#E2E8F0" TextWrapping="Wrap" Margin="0,0,0,8"/>
                             <controls:SelectableTextBlock Text="直接配置本节点的检测内容，命中后从 true 分支继续，否则从 false 分支继续。" Foreground="#94A3B8" FontSize="10" TextWrapping="Wrap" Margin="3,0,3,10"/>
-                            <StackPanel Visibility="{Binding HasCoordinateParameters, Converter={StaticResource BoolVisibility}}">
-                                <controls:SelectableTextBlock Text="坐标基准" Foreground="#94A3B8" Margin="0,0,0,3"/>
+                             <StackPanel Visibility="{Binding HasCoordinateParameters, Converter={StaticResource BoolVisibility}}">
+                                 <controls:SelectableTextBlock Text="坐标基准" Foreground="#94A3B8" Margin="0,0,0,3"/>
                                 <ItemsControl ItemsSource="{Binding CoordinateParameters}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
@@ -227,9 +227,16 @@
                                             </ComboBox>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </StackPanel>
-                            <StackPanel Visibility="{Binding HasConfidenceParameter, Converter={StaticResource BoolVisibility}}" Margin="0,8,0,2">
+                                 </ItemsControl>
+                             </StackPanel>
+                             <StackPanel Visibility="{Binding HasImageMatchEngineParameter, Converter={StaticResource BoolVisibility}}" Margin="0,8,0,2">
+                                 <controls:SelectableTextBlock Text="图像匹配模式" Foreground="#94A3B8" Margin="0,0,0,3" ToolTip="选择图判断使用自实现算法或 OpenCV 模板匹配"/>
+                                 <ComboBox SelectedValue="{Binding ImageMatchEngineParameter.Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" SelectedValuePath="Tag">
+                                     <ComboBoxItem Tag="custom" Content="自实现"/>
+                                     <ComboBoxItem Tag="opencv" Content="OpenCV"/>
+                                 </ComboBox>
+                             </StackPanel>
+                             <StackPanel Visibility="{Binding HasConfidenceParameter, Converter={StaticResource BoolVisibility}}" Margin="0,8,0,2">
                                 <DockPanel Margin="0,0,0,3">
                                     <controls:SelectableTextBlock Text="{Binding ConfidenceLabel, Mode=OneWay}" Foreground="#94A3B8" ToolTip="{Binding ConfidenceHint, Mode=OneWay}"/>
                                     <controls:SelectableTextBlock DockPanel.Dock="Right" Text="{Binding ConfidenceParameter.Value, Mode=OneWay, Converter={StaticResource PercentText}}" Foreground="#60A5FA" FontWeight="SemiBold" Margin="8,0,0,0"/>
@@ -394,9 +401,30 @@
                                                             <Style.Triggers>
                                                                 <DataTrigger Binding="{Binding Name}" Value="button"><Setter Property="Visibility" Value="Visible"/></DataTrigger>
                                                                 <DataTrigger Binding="{Binding Name}" Value="level"><Setter Property="Visibility" Value="Visible"/></DataTrigger>
+                                                                <DataTrigger Binding="{Binding Name}" Value="imageMatchEngine"><Setter Property="Visibility" Value="Visible"/></DataTrigger>
                                                             </Style.Triggers>
                                                         </Style>
                                                     </ComboBox.Style>
+                                                    <ComboBoxItem Tag="custom" Content="自实现">
+                                                        <ComboBoxItem.Style>
+                                                            <Style TargetType="ComboBoxItem">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=ComboBox}, Path=DataContext.Name}" Value="imageMatchEngine"><Setter Property="Visibility" Value="Visible"/></DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </ComboBoxItem.Style>
+                                                    </ComboBoxItem>
+                                                    <ComboBoxItem Tag="opencv" Content="OpenCV">
+                                                        <ComboBoxItem.Style>
+                                                            <Style TargetType="ComboBoxItem">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=ComboBox}, Path=DataContext.Name}" Value="imageMatchEngine"><Setter Property="Visibility" Value="Visible"/></DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </ComboBoxItem.Style>
+                                                    </ComboBoxItem>
                                                     <ComboBoxItem Tag="left" Content="left · 左键">
                                                         <ComboBoxItem.Style>
                                                             <Style TargetType="ComboBoxItem">

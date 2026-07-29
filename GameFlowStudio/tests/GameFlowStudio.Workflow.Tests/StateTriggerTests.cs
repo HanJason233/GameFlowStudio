@@ -144,6 +144,33 @@ public sealed class DetectorConditionTests
     }
 
     [Fact]
+    public async Task ImageDetectorCanUseOpenCvTemplateMatching()
+    {
+        var black = new byte[] { 0, 0, 0, 255 };
+        var framePixels = black.Concat(black).Concat(black).Concat(black)
+            .Concat(black).Concat(new byte[] { 10, 20, 30, 255 }).Concat(new byte[] { 40, 50, 60, 255 }).Concat(black)
+            .Concat(black).Concat(new byte[] { 70, 80, 90, 255 }).Concat(new byte[] { 100, 110, 120, 255 }).Concat(black)
+            .ToArray();
+        var templatePixels = new byte[]
+        {
+            10, 20, 30, 255, 40, 50, 60, 255,
+            70, 80, 90, 255, 100, 110, 120, 255,
+        };
+        var capture = new FakeCapture(new CapturedFrame(0, 0, 4, 3, framePixels));
+        var images = new FakeImages(new DetectorImage(2, 2, templatePixels));
+        var detector = new DetectorDefinition { Id = "opencv-image", Type = DetectorType.Image };
+        detector.Parameters["templatePath"] = ProjectJson.Element("template.png");
+        detector.Parameters["imageMatchEngine"] = ProjectJson.Element("opencv");
+        detector.Parameters["matchThreshold"] = ProjectJson.Element(.99d);
+
+        var result = await new StateDetectorService([new ImageStateDetector()])
+            .EvaluateAsync(detector, new DetectorEvaluationContext { Capture = capture, Images = images }, CancellationToken.None);
+
+        Assert.Equal(1, result.State);
+        Assert.Contains("结果 匹配", result.Message);
+    }
+
+    [Fact]
     public async Task OcrDetectorMatchesTextAtConfiguredThreshold()
     {
         var capture = new FakeCapture(new CapturedFrame(10, 20, 4, 3, new byte[4 * 3 * 4]));

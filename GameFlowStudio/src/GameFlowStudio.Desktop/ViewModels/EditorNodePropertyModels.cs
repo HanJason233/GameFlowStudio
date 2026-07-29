@@ -39,6 +39,7 @@ public sealed class NodeParameterItem(string name, string value, JsonValueKind k
         ["tolerance"] = "检测容差",
         ["minMatchRatio"] = "最低匹配比例",
         ["templatePath"] = "图片模板路径",
+        ["imageMatchEngine"] = "图像匹配引擎",
         ["matchThreshold"] = "图片匹配阈值",
         ["scriptId"] = "目标脚本 ID",
         ["actionId"] = "目标动作 ID",
@@ -91,12 +92,14 @@ public sealed class SelectedNodeViewModel : ObservableObject
     public IEnumerable<NodeParameterItem> TextParameters => Parameters.Where(parameter => parameter.Kind == JsonValueKind.String && !IsChoiceParameter(parameter.Name) && parameter.Name != "coordinateMode");
     public IEnumerable<NodeParameterItem> ChoiceParameters => Parameters.Where(parameter => parameter.Kind == JsonValueKind.String && IsChoiceParameter(parameter.Name) && parameter.Name != "coordinateMode");
     public IEnumerable<NodeParameterItem> CoordinateParameters => Parameters.Where(parameter => parameter.Name == "coordinateMode");
+    public NodeParameterItem? ImageMatchEngineParameter => Parameters.FirstOrDefault(parameter => parameter.Name == "imageMatchEngine");
     public IEnumerable<NodeParameterItem> BooleanParameters => Parameters.Where(parameter => parameter.Kind is JsonValueKind.True or JsonValueKind.False);
     public IEnumerable<NodeParameterItem> OtherParameters => Parameters.Where(parameter => parameter.Kind is not (JsonValueKind.Number or JsonValueKind.String or JsonValueKind.True or JsonValueKind.False));
     public bool HasNumericParameters => NumericParameters.Any();
     public bool HasTextParameters => TextParameters.Any();
     public bool HasChoiceParameters => ChoiceParameters.Any();
     public bool HasCoordinateParameters => SupportsCoordinateMode;
+    public bool HasImageMatchEngineParameter => ImageMatchEngineParameter is not null;
     public bool HasBooleanParameters => BooleanParameters.Any();
     public bool HasOtherParameters => OtherParameters.Any();
     public NodeParameterItem? ConfidenceParameter => Type switch
@@ -152,5 +155,5 @@ public sealed class SelectedNodeViewModel : ObservableObject
             ? value
             : fallback;
 
-    private static bool IsChoiceParameter(string name) => name is "coordinateMode" or "button" or "level";
+    private static bool IsChoiceParameter(string name) => name is "coordinateMode" or "button" or "level" or "imageMatchEngine";
 }

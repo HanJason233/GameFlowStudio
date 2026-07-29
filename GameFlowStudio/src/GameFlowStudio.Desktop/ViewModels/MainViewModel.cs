@@ -334,6 +334,8 @@ public sealed class MainViewModel : ObservableObject
         }
         if (selected.SupportsCoordinateMode && !selected.Parameters.Any(parameter => parameter.Name == "coordinateMode"))
             selected.Parameters.Insert(0, new("coordinateMode", "followScript", JsonValueKind.String, OnSelectedNodeEditorChanged));
+        if (selected.Type == NodeTypes.ImageCondition && !selected.Parameters.Any(parameter => parameter.Name == "imageMatchEngine"))
+            selected.Parameters.Insert(selected.Parameters.Any(parameter => parameter.Name == "coordinateMode") ? 1 : 0, new("imageMatchEngine", "custom", JsonValueKind.String, OnSelectedNodeEditorChanged));
         if (selected.IsDetectorCondition)
         {
             var confidenceName = selected.Type == NodeTypes.ColorCondition ? "minMatchRatio" : "matchThreshold";

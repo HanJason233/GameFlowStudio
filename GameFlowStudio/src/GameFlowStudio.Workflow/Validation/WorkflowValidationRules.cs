@@ -222,6 +222,9 @@ internal sealed class StateConfigurationRule : IWorkflowValidationRule
                     throw new InvalidOperationException("图片搜索区域的宽度和高度必须大于 0。");
                 ValidateRange(DetectorParameterReader.Int(detector, "tolerance", 10), 0, 255, "图片容差");
                 ValidateRange(DetectorParameterReader.Double(detector, "matchThreshold", 0.95), 0, 1, "图片匹配阈值");
+                var imageMatchEngine = DetectorParameterReader.String(detector, "imageMatchEngine", "custom").Trim().ToLowerInvariant();
+                if (imageMatchEngine is not ("custom" or "opencv"))
+                    throw new InvalidOperationException("图像匹配引擎只支持自实现或 OpenCV。");
             }
             if (detector.Type == DetectorType.Ocr)
             {
