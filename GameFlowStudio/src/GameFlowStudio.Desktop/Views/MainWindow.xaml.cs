@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Windows.Input;
 using GameFlowStudio.Automation.Hotkeys;
@@ -51,11 +52,13 @@ public partial class MainWindow : Window
 
     private void ScriptRightClick(object sender, MouseButtonEventArgs e)
     {
-        if (sender is FrameworkElement { DataContext: ScriptListItem item })
-        {
-            e.Handled = true;
-            _viewModel.OpenScriptPropertiesCommand.Execute(item);
-        }
+        if (sender is not FrameworkElement { DataContext: ScriptListItem item } element) return;
+        e.Handled = true;
+        var menu = new ContextMenu();
+        menu.Items.Add(new MenuItem { Header = "属性", Command = _viewModel.OpenScriptPropertiesCommand, CommandParameter = item });
+        menu.Items.Add(new MenuItem { Header = "删除", Command = _viewModel.DeleteScriptCommand, CommandParameter = item });
+        menu.PlacementTarget = element;
+        menu.IsOpen = true;
     }
 
     private nint WindowProcedure(nint hwnd, int message, nint wParam, nint lParam, ref bool handled)

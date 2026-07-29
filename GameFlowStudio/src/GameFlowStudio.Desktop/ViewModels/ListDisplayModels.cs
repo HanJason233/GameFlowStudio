@@ -18,13 +18,12 @@ public sealed class ToolboxGroup(string name, IReadOnlyList<ToolboxItem> items) 
 
 public sealed record WindowExecutionModeOption(WindowExecutionMode Value, string Label, string Description);
 
-public sealed class ScriptListItem(string id, string name, string description) : ObservableObject
+public sealed class ScriptListItem(string id, string name) : ObservableObject
 {
     private bool _isActive;
     private string _name = name;
 
     public string Id { get; } = id;
     public string Name { get => _name; set => Set(ref _name, value); }
-    public string Description { get; } = description;
     public bool IsActive { get => _isActive; set => Set(ref _isActive, value); }
 }

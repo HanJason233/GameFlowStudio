@@ -8,7 +8,10 @@ html, body, #root { width: 100%; height: 100%; margin: 0; overflow: hidden; }
 .react-flow__controls { border: 1px solid #334155; box-shadow: 0 8px 24px #0006; }
 .react-flow__controls-button { background: #172033; color: #dbeafe; border-color: #334155; }
 .flow-toolbar { display: flex; gap: 6px; padding: 6px; border: 1px solid #334155; border-radius: 8px; background: #111b2ee8; box-shadow: 0 8px 24px #0006; }
+.flow-actions-panel { margin-left: 48px !important; }
 .organize-button { padding: 7px 12px; border: 1px solid #4b6386; border-radius: 6px; background: #1e3a5f; color: #dbeafe; cursor: pointer; font: inherit; font-size: 12px; }
+.organize-button.icon-button { display: grid; width: 30px; height: 30px; padding: 6px; place-items: center; }
+.organize-button svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; }
 .organize-button:hover:not(:disabled) { background: #2563a5; border-color: #60a5fa; }
 .organize-button:disabled { cursor: not-allowed; opacity: .45; }
 .right-selection-box { position: absolute; z-index: 12; border: 1px solid #60a5fa; background: #3b82f633; pointer-events: none; }

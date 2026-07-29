@@ -25,18 +25,18 @@
                         <StackPanel Margin="4,6,0,0">
                             <CheckBox Content="项目文件" IsChecked="{Binding IsProjectFilesPaneVisible, Mode=TwoWay}"/>
                             <CheckBox Content="脚本列表" IsChecked="{Binding IsScriptListPaneVisible, Mode=TwoWay}" Margin="0,6,0,0"/>
-                            <CheckBox Content="原子动作" IsChecked="{Binding IsToolboxPaneVisible, Mode=TwoWay}" Margin="0,6,0,0"/>
+                            <CheckBox Content="操作卡片" IsChecked="{Binding IsToolboxPaneVisible, Mode=TwoWay}" Margin="0,6,0,0"/>
                             <CheckBox Content="属性" IsChecked="{Binding IsPropertiesPaneVisible, Mode=TwoWay}" Margin="0,6,0,0"/>
                             <CheckBox Content="运行日志" IsChecked="{Binding IsOutputPaneVisible, Mode=TwoWay}" Margin="0,6,0,0"/>
                         </StackPanel>
                         <controls:SelectableTextBlock Text="脚本流程图始终展示；勾选的模块会在软件打开时显示，未勾选的模块默认最小化。" Foreground="#94A3B8" TextWrapping="Wrap" Margin="3,6,3,0"/>
 
-                        <controls:SelectableTextBlock Text="原子动作分类布局" Margin="0,16,0,0"/>
+                        <controls:SelectableTextBlock Text="操作卡片分类布局" Margin="0,16,0,0"/>
                         <ComboBox SelectedValue="{Binding StepCategoryLayout}" SelectedValuePath="Tag">
                             <ComboBoxItem Tag="vertical" Content="竖向（分类上下排列）"/>
                             <ComboBoxItem Tag="horizontal" Content="横向（分类左右排列）"/>
                         </ComboBox>
-                        <controls:SelectableTextBlock Text="设置对所有项目生效；原子动作模块位于节点编辑区下方，可拖动分隔线调整高度。" Foreground="#94A3B8" TextWrapping="Wrap" Margin="3,5,3,0"/>
+                        <controls:SelectableTextBlock Text="设置对所有项目生效；操作卡片模块位于节点编辑区下方，可拖动分隔线调整高度。" Foreground="#94A3B8" TextWrapping="Wrap" Margin="3,5,3,0"/>
 
                         <controls:SelectableTextBlock Text="主题" Margin="0,16,0,0"/>
                         <ComboBox SelectedValue="{Binding Theme}" SelectedValuePath="Content">

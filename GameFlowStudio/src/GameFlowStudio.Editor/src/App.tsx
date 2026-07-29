@@ -234,9 +234,14 @@ function EditorCanvas() {
       deleteKeyCode={document.readOnly ? null : ['Backspace', 'Delete']} fitView>
       <Background variant={BackgroundVariant.Dots} gap={22} size={1.2} color="#4b6386" />
       <Controls showInteractive={false} />
-      <Panel position="top-right" className="flow-toolbar">
-        <button type="button" className="organize-button" onClick={document.arrangeNodes} disabled={document.readOnly || document.nodes.length < 2} title="按流程方向自动整理节点">
-          整理流程
+      <Panel position="bottom-left" className="flow-toolbar flow-actions-panel">
+        <button type="button" className="organize-button icon-button" onClick={document.arrangeNodes} disabled={document.readOnly || document.nodes.length < 2} aria-label="整理流程" title="整理流程">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <rect x="3" y="3" width="6" height="5" rx="1" />
+            <rect x="15" y="3" width="6" height="5" rx="1" />
+            <rect x="9" y="16" width="6" height="5" rx="1" />
+            <path d="M9 5.5h6M6 8v4c0 .8.7 1.5 1.5 1.5h4.5M18 8v4c0 .8-.7 1.5-1.5 1.5H12" />
+          </svg>
         </button>
       </Panel>
     </ReactFlow>

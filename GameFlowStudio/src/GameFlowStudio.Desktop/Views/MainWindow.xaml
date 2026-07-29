@@ -24,20 +24,12 @@
             </Expander>
         </DataTemplate>
         <DataTemplate x:Key="ScriptItemTemplate">
-                <Grid Margin="0,2">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="30"/>
-                        <ColumnDefinition Width="30"/>
-                    </Grid.ColumnDefinitions>
-                    <Button Command="{Binding DataContext.SelectScriptCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" PreviewMouseRightButtonDown="ScriptRightClick" HorizontalContentAlignment="Stretch" Padding="9,8" Margin="0,0,2,0">
+                <Grid Width="190" HorizontalAlignment="Left" Margin="0,2">
+                    <Button Command="{Binding DataContext.SelectScriptCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" PreviewMouseRightButtonDown="ScriptRightClick" HorizontalContentAlignment="Stretch" Padding="8,7">
                     <StackPanel>
                         <controls:SelectableTextBlock Text="{Binding Path=Name, Mode=OneWay}" Foreground="#F8FAFC" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                        <controls:SelectableTextBlock Text="{Binding Path=Description, Mode=OneWay}" Foreground="#94A3B8" FontSize="10" Margin="0,3,0,0"/>
-                        </StackPanel>
+                    </StackPanel>
                     </Button>
-                <Button Grid.Column="1" Content="⚙" Command="{Binding DataContext.OpenScriptPropertiesCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" ToolTip="查看脚本属性" Padding="0"/>
-                <Button Grid.Column="2" Content="×" Command="{Binding DataContext.DeleteScriptCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" ToolTip="删除脚本" Padding="0"/>
                 </Grid>
         </DataTemplate>
         <Style x:Key="ProjectFileActionButton" TargetType="Button" BasedOn="{StaticResource PaneHeaderButton}">
@@ -66,7 +58,7 @@
                         <Border Width="1" Height="20" Margin="8,0" Background="#334155"/>
                         <Button Content="项目" Command="{Binding ToggleProjectFilesPaneCommand}" ToolTip="显示或隐藏项目文件"/>
                         <Button Content="脚本" Command="{Binding ToggleScriptListPaneCommand}" ToolTip="显示或隐藏脚本列表"/>
-                        <Button Content="原子动作 / Actions" Command="{Binding ToggleToolboxPaneCommand}" ToolTip="显示或隐藏原子动作 / Actions"/>
+                        <Button Content="操作卡片" Command="{Binding ToggleToolboxPaneCommand}" ToolTip="显示或隐藏操作卡片"/>
                         <Button Content="属性" Command="{Binding TogglePropertiesPaneCommand}" ToolTip="显示或隐藏属性面板"/>
                         <Button Content="日志" Command="{Binding ToggleOutputPaneCommand}" ToolTip="显示或隐藏运行日志"/>
                         <Border Width="1" Height="20" Margin="8,0" Background="#334155"/>
@@ -141,9 +133,7 @@
                     </Grid>
                     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="8,0,8,8">
                         <StackPanel>
-                            <controls:SelectableTextBlock Text="当前项目脚本" Foreground="#64748B" FontSize="11" Margin="3,2,3,4"/>
                             <ItemsControl ItemsSource="{Binding Scripts}" ItemTemplate="{StaticResource ScriptItemTemplate}"/>
-                            <controls:SelectableTextBlock Text="一个项目可以包含多个脚本，可在此切换当前脚本" Foreground="#64748B" FontSize="10" TextWrapping="Wrap" Margin="3,12,3,0"/>
                         </StackPanel>
                     </ScrollViewer>
                 </DockPanel>
@@ -168,8 +158,8 @@
                 <Border Grid.Row="2" Background="{StaticResource PanelBackground}" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="0,1,0,0" Visibility="{Binding IsToolboxPaneVisible, Converter={StaticResource BoolVisibility}}">
                     <DockPanel>
                         <Grid DockPanel.Dock="Top" Height="38" Background="#141D2E" Margin="0,0,0,6">
-                            <controls:SelectableTextBlock Text="原子动作 / Actions" FontWeight="SemiBold" FontSize="13" Margin="12,0" VerticalAlignment="Center"/>
-                            <Button Content="—" Style="{StaticResource PaneHeaderButton}" HorizontalAlignment="Right" Command="{Binding ToggleToolboxPaneCommand}" ToolTip="最小化原子动作 / Actions"/>
+                            <controls:SelectableTextBlock Text="操作卡片" FontWeight="SemiBold" FontSize="13" Margin="12,0" VerticalAlignment="Center"/>
+                            <Button Content="—" Style="{StaticResource PaneHeaderButton}" HorizontalAlignment="Right" Command="{Binding ToggleToolboxPaneCommand}" ToolTip="最小化操作卡片"/>
                         </Grid>
                         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="8,0,8,8" Visibility="{Binding IsHorizontalStepLayout, Converter={StaticResource InverseBoolVisibility}}">
                             <ItemsControl ItemsSource="{Binding ToolboxGroups}" ItemTemplate="{StaticResource StepCategoryTemplate}"/>

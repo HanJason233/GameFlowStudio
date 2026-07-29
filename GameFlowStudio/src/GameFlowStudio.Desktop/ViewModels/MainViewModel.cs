@@ -788,7 +788,7 @@ public sealed class MainViewModel : ObservableObject
     {
         Scripts.Clear();
         foreach (var script in _project.Scripts)
-            Scripts.Add(new ScriptListItem(script.Id, script.Name, $"{script.Nodes.Count} 个节点") { IsActive = script.Id == _activeScriptId });
+            Scripts.Add(new ScriptListItem(script.Id, script.Name) { IsActive = script.Id == _activeScriptId });
     }
 
     private string CreateScriptName()
