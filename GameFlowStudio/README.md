@@ -8,7 +8,7 @@ GameFlow Studio 是一个 Windows 无代码键盘鼠标自动化 MVP。桌面外
 
 - 十六种操作卡片：开始、点击、鼠标拖动、鼠标滑动、键盘按键、输入文本、等待、色判断、图判断、Gemini OCR判断、启动程序、关闭程序、最小化窗口、窗口整理、设置窗口分辨率、结束。每个操作卡片执行成功或失败都会自动写入运行日志。关闭程序、最小化窗口、窗口整理和设置窗口分辨率按操作卡片自身的窗口标题正则查找正在运行的程序窗口；其他窗口操作可使用脚本窗口作用域。
 - React Flow 节点添加、拖动、连接、选择、Delete 删除、Ctrl+C/Ctrl+V 复制粘贴、缩放和平移。
-- WPF 属性面板、坐标拾取、项目文件模块中的新建/打开/安全保存/另存为、单项目多脚本、示例项目和主题/快捷键设置。
+- WPF 属性面板、坐标拾取、项目文件模块中的新建/打开/安全保存/另存为、单项目多脚本、示例项目和主题设置。
 - 顺序执行与色判断、图判断、Gemini OCR 判断分支；类型化变量和窗口作用域。
 - 异步暂停、恢复、停止、防重复运行、10,000 节点安全上限、取消传播和节点级异常状态。
 - F8 运行、F9 暂停/继续、F10 停止；可在设置中改为其他 F1–F24 键。
@@ -94,7 +94,7 @@ GameFlowStudio/
 ├── src/
 │   ├── GameFlowStudio.Contracts/       JSON 模型、枚举、公共接口和事件
 │   ├── GameFlowStudio.Workflow/        验证、执行引擎、同步门和节点执行器
-│   ├── GameFlowStudio.Automation/      SendInput、窗口、快捷键、坐标与集中 P/Invoke
+│   ├── GameFlowStudio.Automation/      SendInput、窗口、坐标与集中 P/Invoke
 │   ├── GameFlowStudio.Storage/         项目安全写入、本地设置和路径策略
 │   ├── GameFlowStudio.Infrastructure/  DI 注册与 UI/文件日志提供程序
 │   ├── GameFlowStudio.Desktop/         WPF MVVM、WebView2、属性面板和坐标选择器
@@ -119,7 +119,6 @@ GameFlowStudio/
 ## 已知限制
 
 - 鼠标移动的 `durationMs` 已保留，但 MVP 当前执行瞬时定位。
-- 快捷键设置支持 F1–F24，尚未提供带 Ctrl/Shift/Alt 的全局组合键编辑器。
 - 浅色主题切换 WPF 主背景；React 编辑器保持适合流程调试的深色画布。
 - 未提供自动更新、工作流并行或崩溃恢复。
 - 不包含录制、云同步、登录、插件、脚本市场、游戏内存、注入、驱动输入或反作弊能力。

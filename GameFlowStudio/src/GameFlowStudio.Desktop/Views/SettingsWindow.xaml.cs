@@ -15,8 +15,6 @@ public partial class SettingsWindow : Window
     {
         var settings = (AppSettings)DataContext;
         settings.GeminiApiKey = GeminiApiKeyBox.Password.Trim();
-        var keys = new[] { settings.RunHotkey, settings.PauseHotkey, settings.StopHotkey };
-        if (keys.Distinct(StringComparer.OrdinalIgnoreCase).Count() != 3) { MessageBox.Show("三个快捷键不能重复。", "设置", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
         if (settings.StepCategoryLayout is not ("vertical" or "horizontal")) settings.StepCategoryLayout = "vertical";
         DialogResult = true;
     }

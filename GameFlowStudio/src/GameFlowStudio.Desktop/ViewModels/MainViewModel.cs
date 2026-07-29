@@ -255,8 +255,6 @@ public sealed class MainViewModel : ObservableObject
     public GridLength ProjectFilesPaneRowHeight => IsProjectFilesPaneVisible ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
     public GridLength ScriptListPaneRowHeight => IsScriptListPaneVisible ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
     public GridLength LeftPaneSplitterHeight => IsBothLeftPanesVisible ? new GridLength(5) : new GridLength(0);
-    public event EventHandler? HotkeysChanged;
-
     public ICommand NewCommand { get; private set; } = null!; public ICommand OpenCommand { get; private set; } = null!; public ICommand SaveCommand { get; private set; } = null!;
     public ICommand SaveAsCommand { get; private set; } = null!; public ICommand OpenSampleCommand { get; private set; } = null!; public ICommand RunCommand { get; private set; } = null!;
     public ICommand RuntimeLaunchCommand { get; private set; } = null!;
@@ -295,13 +293,6 @@ public sealed class MainViewModel : ObservableObject
         WaitForPendingSettingsSaves();
         return true;
     }
-
-    public void HandleHotkey(int id)
-    {
-        var command = id switch { 1 => RunCommand, 2 when _runner.State == WorkflowExecutionState.Paused => ResumeCommand, 2 => PauseCommand, 3 => StopCommand, _ => null };
-        if (command?.CanExecute(null) == true) command.Execute(null);
-    }
-    public void ReportHotkeyError(Exception exception) { _logger.LogError(exception, "全局快捷键注册失败"); _dialogs.ShowError(exception.Message); }
 
     private async void OnEditorMessage(object? sender, EditorMessage message)
     {
@@ -710,7 +701,6 @@ public sealed class MainViewModel : ObservableObject
         ApplyStepLayout();
         ApplyTheme();
         await _settingsStorage.SaveAsync(Settings, CancellationToken.None);
-        HotkeysChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private AutomationScript ActiveScript =>

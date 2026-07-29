@@ -6,7 +6,7 @@
 WPF Desktop ── WebView2 JSON ── React Flow Editor
      │
      ├── Workflow（验证、逻辑判断、执行器、变量、暂停门）
-     ├── Automation（SendInput、窗口、快捷键、坐标、Interop）
+     ├── Automation（SendInput、窗口、坐标、Interop）
      ├── Storage（.gflow 原子保存、settings.json）
      └── Infrastructure（DI、ILogger UI/每日文件输出）
             │

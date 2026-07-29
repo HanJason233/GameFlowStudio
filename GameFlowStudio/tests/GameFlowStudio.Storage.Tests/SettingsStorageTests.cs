@@ -53,9 +53,6 @@ public sealed class SettingsStorageTests : IDisposable
               "stepCategoryLayout": null,
               "defaultProjectDirectory": null,
               "geminiApiKey": null,
-              "runHotkey": null,
-              "pauseHotkey": null,
-              "stopHotkey": null,
               "theme": null
             }
             """);
@@ -66,9 +63,6 @@ public sealed class SettingsStorageTests : IDisposable
         Assert.Equal(defaults.StepCategoryLayout, loaded.StepCategoryLayout);
         Assert.Equal(defaults.DefaultProjectDirectory, loaded.DefaultProjectDirectory);
         Assert.Equal(defaults.GeminiApiKey, loaded.GeminiApiKey);
-        Assert.Equal(defaults.RunHotkey, loaded.RunHotkey);
-        Assert.Equal(defaults.PauseHotkey, loaded.PauseHotkey);
-        Assert.Equal(defaults.StopHotkey, loaded.StopHotkey);
         Assert.Equal(defaults.Theme, loaded.Theme);
     }
 

@@ -140,8 +140,5 @@ public sealed class AppSettings
     public double? WindowTop { get; set; }
     public string DefaultProjectDirectory { get; set; } = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
     public string GeminiApiKey { get; set; } = string.Empty;
-    public string RunHotkey { get; set; } = "F8";
-    public string PauseHotkey { get; set; } = "F9";
-    public string StopHotkey { get; set; } = "F10";
     public string Theme { get; set; } = "dark";
 }

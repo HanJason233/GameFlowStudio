@@ -99,9 +99,6 @@ public sealed class SettingsStorageService : ISettingsStorageService
         settings.StepCategoryLayout ??= defaults.StepCategoryLayout;
         settings.DefaultProjectDirectory ??= defaults.DefaultProjectDirectory;
         settings.GeminiApiKey ??= defaults.GeminiApiKey;
-        settings.RunHotkey ??= defaults.RunHotkey;
-        settings.PauseHotkey ??= defaults.PauseHotkey;
-        settings.StopHotkey ??= defaults.StopHotkey;
         settings.Theme ??= defaults.Theme;
         return settings;
     }

@@ -1,5 +1,4 @@
 using GameFlowStudio.Automation.Coordinates;
-using GameFlowStudio.Automation.Hotkeys;
 using GameFlowStudio.Automation.Input;
 using GameFlowStudio.Automation.Programs;
 using GameFlowStudio.Automation.Windows;
@@ -38,7 +37,6 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ISettingsStorageService, SettingsStorageService>();
         services.AddSingleton<IWorkflowValidator, WorkflowValidator>();
         services.AddSingleton<CursorPositionService>();
-        services.AddSingleton<GlobalHotkeyRegistrar>();
         services.AddSingleton<INodeExecutor, StartNodeExecutor>();
         services.AddSingleton<INodeExecutor, EndNodeExecutor>();
         services.AddSingleton<INodeExecutor, WindowScopeNodeExecutor>();

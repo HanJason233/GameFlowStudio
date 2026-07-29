@@ -48,16 +48,6 @@
                 </ScrollViewer>
             </TabItem>
 
-            <TabItem Header="快捷键">
-                <StackPanel Margin="8,12">
-                    <controls:SelectableTextBlock Text="运行快捷键（F1-F24）"/>
-                    <TextBox Text="{Binding RunHotkey, UpdateSourceTrigger=PropertyChanged}"/>
-                    <controls:SelectableTextBlock Text="暂停/继续快捷键" Margin="0,12,0,0"/>
-                    <TextBox Text="{Binding PauseHotkey, UpdateSourceTrigger=PropertyChanged}"/>
-                    <controls:SelectableTextBlock Text="停止快捷键" Margin="0,12,0,0"/>
-                    <TextBox Text="{Binding StopHotkey, UpdateSourceTrigger=PropertyChanged}"/>
-                </StackPanel>
-            </TabItem>
         </TabControl>
 
         <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
