@@ -199,7 +199,7 @@ public sealed class DetectorConditionTests
         public bool ActivateWindow(nint handle) => true;
         public bool CloseWindow(nint handle) => true;
         public bool MinimizeWindow(nint handle) => true;
-        public bool ArrangeWindows(IReadOnlyList<nint> handles, int x, int y, int width, int height, int columns, int gapX, int gapY) => true;
+        public bool ArrangeWindows(IReadOnlyList<nint> handles, int x, int y, int offsetY) => true;
         public bool SetWindowResolution(nint handle, int width, int height) => true;
         public WindowBounds GetWindowBounds(nint handle) => bounds with { Handle = handle };
     }

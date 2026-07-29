@@ -22,6 +22,7 @@ internal static class NativeMethods
     public const int SwRestore = 9;
     public const int SwMinimize = 6;
     public const uint WmClose = 0x0010;
+    public const uint SwpNoSize = 0x0001;
     public const uint SwpNoZOrder = 0x0004;
     public const uint SwpNoActivate = 0x0010;
     public const uint SwpShowWindow = 0x0040;

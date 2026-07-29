@@ -276,6 +276,32 @@ public sealed class WorkflowEngineTests
     }
 
     [Fact]
+    public async Task ArrangeWindowsUsesScreenOriginAndVerticalOffset()
+    {
+        var windows = new RecordingWindowAutomationService();
+        var node = Node("arrange", NodeTypes.ArrangeWindows,
+            ("titlePattern", "^Game"), ("x", 100), ("y", 100), ("offsetY", 20));
+        var context = new WorkflowExecutionContext
+        {
+            Workflow = NewProject(),
+            WaitIfPausedAsync = _ => Task.CompletedTask,
+            Log = _ => { }
+        };
+
+        var result = await new ArrangeWindowsNodeExecutor(
+            windows,
+            new FixedWindowScopeService([(nint)101, (nint)202, (nint)303]))
+            .ExecuteAsync(node, context, CancellationToken.None);
+
+        Assert.True(result.Success);
+        var arrangement = Assert.Single(windows.Arrangements);
+        Assert.Equal(new nint[] { 101, 202, 303 }, arrangement.Handles);
+        Assert.Equal(100, arrangement.X);
+        Assert.Equal(100, arrangement.Y);
+        Assert.Equal(20, arrangement.OffsetY);
+    }
+
+    [Fact]
     public async Task ExplicitWaitTakesPrecedenceOverDefaultDelay()
     {
         var runner = Runner(new TrackingActionExecutor());
@@ -454,11 +480,12 @@ public sealed class WorkflowEngineTests
     private sealed class RecordingWindowAutomationService : IWindowAutomationService
     {
         public List<nint> Activations { get; } = [];
+        public List<(IReadOnlyList<nint> Handles, int X, int Y, int OffsetY)> Arrangements { get; } = [];
         public IReadOnlyList<WindowInfo> GetOpenWindows() => [];
         public bool ActivateWindow(nint handle) { Activations.Add(handle); return true; }
         public bool CloseWindow(nint handle) => true;
         public bool MinimizeWindow(nint handle) => true;
-        public bool ArrangeWindows(IReadOnlyList<nint> handles, int x, int y, int width, int height, int columns, int gapX, int gapY) => true;
+        public bool ArrangeWindows(IReadOnlyList<nint> handles, int x, int y, int offsetY) { Arrangements.Add((handles, x, y, offsetY)); return true; }
         public bool SetWindowResolution(nint handle, int width, int height) => true;
         public WindowBounds GetWindowBounds(nint handle) => throw new NotSupportedException();
     }

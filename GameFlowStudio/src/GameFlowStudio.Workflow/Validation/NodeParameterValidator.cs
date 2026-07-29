@@ -55,8 +55,7 @@ internal sealed class NodeParameterValidator
             case NodeTypes.SetWindowResolution:
                 WindowTarget(node); Positive(node, "width", 0); Positive(node, "height", 0); break;
             case NodeTypes.ArrangeWindows:
-                ValidateTitlePattern(node); Positive(node, "columns", 2); Positive(node, "width", 800); Positive(node, "height", 600);
-                NonNegative(node, "gapX", 0); NonNegative(node, "gapY", 0); break;
+                ValidateTitlePattern(node); Coordinate(node); NonNegative(node, "offsetY", 20); break;
         }
     }
 

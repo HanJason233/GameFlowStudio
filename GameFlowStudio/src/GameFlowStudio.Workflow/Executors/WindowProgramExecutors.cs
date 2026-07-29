@@ -50,9 +50,8 @@ public sealed class ArrangeWindowsNodeExecutor(IWindowAutomationService windows,
         var handles = WindowActionParameters.SelectAll(node, scopes);
         var arranged = windows.ArrangeWindows(handles,
             NodeParameterReader.Int(node, "x", 0), NodeParameterReader.Int(node, "y", 0),
-            NodeParameterReader.Int(node, "width", 800), NodeParameterReader.Int(node, "height", 600),
-            NodeParameterReader.Int(node, "columns", 2), NodeParameterReader.Int(node, "gapX", 20), NodeParameterReader.Int(node, "gapY", 20));
-        if (arranged) ActionExecutionLogging.Write(context, node, $"整理 {handles.Count} 个窗口，区域起点 ({NodeParameterReader.Int(node, "x", 0)},{NodeParameterReader.Int(node, "y", 0)})，大小 {NodeParameterReader.Int(node, "width", 800)}×{NodeParameterReader.Int(node, "height", 600)}。");
+            NodeParameterReader.Int(node, "offsetY", 20));
+        if (arranged) ActionExecutionLogging.Write(context, node, $"整理 {handles.Count} 个窗口，首个窗口屏幕坐标 ({NodeParameterReader.Int(node, "x", 0)},{NodeParameterReader.Int(node, "y", 0)})，依次向下偏移 {NodeParameterReader.Int(node, "offsetY", 20)} 像素。");
         return Task.FromResult(arranged ? NodeExecutionResult.Ok() : NodeExecutionResult.Fail("窗口整理失败，或没有可整理的目标窗口。"));
     }
 }

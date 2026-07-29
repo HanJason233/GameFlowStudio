@@ -72,7 +72,7 @@ export const defaultParameters: Record<NodeType, Record<string, unknown>> = {
   runProgram: { path: '', arguments: '' },
   closeProgram: { titlePattern: '.*' },
   minimizeWindow: { titlePattern: '.*' },
-  arrangeWindows: { titlePattern: '.*', x: 0, y: 0, width: 800, height: 600, columns: 2, gapX: 20, gapY: 20 },
+  arrangeWindows: { titlePattern: '.*', x: 0, y: 0, offsetY: 20 },
   setWindowResolution: { titlePattern: '.*', width: 1280, height: 720 },
 }
 
@@ -84,6 +84,13 @@ function normalizedParameters(node: WorkflowDocument['nodes'][number]): Record<s
   if (windowProgramNodes.includes(node.type)) {
     delete parameters.windowHandleVariable
     delete parameters.windowHandleIndex
+    if (node.type === 'arrangeWindows') {
+      delete parameters.width
+      delete parameters.height
+      delete parameters.columns
+      delete parameters.gapX
+      delete parameters.gapY
+    }
     return parameters
   }
   if (parameters.coordinateMode === 'screen') parameters.coordinateMode = 'absolute'

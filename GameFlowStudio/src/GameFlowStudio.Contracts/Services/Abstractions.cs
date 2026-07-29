@@ -95,7 +95,7 @@ public interface IWindowAutomationService
     bool ActivateWindow(nint handle);
     bool CloseWindow(nint handle);
     bool MinimizeWindow(nint handle);
-    bool ArrangeWindows(IReadOnlyList<nint> handles, int x, int y, int width, int height, int columns, int gapX, int gapY);
+    bool ArrangeWindows(IReadOnlyList<nint> handles, int x, int y, int offsetY);
     bool SetWindowResolution(nint handle, int width, int height);
     WindowBounds GetWindowBounds(nint handle);
 }

@@ -38,17 +38,24 @@ public sealed class WindowAutomationService : IWindowAutomationService
 
     public bool MinimizeWindow(nint handle) => handle != nint.Zero && NativeMethods.ShowWindow(handle, NativeMethods.SwMinimize);
 
-    public bool ArrangeWindows(IReadOnlyList<nint> handles, int x, int y, int width, int height, int columns, int gapX, int gapY)
+    public bool ArrangeWindows(IReadOnlyList<nint> handles, int x, int y, int offsetY)
     {
         using var dpiScope = ThreadDpiAwarenessScope.EnterPerMonitorAware();
-        if (handles.Count == 0 || columns <= 0 || width <= 0 || height <= 0) return false;
+        if (handles.Count == 0 || offsetY < 0) return false;
+
         var succeeded = true;
         for (var index = 0; index < handles.Count; index++)
         {
-            var column = index % columns;
-            var row = index / columns;
-            var moved = NativeMethods.SetWindowPos(handles[index], 0, x + column * (width + gapX), y + row * (height + gapY), width, height,
-                NativeMethods.SwpNoZOrder | NativeMethods.SwpNoActivate | NativeMethods.SwpShowWindow);
+            var windowY = (long)y + (long)index * offsetY;
+            if (windowY is < int.MinValue or > int.MaxValue)
+            {
+                succeeded = false;
+                continue;
+            }
+
+            // x、y 是屏幕坐标，只调整窗口左上角，保留窗口当前外框尺寸。
+            var moved = NativeMethods.SetWindowPos(handles[index], 0, x, (int)windowY, 0, 0,
+                NativeMethods.SwpNoSize | NativeMethods.SwpNoZOrder | NativeMethods.SwpNoActivate | NativeMethods.SwpShowWindow);
             succeeded &= moved;
         }
         return succeeded;

@@ -42,9 +42,7 @@ public sealed class NodeParameterItem(string name, string value, JsonValueKind k
         ["matchThreshold"] = "图片匹配阈值",
         ["scriptId"] = "目标脚本 ID",
         ["actionId"] = "目标动作 ID",
-        ["columns"] = "列数",
-        ["gapX"] = "横向间距",
-        ["gapY"] = "纵向间距",
+        ["offsetY"] = "窗口向下偏移距离（像素）",
         ["delta"] = "滚动量（正数向上，负数向下）",
     };
 

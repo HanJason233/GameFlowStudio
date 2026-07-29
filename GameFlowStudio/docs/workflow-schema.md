@@ -47,13 +47,13 @@
 | `runProgram` | `path`, `arguments` | `output` |
 | `closeProgram` | `titlePattern` | `output` |
 | `minimizeWindow` | `titlePattern` | `output` |
-| `arrangeWindows` | `titlePattern`, `x`, `y`, `width`, `height`, `columns`, `gapX`, `gapY` | `output` |
+| `arrangeWindows` | `titlePattern`, `x`, `y`, `offsetY` | `output` |
 | `setWindowResolution` | `titlePattern`, `width`, `height` | `output` |
 | `end` | 无 | 无 |
 
 `coordinateMode` 默认为 `followScript`（跟随脚本）：脚本使用整个屏幕时按屏幕绝对坐标，脚本使用正则匹配窗口时按当前目标窗口的相对坐标。`absolute`（强制绝对）和 `relative`（强制相对）会覆盖脚本窗口范围。
 
-关闭程序、最小化窗口、窗口整理和设置窗口分辨率会使用动作自身的 `titlePattern` 查找正在运行的窗口，不使用脚本窗口作用域的匹配结果；这些动作都会对全部匹配窗口句柄执行。
+关闭程序、最小化窗口、窗口整理和设置窗口分辨率会使用动作自身的 `titlePattern` 查找正在运行的窗口，不使用脚本窗口作用域的匹配结果；这些动作都会对全部匹配窗口句柄执行。窗口整理将首个匹配窗口的左上角移动到屏幕坐标 `(x, y)`，后续窗口保持原有大小并按 `offsetY` 像素依次向下堆叠。
 
 变量类型为 `string`、`number`、`boolean`。鼠标按钮为 `left`、`right`、`middle`；日志级别为 `debug`、`information`、`warning`、`error`。
 
