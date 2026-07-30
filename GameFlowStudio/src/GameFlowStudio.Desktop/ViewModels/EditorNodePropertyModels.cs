@@ -16,6 +16,7 @@ public sealed class NodeParameterItem(string name, string value, JsonValueKind k
         ["endX"] = "结束横坐标",
         ["endY"] = "结束纵坐标",
         ["coordinateMode"] = "坐标基准：跟随脚本、强制绝对或强制相对",
+        ["imageSearchMode"] = "图片匹配范围：固定坐标或当前屏幕/窗口",
         ["button"] = "鼠标按键",
         ["clickCount"] = "点击次数",
         ["durationMs"] = "持续时间，毫秒",
@@ -34,8 +35,10 @@ public sealed class NodeParameterItem(string name, string value, JsonValueKind k
         ["width"] = "宽度",
         ["height"] = "高度",
         ["targetColor"] = "目标颜色（#RRGGBB）",
-        ["targetText"] = "OCR 目标文本",
+        ["targetText"] = "匹配文本",
         ["expectedText"] = "OCR 目标文本（兼容字段）",
+        ["textSearchMode"] = "文本匹配范围：固定坐标或当前屏幕/窗口",
+        ["ocrEngine"] = "文本识别引擎",
         ["tolerance"] = "检测容差",
         ["minMatchRatio"] = "最低匹配比例",
         ["templatePath"] = "图片模板路径",
@@ -88,18 +91,25 @@ public sealed class SelectedNodeViewModel : ObservableObject
     public bool SupportsCoordinateMode => Type is NodeTypes.ColorCondition or NodeTypes.ImageCondition or NodeTypes.OcrCondition
         or NodeTypes.MouseClick or NodeTypes.MouseMove or NodeTypes.MouseDrag or NodeTypes.MouseScroll;
     public IEnumerable<NodeParameterItem> NumericParameters => Parameters.Where(parameter => parameter.Kind == JsonValueKind.Number
-        && parameter.Name is not ("minMatchRatio" or "matchThreshold"));
+        && parameter.Name is not ("minMatchRatio" or "matchThreshold")
+        && (!IsCurrentDetectorSearch || parameter.Name is not ("x" or "y" or "width" or "height")));
     public IEnumerable<NodeParameterItem> TextParameters => Parameters.Where(parameter => parameter.Kind == JsonValueKind.String && !IsChoiceParameter(parameter.Name) && parameter.Name != "coordinateMode");
     public IEnumerable<NodeParameterItem> ChoiceParameters => Parameters.Where(parameter => parameter.Kind == JsonValueKind.String && IsChoiceParameter(parameter.Name) && parameter.Name != "coordinateMode");
     public IEnumerable<NodeParameterItem> CoordinateParameters => Parameters.Where(parameter => parameter.Name == "coordinateMode");
+    public NodeParameterItem? ImageSearchModeParameter => Parameters.FirstOrDefault(parameter => parameter.Name == "imageSearchMode");
+    public NodeParameterItem? TextSearchModeParameter => Parameters.FirstOrDefault(parameter => parameter.Name == "textSearchMode");
     public NodeParameterItem? ImageMatchEngineParameter => Parameters.FirstOrDefault(parameter => parameter.Name == "imageMatchEngine");
+    public NodeParameterItem? OcrEngineParameter => Parameters.FirstOrDefault(parameter => parameter.Name == "ocrEngine");
     public IEnumerable<NodeParameterItem> BooleanParameters => Parameters.Where(parameter => parameter.Kind is JsonValueKind.True or JsonValueKind.False);
     public IEnumerable<NodeParameterItem> OtherParameters => Parameters.Where(parameter => parameter.Kind is not (JsonValueKind.Number or JsonValueKind.String or JsonValueKind.True or JsonValueKind.False));
     public bool HasNumericParameters => NumericParameters.Any();
     public bool HasTextParameters => TextParameters.Any();
     public bool HasChoiceParameters => ChoiceParameters.Any();
-    public bool HasCoordinateParameters => SupportsCoordinateMode;
+    public bool HasCoordinateParameters => SupportsCoordinateMode && !IsCurrentDetectorSearch;
+    public bool HasImageSearchModeParameter => ImageSearchModeParameter is not null;
+    public bool HasTextSearchModeParameter => TextSearchModeParameter is not null;
     public bool HasImageMatchEngineParameter => ImageMatchEngineParameter is not null;
+    public bool HasOcrEngineParameter => OcrEngineParameter is not null;
     public bool HasBooleanParameters => BooleanParameters.Any();
     public bool HasOtherParameters => OtherParameters.Any();
     public NodeParameterItem? ConfidenceParameter => Type switch
@@ -114,7 +124,7 @@ public sealed class SelectedNodeViewModel : ObservableObject
     {
         NodeTypes.ColorCondition => "颜色匹配置信阈值",
         NodeTypes.ImageCondition => "图像匹配置信阈值",
-        NodeTypes.OcrCondition => "Gemini OCR文本匹配阈值",
+        NodeTypes.OcrCondition => "文本匹配阈值",
         _ => "匹配置信阈值"
     };
     public string ConfidenceHint => Type == NodeTypes.ColorCondition
@@ -126,10 +136,11 @@ public sealed class SelectedNodeViewModel : ObservableObject
     {
         NodeTypes.ColorCondition => "色判断",
         NodeTypes.ImageCondition => "图判断",
-        NodeTypes.OcrCondition => "Gemini OCR判断",
+        NodeTypes.OcrCondition => "文本判断",
         _ => "逻辑判断"
     };
-    public bool CanPickCoordinate => Type is NodeTypes.ColorCondition or NodeTypes.ImageCondition or NodeTypes.OcrCondition or NodeTypes.MouseClick or NodeTypes.MouseMove or NodeTypes.MouseDrag or NodeTypes.MouseScroll;
+    public bool CanPickCoordinate => !IsCurrentDetectorSearch
+        && Type is NodeTypes.ColorCondition or NodeTypes.ImageCondition or NodeTypes.OcrCondition or NodeTypes.MouseClick or NodeTypes.MouseMove or NodeTypes.MouseDrag or NodeTypes.MouseScroll;
     public bool CanPickProgramPath => Type == NodeTypes.RunProgram && Parameters.Any(parameter => parameter.Name == "path");
     public string CoordinatePickButtonLabel => Type switch
     {
@@ -143,17 +154,28 @@ public sealed class SelectedNodeViewModel : ObservableObject
     {
         NodeTypes.ColorCondition => "选择拾取模式后点击屏幕，同时记录坐标和颜色值。",
         NodeTypes.ImageCondition => "选择拾取模式后拖动框选矩形截图，同时记录坐标和尺寸。",
-        NodeTypes.OcrCondition => "选择拾取模式后拖动框选 OCR 识别区域，同时记录坐标和尺寸。",
+        NodeTypes.OcrCondition => "选择拾取模式后拖动框选文本识别区域，同时记录坐标和尺寸。",
         _ => "先选择基于屏幕或基于窗口的拾取模式。"
     };
     public string GetParameterValue(string name, string fallback) =>
         Parameters.FirstOrDefault(parameter => parameter.Name == name)?.Value ?? fallback;
 
     public void SetChangedHandler(Action changed) => _changed = changed;
+    public void RefreshParameterViews()
+    {
+        Raise(nameof(NumericParameters));
+        Raise(nameof(HasNumericParameters));
+        Raise(nameof(HasCoordinateParameters));
+        Raise(nameof(CanPickCoordinate));
+    }
     public int GetParameterInt(string name, int fallback) =>
         int.TryParse(GetParameterValue(name, fallback.ToString(CultureInfo.InvariantCulture)), NumberStyles.Integer, CultureInfo.InvariantCulture, out var value)
             ? value
             : fallback;
 
-    private static bool IsChoiceParameter(string name) => name is "coordinateMode" or "button" or "level" or "imageMatchEngine";
+    private bool IsCurrentDetectorSearch =>
+        (Type == NodeTypes.ImageCondition && string.Equals(ImageSearchModeParameter?.Value, "current", StringComparison.OrdinalIgnoreCase))
+        || (Type == NodeTypes.OcrCondition && string.Equals(TextSearchModeParameter?.Value, "current", StringComparison.OrdinalIgnoreCase));
+
+    private static bool IsChoiceParameter(string name) => name is "coordinateMode" or "button" or "level" or "imageSearchMode" or "textSearchMode" or "imageMatchEngine" or "ocrEngine";
 }

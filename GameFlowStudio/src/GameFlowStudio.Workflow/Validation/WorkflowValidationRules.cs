@@ -214,12 +214,18 @@ internal sealed class StateConfigurationRule : IWorkflowValidationRule
             {
                 if (string.IsNullOrWhiteSpace(DetectorParameterReader.String(detector, "templatePath")))
                     throw new InvalidOperationException("图片模板路径不能为空。");
-                ValidateCoordinate(detector, "x", "y");
-                var hasWidth = detector.Parameters.ContainsKey("width");
-                var hasHeight = detector.Parameters.ContainsKey("height");
-                if (hasWidth != hasHeight) throw new InvalidOperationException("图片搜索区域的宽度和高度必须同时设置。");
-                if (hasWidth && (DetectorParameterReader.Int(detector, "width") <= 0 || DetectorParameterReader.Int(detector, "height") <= 0))
-                    throw new InvalidOperationException("图片搜索区域的宽度和高度必须大于 0。");
+                var imageSearchMode = DetectorParameterReader.String(detector, "imageSearchMode", "fixed").Trim().ToLowerInvariant();
+                if (imageSearchMode is not ("fixed" or "current"))
+                    throw new InvalidOperationException("图片匹配范围只支持固定坐标或当前屏幕/窗口。");
+                if (imageSearchMode == "fixed")
+                {
+                    ValidateCoordinate(detector, "x", "y");
+                    var hasWidth = detector.Parameters.ContainsKey("width");
+                    var hasHeight = detector.Parameters.ContainsKey("height");
+                    if (hasWidth != hasHeight) throw new InvalidOperationException("图片搜索区域的宽度和高度必须同时设置。");
+                    if (hasWidth && (DetectorParameterReader.Int(detector, "width") <= 0 || DetectorParameterReader.Int(detector, "height") <= 0))
+                        throw new InvalidOperationException("图片搜索区域的宽度和高度必须大于 0。");
+                }
                 ValidateRange(DetectorParameterReader.Int(detector, "tolerance", 10), 0, 255, "图片容差");
                 ValidateRange(DetectorParameterReader.Double(detector, "matchThreshold", 0.95), 0, 1, "图片匹配阈值");
                 var imageMatchEngine = DetectorParameterReader.String(detector, "imageMatchEngine", "custom").Trim().ToLowerInvariant();
@@ -228,12 +234,21 @@ internal sealed class StateConfigurationRule : IWorkflowValidationRule
             }
             if (detector.Type == DetectorType.Ocr)
             {
-                ValidateCoordinate(detector, "x", "y");
+                var textSearchMode = DetectorParameterReader.String(detector, "textSearchMode", "fixed").Trim().ToLowerInvariant();
+                if (textSearchMode is not ("fixed" or "current"))
+                    throw new InvalidOperationException("文本匹配范围只支持固定坐标或当前屏幕/窗口。");
+                if (textSearchMode == "fixed")
+                {
+                    ValidateCoordinate(detector, "x", "y");
+                    if (DetectorParameterReader.Int(detector, "width", 1) <= 0 || DetectorParameterReader.Int(detector, "height", 1) <= 0)
+                        throw new InvalidOperationException("文本识别区域的宽度和高度必须大于 0。");
+                }
                 var targetText = OcrTargetText(detector).Trim();
-                if (targetText.Length == 0) throw new InvalidOperationException("OCR 目标文本不能为空。");
-                if (DetectorParameterReader.Int(detector, "width", 1) <= 0 || DetectorParameterReader.Int(detector, "height", 1) <= 0)
-                    throw new InvalidOperationException("OCR 检测区域的宽度和高度必须大于 0。");
-                ValidateRange(OcrThreshold(detector), 0, 1, "OCR 匹配阈值");
+                if (targetText.Length == 0) throw new InvalidOperationException("匹配文本不能为空。");
+                ValidateRange(OcrThreshold(detector), 0, 1, "文本匹配阈值");
+                var ocrEngine = DetectorParameterReader.String(detector, "ocrEngine", "gemini").Trim().ToLowerInvariant();
+                if (ocrEngine is not ("local" or "gemini"))
+                    throw new InvalidOperationException("文本识别引擎只支持本地 OCR 或 Gemini OCR。");
             }
         }
         catch (InvalidOperationException exception)

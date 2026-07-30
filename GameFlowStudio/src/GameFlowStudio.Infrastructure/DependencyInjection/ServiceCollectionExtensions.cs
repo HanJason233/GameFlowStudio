@@ -26,6 +26,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IWindowScopeService, WindowScopeService>();
         services.AddSingleton<IDesktopCaptureService, DesktopCaptureService>();
         services.AddSingleton<IOcrService, UnsupportedOcrService>();
+        services.AddSingleton<ILocalOcrService, LocalOcrPlaceholderService>();
         services.AddSingleton<IStateDetector, ColorStateDetector>();
         services.AddSingleton<IStateDetector, ImageStateDetector>();
         services.AddSingleton<IStateDetector, OcrStateDetector>();

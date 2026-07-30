@@ -47,7 +47,7 @@ export interface WorkflowDocument {
 export interface BridgeMessage<T = unknown> { type: string; requestId?: string; payload?: T }
 
 export const nodeLabels: Record<NodeType, string> = {
-  colorCondition: '色判断', imageCondition: '图判断', ocrCondition: 'Gemini OCR判断',
+  colorCondition: '色判断', imageCondition: '图判断', ocrCondition: '文本判断',
   jump: '跳转',
   start: '开始', windowScope: '窗口作用域', mouseClick: '点击', mouseMove: '鼠标移动', mouseDrag: '鼠标拖动', mouseScroll: '鼠标滑动', keyPress: '键盘按键',
   textInput: '输入文本', wait: '等待', runProgram: '启动程序', closeProgram: '关闭程序',
@@ -57,8 +57,8 @@ export const nodeLabels: Record<NodeType, string> = {
 
 export const defaultParameters: Record<NodeType, Record<string, unknown>> = {
   colorCondition: { coordinateMode: 'followScript', x: 0, y: 0, width: 1, height: 1, targetColor: '#FFFFFF', tolerance: 10, minMatchRatio: 1 },
-  imageCondition: { coordinateMode: 'followScript', imageMatchEngine: 'custom', templatePath: '', x: 0, y: 0, tolerance: 10, matchThreshold: 0.95 },
-  ocrCondition: { coordinateMode: 'followScript', x: 0, y: 0, width: 1, height: 1, targetText: '', matchThreshold: 0.8 },
+  imageCondition: { imageSearchMode: 'fixed', coordinateMode: 'followScript', imageMatchEngine: 'custom', templatePath: '', x: 0, y: 0, tolerance: 10, matchThreshold: 0.95 },
+  ocrCondition: { textSearchMode: 'fixed', coordinateMode: 'followScript', ocrEngine: 'gemini', x: 0, y: 0, width: 1, height: 1, targetText: '', matchThreshold: 0.8 },
   jump: { scriptId: '', actionId: '' },
   start: {}, end: {},
   windowScope: { titlePattern: '.*', outputVariable: 'windowHandles' },
@@ -112,7 +112,7 @@ export function fromDocument(document: WorkflowDocument): WorkflowGraph {
       position: { ...node.position },
       data: {
         nodeType: node.type,
-        displayName: node.data.displayName,
+        displayName: node.data.displayName === 'Gemini OCR判断' ? nodeLabels[node.type] : node.data.displayName,
         parameters: normalizedParameters(node),
       },
     })),

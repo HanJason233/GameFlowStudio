@@ -215,8 +215,22 @@
                             <controls:SelectableTextBlock Text="动作 ID" Foreground="#94A3B8"/>
                             <controls:SelectableTextBlock Text="{Binding Path=Id, Mode=OneWay}" Foreground="#E2E8F0" TextWrapping="Wrap" Margin="0,0,0,8"/>
                             <controls:SelectableTextBlock Text="直接配置本节点的检测内容，命中后从 true 分支继续，否则从 false 分支继续。" Foreground="#94A3B8" FontSize="10" TextWrapping="Wrap" Margin="3,0,3,10"/>
-                             <StackPanel Visibility="{Binding HasCoordinateParameters, Converter={StaticResource BoolVisibility}}">
-                                 <controls:SelectableTextBlock Text="坐标基准" Foreground="#94A3B8" Margin="0,0,0,3"/>
+                              <StackPanel Visibility="{Binding HasImageSearchModeParameter, Converter={StaticResource BoolVisibility}}" Margin="0,8,0,2">
+                                  <controls:SelectableTextBlock Text="匹配范围" Foreground="#94A3B8" Margin="0,0,0,3" ToolTip="固定坐标模式只在指定区域内搜索；当前屏幕/窗口模式不使用坐标，直接搜索当前操作范围。"/>
+                                  <ComboBox SelectedValue="{Binding ImageSearchModeParameter.Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" SelectedValuePath="Tag">
+                                      <ComboBoxItem Tag="fixed" Content="固定坐标"/>
+                                      <ComboBoxItem Tag="current" Content="当前屏幕/窗口"/>
+                                  </ComboBox>
+                              </StackPanel>
+                              <StackPanel Visibility="{Binding HasTextSearchModeParameter, Converter={StaticResource BoolVisibility}}" Margin="0,8,0,2">
+                                  <controls:SelectableTextBlock Text="匹配范围" Foreground="#94A3B8" Margin="0,0,0,3" ToolTip="固定坐标模式只在指定区域内识别；当前屏幕/窗口模式不使用坐标，直接识别当前操作范围。"/>
+                                  <ComboBox SelectedValue="{Binding TextSearchModeParameter.Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" SelectedValuePath="Tag">
+                                      <ComboBoxItem Tag="fixed" Content="固定坐标"/>
+                                      <ComboBoxItem Tag="current" Content="当前屏幕/窗口"/>
+                                  </ComboBox>
+                              </StackPanel>
+                              <StackPanel Visibility="{Binding HasCoordinateParameters, Converter={StaticResource BoolVisibility}}">
+                                  <controls:SelectableTextBlock Text="坐标基准" Foreground="#94A3B8" Margin="0,0,0,3"/>
                                 <ItemsControl ItemsSource="{Binding CoordinateParameters}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
@@ -229,13 +243,20 @@
                                     </ItemsControl.ItemTemplate>
                                  </ItemsControl>
                              </StackPanel>
-                             <StackPanel Visibility="{Binding HasImageMatchEngineParameter, Converter={StaticResource BoolVisibility}}" Margin="0,8,0,2">
-                                 <controls:SelectableTextBlock Text="图像匹配模式" Foreground="#94A3B8" Margin="0,0,0,3" ToolTip="选择图判断使用自实现算法或 OpenCV 模板匹配"/>
+                              <StackPanel Visibility="{Binding HasImageMatchEngineParameter, Converter={StaticResource BoolVisibility}}" Margin="0,8,0,2">
+                                  <controls:SelectableTextBlock Text="图像匹配模式" Foreground="#94A3B8" Margin="0,0,0,3" ToolTip="选择图判断使用自实现算法或 OpenCV 模板匹配"/>
                                  <ComboBox SelectedValue="{Binding ImageMatchEngineParameter.Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" SelectedValuePath="Tag">
                                      <ComboBoxItem Tag="custom" Content="自实现"/>
                                      <ComboBoxItem Tag="opencv" Content="OpenCV"/>
-                                 </ComboBox>
-                             </StackPanel>
+                                  </ComboBox>
+                              </StackPanel>
+                              <StackPanel Visibility="{Binding HasOcrEngineParameter, Converter={StaticResource BoolVisibility}}" Margin="0,8,0,2">
+                                  <controls:SelectableTextBlock Text="文本识别引擎" Foreground="#94A3B8" Margin="0,0,0,3" ToolTip="本地 OCR 当前为占位实现；Gemini OCR 使用全局 Gemini 配置。"/>
+                                  <ComboBox SelectedValue="{Binding OcrEngineParameter.Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" SelectedValuePath="Tag">
+                                      <ComboBoxItem Tag="local" Content="本地 OCR（占位）"/>
+                                      <ComboBoxItem Tag="gemini" Content="Gemini OCR"/>
+                                  </ComboBox>
+                              </StackPanel>
                              <StackPanel Visibility="{Binding HasConfidenceParameter, Converter={StaticResource BoolVisibility}}" Margin="0,8,0,2">
                                 <DockPanel Margin="0,0,0,3">
                                     <controls:SelectableTextBlock Text="{Binding ConfidenceLabel, Mode=OneWay}" Foreground="#94A3B8" ToolTip="{Binding ConfidenceHint, Mode=OneWay}"/>

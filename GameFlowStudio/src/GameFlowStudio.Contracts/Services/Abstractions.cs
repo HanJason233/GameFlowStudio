@@ -40,6 +40,11 @@ public interface IOcrService
     Task<OcrRecognitionResult> RecognizeAsync(CapturedFrame frame, CancellationToken cancellationToken);
 }
 
+/// <summary>本地 OCR 实现。当前版本先提供占位服务，后续可替换为实际本地引擎。</summary>
+public interface ILocalOcrService : IOcrService
+{
+}
+
 /// <summary>可根据目标文本在多个 OCR 预处理结果中选择更合适结果的 OCR 服务。</summary>
 public interface ITargetAwareOcrService
 {

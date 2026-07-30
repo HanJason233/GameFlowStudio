@@ -334,8 +334,14 @@ public sealed class MainViewModel : ObservableObject
         }
         if (selected.SupportsCoordinateMode && !selected.Parameters.Any(parameter => parameter.Name == "coordinateMode"))
             selected.Parameters.Insert(0, new("coordinateMode", "followScript", JsonValueKind.String, OnSelectedNodeEditorChanged));
+        if (selected.Type == NodeTypes.ImageCondition && !selected.Parameters.Any(parameter => parameter.Name == "imageSearchMode"))
+            selected.Parameters.Insert(selected.Parameters.Any(parameter => parameter.Name == "coordinateMode") ? 1 : 0, new("imageSearchMode", "fixed", JsonValueKind.String, OnSelectedNodeEditorChanged));
         if (selected.Type == NodeTypes.ImageCondition && !selected.Parameters.Any(parameter => parameter.Name == "imageMatchEngine"))
-            selected.Parameters.Insert(selected.Parameters.Any(parameter => parameter.Name == "coordinateMode") ? 1 : 0, new("imageMatchEngine", "custom", JsonValueKind.String, OnSelectedNodeEditorChanged));
+            selected.Parameters.Add(new("imageMatchEngine", "custom", JsonValueKind.String, OnSelectedNodeEditorChanged));
+        if (selected.Type == NodeTypes.OcrCondition && !selected.Parameters.Any(parameter => parameter.Name == "textSearchMode"))
+            selected.Parameters.Insert(selected.Parameters.Any(parameter => parameter.Name == "coordinateMode") ? 1 : 0, new("textSearchMode", "fixed", JsonValueKind.String, OnSelectedNodeEditorChanged));
+        if (selected.Type == NodeTypes.OcrCondition && !selected.Parameters.Any(parameter => parameter.Name == "ocrEngine"))
+            selected.Parameters.Add(new("ocrEngine", "gemini", JsonValueKind.String, OnSelectedNodeEditorChanged));
         if (selected.IsDetectorCondition)
         {
             var confidenceName = selected.Type == NodeTypes.ColorCondition ? "minMatchRatio" : "matchThreshold";
@@ -355,6 +361,7 @@ public sealed class MainViewModel : ObservableObject
 
     private void OnSelectedNodeEditorChanged()
     {
+        SelectedNode?.RefreshParameterViews();
         if (!_suppressSelectedNodeUpdates)
             ObserveTask(UpdateSelectedNodeAsync(), "更新节点属性失败");
     }

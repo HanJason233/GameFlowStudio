@@ -91,8 +91,12 @@ public sealed class ImageStateDetector : IStateDetector
         if (template.Width <= 0 || template.Height <= 0 || template.Bgra32.Length < template.Width * template.Height * 4)
             throw new InvalidOperationException("图片模板为空或不是 BGRA32 图片。");
 
-        var origin = CoordinateOrigin.Read(detector, context);
-        var search = ReadSearchRegion(detector, context.Capture.VirtualScreenBounds, origin);
+        var searchMode = DetectorParameterReader.String(detector, "imageSearchMode", "fixed").Trim().ToLowerInvariant();
+        if (searchMode is not ("fixed" or "current"))
+            throw new InvalidOperationException("图片匹配范围只支持固定坐标或当前屏幕/窗口。");
+        var search = searchMode == "current"
+            ? DetectorSearchRegionReader.ReadCurrent(context)
+            : ReadSearchRegion(detector, context.Capture.VirtualScreenBounds, CoordinateOrigin.Read(detector, context));
         var frame = await context.CaptureAsync(search, cancellationToken).ConfigureAwait(false);
         var tolerance = Math.Clamp(DetectorParameterReader.Int(detector, "tolerance", 10), 0, 255);
         var threshold = Math.Clamp(DetectorParameterReader.Double(detector, "matchThreshold", 0.95), 0, 1);
@@ -105,7 +109,7 @@ public sealed class ImageStateDetector : IStateDetector
         };
         var state = best >= threshold ? 1 : 0;
         return StateDetectorService.Result(detector, state, true,
-            $"最佳匹配置信度 {best:P1} / 要求 {threshold:P1}；容差 ±{tolerance}；搜索区域 ({search.X},{search.Y},{search.Width}×{search.Height})；结果 {DetectorLogFormatting.Outcome(state == 1)}。");
+            $"最佳匹配置信度 {best:P1} / 要求 {threshold:P1}；容差 ±{tolerance}；匹配范围 {(searchMode == "current" ? "当前操作范围" : "固定坐标区域")}；搜索区域 ({search.X},{search.Y},{search.Width}×{search.Height})；结果 {DetectorLogFormatting.Outcome(state == 1)}。");
     }
 
     private static CaptureRegion ReadSearchRegion(DetectorDefinition detector, CaptureRegion fallback, CoordinateOrigin origin)
@@ -166,22 +170,50 @@ public sealed class ImageStateDetector : IStateDetector
     }
 }
 
+internal static class DetectorSearchRegionReader
+{
+    public static CaptureRegion ReadCurrent(DetectorEvaluationContext context)
+    {
+        if (context.WindowHandles.Count == 0) return context.Capture.VirtualScreenBounds;
+        if (context.Windows is null) throw new InvalidOperationException("当前窗口搜索未注册窗口服务。");
+        if (context.WindowHandles.Count != 1) throw new InvalidOperationException("当前窗口搜索需要唯一的当前操作窗口。");
+
+        var bounds = context.Windows.GetWindowBounds(context.WindowHandles[0]);
+        var width = bounds.Right - bounds.Left;
+        var height = bounds.Bottom - bounds.Top;
+        if (width <= 0 || height <= 0) throw new InvalidOperationException("当前操作窗口的尺寸无效。");
+        return new(bounds.Left, bounds.Top, width, height);
+    }
+}
+
 /// <summary>在屏幕区域执行 OCR，并按识别文本及置信度输出状态。</summary>
-public sealed class OcrStateDetector(IOcrService ocr) : IStateDetector
+public sealed class OcrStateDetector(IOcrService geminiOcr, ILocalOcrService? localOcr = null) : IStateDetector
 {
     public DetectorType Type => DetectorType.Ocr;
 
     public async Task<DetectorEvaluationResult> EvaluateAsync(DetectorDefinition detector, DetectorEvaluationContext context, CancellationToken cancellationToken)
     {
         var targetText = ReadText(detector).Trim();
-        if (targetText.Length == 0) throw new InvalidOperationException("OCR 目标文本不能为空。");
+        if (targetText.Length == 0) throw new InvalidOperationException("匹配文本不能为空。");
 
-        var origin = CoordinateOrigin.Read(detector, context);
-        var region = ReadRegion(detector, context.Capture.VirtualScreenBounds, origin);
+        var searchMode = DetectorParameterReader.String(detector, "textSearchMode", "fixed").Trim().ToLowerInvariant();
+        if (searchMode is not ("fixed" or "current"))
+            throw new InvalidOperationException("文本匹配范围只支持固定坐标或当前屏幕/窗口。");
+        var region = searchMode == "current"
+            ? DetectorSearchRegionReader.ReadCurrent(context)
+            : ReadRegion(detector, context.Capture.VirtualScreenBounds, CoordinateOrigin.Read(detector, context));
         var frame = await context.CaptureAsync(region, cancellationToken).ConfigureAwait(false);
-        var recognition = ocr is ITargetAwareOcrService targetAware
+        var engine = DetectorParameterReader.String(detector, "ocrEngine", "gemini").Trim().ToLowerInvariant();
+        var selectedOcr = engine switch
+        {
+            "gemini" or "" => geminiOcr,
+            "local" when localOcr is not null => localOcr,
+            "local" => throw new InvalidOperationException("本地 OCR 服务未注册。"),
+            _ => throw new InvalidOperationException("文本识别引擎只支持本地 OCR 或 Gemini OCR。")
+        };
+        var recognition = selectedOcr is ITargetAwareOcrService targetAware
             ? await targetAware.RecognizeAsync(frame, targetText, cancellationToken).ConfigureAwait(false)
-            : await ocr.RecognizeAsync(frame, cancellationToken).ConfigureAwait(false);
+            : await selectedOcr.RecognizeAsync(frame, cancellationToken).ConfigureAwait(false);
         var normalizedTarget = Normalize(targetText);
         var normalizedText = Normalize(recognition.Text);
         var threshold = Math.Clamp(ReadThreshold(detector), 0, 1);
@@ -190,7 +222,7 @@ public sealed class OcrStateDetector(IOcrService ocr) : IStateDetector
         var state = score >= threshold ? 1 : 0;
         var confidence = recognition.Confidence is { } reportedConfidence ? $"，引擎置信度 {reportedConfidence:P1}" : string.Empty;
         return StateDetectorService.Result(detector, state, true,
-            $"识别文本「{DetectorLogFormatting.DisplayText(recognition.Text)}」；目标文本「{DetectorLogFormatting.DisplayText(targetText)}」；匹配得分 {score:P1} / 要求 {threshold:P1}{confidence}；识别区域 ({region.X},{region.Y},{region.Width}×{region.Height})；结果 {DetectorLogFormatting.Outcome(state == 1)}。");
+            $"识别文本「{DetectorLogFormatting.DisplayText(recognition.Text)}」；目标文本「{DetectorLogFormatting.DisplayText(targetText)}」；匹配得分 {score:P1} / 要求 {threshold:P1}{confidence}；匹配范围 {(searchMode == "current" ? "当前操作范围" : "固定坐标区域")}；识别区域 ({region.X},{region.Y},{region.Width}×{region.Height})；结果 {DetectorLogFormatting.Outcome(state == 1)}。");
     }
 
     private static CaptureRegion ReadRegion(DetectorDefinition detector, CaptureRegion fallback, CoordinateOrigin origin)
@@ -199,7 +231,7 @@ public sealed class OcrStateDetector(IOcrService ocr) : IStateDetector
         var y = DetectorParameterReader.Int(detector, "y", origin.IsWindow ? 0 : fallback.Y);
         var width = DetectorParameterReader.Int(detector, "width", origin.Width ?? fallback.Width);
         var height = DetectorParameterReader.Int(detector, "height", origin.Height ?? fallback.Height);
-        if (width <= 0 || height <= 0) throw new InvalidOperationException("OCR 检测区域的宽度和高度必须大于 0。");
+        if (width <= 0 || height <= 0) throw new InvalidOperationException("文本识别区域的宽度和高度必须大于 0。");
         return new(x + origin.X, y + origin.Y, width, height);
     }
 

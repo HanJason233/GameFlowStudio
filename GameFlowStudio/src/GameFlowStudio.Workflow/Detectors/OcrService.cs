@@ -14,3 +14,13 @@ public sealed class UnsupportedOcrService : IOcrService
         throw new NotSupportedException("当前未配置 OCR 引擎，请在宿主中注册 IOcrService。");
     }
 }
+
+/// <summary>本地 OCR 占位实现，保留引擎插槽但暂未接入具体识别库。</summary>
+public sealed class LocalOcrPlaceholderService : ILocalOcrService
+{
+    public Task<OcrRecognitionResult> RecognizeAsync(CapturedFrame frame, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        throw new NotSupportedException("本地 OCR 尚未实现，请先切换为 Gemini OCR，或等待本地 OCR 引擎接入。");
+    }
+}
