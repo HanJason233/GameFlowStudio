@@ -54,6 +54,11 @@ public sealed class MainViewModel : ObservableObject
     private bool _isRecordingStarting;
     private bool _isRecordingFinalizing;
     private bool _editorReadOnlyRequested;
+    private string? _copiedProjectJson;
+    private string? _copiedProjectActiveScriptId;
+    private string? _copiedScriptJson;
+    private string? _copiedScriptSourceProjectId;
+    private string? _copiedScriptSourceId;
     private int _recordedActionCount;
     private int _recordingStatusNotificationPending;
     private InputRecordingScope _recordingScope = InputRecordingScope.Screen;
@@ -138,7 +143,8 @@ public sealed class MainViewModel : ObservableObject
     public string CurrentNodeText { get => _currentNodeText; private set => Set(ref _currentNodeText, value); }
     public string ElapsedText { get => _elapsedText; private set => Set(ref _elapsedText, value); }
     public bool IsRecording => _isRecordingStarting || _inputRecorder.IsRecording || _isRecordingFinalizing;
-    public bool IsEditorInteractionEnabled => IsProjectEditingEnabled;
+    // 录制时允许当前脚本卡片上的“停止”按钮继续响应；画布自身仍由只读状态保护。
+    public bool IsEditorInteractionEnabled => IsRecording || IsProjectEditingEnabled;
     public string RecordingStatusText => _isRecordingStarting
         ? "正在准备录制…"
         : _isRecordingFinalizing
@@ -292,6 +298,10 @@ public sealed class MainViewModel : ObservableObject
     public ICommand SelectScriptCommand { get; private set; } = null!;
     public ICommand OpenScriptPropertiesCommand { get; private set; } = null!;
     public ICommand DeleteScriptCommand { get; private set; } = null!;
+    public ICommand CopyProjectCommand { get; private set; } = null!;
+    public ICommand PasteProjectCommand { get; private set; } = null!;
+    public ICommand CopyScriptCommand { get; private set; } = null!;
+    public ICommand PasteScriptCommand { get; private set; } = null!;
     public ICommand ToggleProjectFilesPaneCommand { get; private set; } = null!;
     public ICommand ToggleScriptListPaneCommand { get; private set; } = null!;
     public ICommand SettingsCommand { get; private set; } = null!;
@@ -588,6 +598,56 @@ public sealed class MainViewModel : ObservableObject
         await _editor.SendAsync("import_workflow", CreateEditorSnapshot(ActiveScript));
     }
 
+    private async Task CopyProjectAsync()
+    {
+        var project = await ExportAsync();
+        _copiedProjectJson = JsonSerializer.Serialize(project, ProjectJson.Options);
+        _copiedProjectActiveScriptId = _activeScriptId;
+        RaiseCommandStates();
+        _logger.LogInformation("已复制项目 {ProjectName}", project.Project.Name);
+    }
+
+    private async Task PasteProjectAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_copiedProjectJson)) return;
+        if (_dirty && !_dialogs.ConfirmDiscardChanges()) return;
+
+        var project = JsonSerializer.Deserialize<AutomationProject>(_copiedProjectJson, ProjectJson.Options)
+            ?? throw new InvalidDataException("复制的项目内容为空。");
+        var now = DateTimeOffset.UtcNow;
+        project.Project.Id = $"project-{Guid.NewGuid():N}";
+        project.Project.Name = CreateProjectCopyName(project.Project.Name);
+        project.Project.CreatedAt = now;
+        project.Project.UpdatedAt = now;
+
+        if (project.Scripts.Count == 0)
+            throw new InvalidDataException("复制的项目不包含脚本。");
+        foreach (var script in project.Scripts)
+        {
+            script.WindowScope ??= new();
+            script.DefaultNodeDelayMs = Math.Clamp(script.DefaultNodeDelayMs, 0, 60000);
+        }
+        var activeScript = project.Scripts.FirstOrDefault(
+            script => script.Id == _copiedProjectActiveScriptId) ?? project.Scripts[0];
+        project.SetActiveScript(activeScript);
+
+        // 编辑器确认导入成功后再替换当前项目，失败时原项目与画布保持一致。
+        await ImportEditorWorkflowAsync(CreateEditorSnapshot(project, activeScript));
+        _project = project;
+        _activeScriptId = activeScript.Id;
+        SyncRuntimeScriptView(activeScript);
+        RefreshScripts();
+        RefreshScriptSettings();
+        _currentPath = null;
+        _dirty = true;
+        ProjectName = _project.Project.Name;
+        Raise(nameof(CurrentFileName));
+        Raise(nameof(CurrentPathText));
+        SelectedNode = null;
+        IsScriptPropertiesVisible = false;
+        _logger.LogInformation("已粘贴项目副本 {ProjectName}", _project.Project.Name);
+    }
+
     private async Task OpenAsync()
     {
         if (_dirty && !_dialogs.ConfirmDiscardChanges()) return;
@@ -858,6 +918,49 @@ public sealed class MainViewModel : ObservableObject
         await _editor.SendAsync("import_workflow", CreateEditorSnapshot(script));
     }
 
+    private async Task CopyScriptAsync(ScriptListItem? item)
+    {
+        if (item is null) return;
+        await ExportAsync();
+        var script = _project.Scripts.FirstOrDefault(candidate => candidate.Id == item.Id);
+        if (script is null) return;
+        _copiedScriptJson = JsonSerializer.Serialize(script, ProjectJson.Options);
+        _copiedScriptSourceProjectId = _project.Project.Id;
+        _copiedScriptSourceId = script.Id;
+        RaiseCommandStates();
+        _logger.LogInformation("已复制脚本 {ScriptName}", script.Name);
+    }
+
+    private async Task PasteScriptAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_copiedScriptJson)) return;
+        await ExportAsync();
+        var script = JsonSerializer.Deserialize<AutomationScript>(_copiedScriptJson, ProjectJson.Options)
+            ?? throw new InvalidDataException("复制的脚本内容为空。");
+        var newScriptId = NextScriptId();
+        RewriteCopiedScriptJumps(
+            script,
+            _copiedScriptSourceId,
+            newScriptId,
+            string.Equals(_copiedScriptSourceProjectId, _project.Project.Id, StringComparison.Ordinal));
+        script.Id = newScriptId;
+        script.Name = CreateScriptCopyName(script.Name);
+        script.WindowScope ??= new();
+        script.DefaultNodeDelayMs = Math.Clamp(script.DefaultNodeDelayMs, 0, 60000);
+
+        // 先让编辑器确认新脚本可导入，再提交到项目集合，避免失败后覆盖副本内容。
+        await ImportEditorWorkflowAsync(CreateEditorSnapshot(_project, script));
+        _project.Scripts.Add(script);
+        _activeScriptId = script.Id;
+        SyncRuntimeScriptView(script);
+        RefreshScripts();
+        RefreshScriptSettings();
+        SelectedNode = null;
+        IsScriptPropertiesVisible = true;
+        _dirty = true;
+        _logger.LogInformation("已粘贴脚本副本 {ScriptName}", script.Name);
+    }
+
     private async Task SelectScriptAsync(ScriptListItem? item)
     {
         if (item is null) return;
@@ -934,11 +1037,14 @@ public sealed class MainViewModel : ObservableObject
             throw new InvalidOperationException(response.Error ?? "编辑器未确认只读状态。");
     }
 
-    private async Task ImportEditorWorkflowAsync(AutomationScript script)
+    private Task ImportEditorWorkflowAsync(AutomationScript script) =>
+        ImportEditorWorkflowAsync(CreateEditorSnapshot(script));
+
+    private async Task ImportEditorWorkflowAsync(WorkflowDocument snapshot)
     {
         var response = await _editor.RequestAsync<EditorOperationResponse>(
             "request_import_workflow",
-            CreateEditorSnapshot(script));
+            snapshot);
         if (!response.Success)
             throw new InvalidOperationException(response.Error ?? "编辑器未确认工作流导入。");
     }
@@ -1015,10 +1121,15 @@ public sealed class MainViewModel : ObservableObject
         _dirty = true;
     }
 
-    private WorkflowDocument CreateEditorSnapshot(AutomationScript script) => new()
+    private WorkflowDocument CreateEditorSnapshot(AutomationScript script) =>
+        CreateEditorSnapshot(_project, script);
+
+    private static WorkflowDocument CreateEditorSnapshot(
+        AutomationProject project,
+        AutomationScript script) => new()
     {
-        SchemaVersion = _project.SchemaVersion,
-        Project = _project.Project,
+        SchemaVersion = project.SchemaVersion,
+        Project = project.Project,
         Variables = script.Variables,
         Nodes = script.Nodes,
         Edges = script.Edges
@@ -1038,6 +1149,47 @@ public sealed class MainViewModel : ObservableObject
         while (_project.Scripts.Any(script => string.Equals(script.Name, name, StringComparison.OrdinalIgnoreCase)))
             name = $"脚本 {++index}";
         return name;
+    }
+
+    private static string CreateProjectCopyName(string sourceName)
+    {
+        var baseName = string.IsNullOrWhiteSpace(sourceName) ? "未命名项目" : sourceName.Trim();
+        return $"{baseName} 副本";
+    }
+
+    private string CreateScriptCopyName(string sourceName)
+    {
+        var source = string.IsNullOrWhiteSpace(sourceName) ? "未命名脚本" : sourceName.Trim();
+        var baseName = $"{source} 副本";
+        var name = baseName;
+        var suffix = 2;
+        while (_project.Scripts.Any(script => string.Equals(script.Name, name, StringComparison.OrdinalIgnoreCase)))
+            name = $"{baseName} ({suffix++})";
+        return name;
+    }
+
+    private static void RewriteCopiedScriptJumps(
+        AutomationScript script,
+        string? sourceScriptId,
+        string newScriptId,
+        bool isSameProject)
+    {
+        foreach (var node in script.Nodes.Where(node => node.Type == NodeTypes.Jump))
+        {
+            if (!node.Data.Parameters.TryGetValue("scriptId", out var targetValue)
+                || targetValue.ValueKind != JsonValueKind.String)
+                continue;
+            var targetScriptId = targetValue.GetString();
+            if (string.Equals(targetScriptId, sourceScriptId, StringComparison.Ordinal))
+            {
+                node.Data.Parameters["scriptId"] = ProjectJson.Element(newScriptId);
+                continue;
+            }
+
+            if (!isSameProject)
+                throw new InvalidOperationException(
+                    "复制的脚本包含指向其他脚本的跳转，不能直接粘贴到另一个项目。请先复制整个项目，或移除跨脚本跳转。");
+        }
     }
 
     private string NextScriptId()
@@ -1072,7 +1224,8 @@ public sealed class MainViewModel : ObservableObject
             RunCommand, RuntimeLaunchCommand, StartRecordingCommand, StopRecordingCommand,
             PauseCommand, ResumeCommand, StopCommand, AddNodeCommand, PickCoordinateCommand,
             SelectProgramPathCommand, NewScriptCommand, SelectScriptCommand, OpenScriptPropertiesCommand,
-            DeleteScriptCommand, SettingsCommand
+            DeleteScriptCommand, CopyProjectCommand, PasteProjectCommand, CopyScriptCommand,
+            PasteScriptCommand, SettingsCommand
         })
             if (command is AsyncRelayCommand asyncCommand)
                 asyncCommand.RaiseCanExecuteChanged();
@@ -1098,6 +1251,10 @@ public sealed class MainViewModel : ObservableObject
         SelectScriptCommand = CreateAsyncCommand(item => ExecuteProjectOperationAsync(() => SelectScriptAsync(item as ScriptListItem)), _ => IsProjectEditingEnabled);
         OpenScriptPropertiesCommand = CreateAsyncCommand(item => ExecuteProjectOperationAsync(() => OpenScriptPropertiesAsync(item as ScriptListItem)), _ => IsProjectEditingEnabled);
         DeleteScriptCommand = CreateAsyncCommand(item => ExecuteProjectOperationAsync(() => DeleteScriptAsync(item as ScriptListItem)), _ => IsProjectEditingEnabled);
+        CopyProjectCommand = CreateAsyncCommand(_ => ExecuteProjectOperationAsync(CopyProjectAsync), _ => IsProjectEditingEnabled);
+        PasteProjectCommand = CreateAsyncCommand(_ => ExecuteProjectOperationAsync(PasteProjectAsync), _ => IsProjectEditingEnabled && !string.IsNullOrWhiteSpace(_copiedProjectJson));
+        CopyScriptCommand = CreateAsyncCommand(item => ExecuteProjectOperationAsync(() => CopyScriptAsync(item as ScriptListItem)), item => IsProjectEditingEnabled && item is ScriptListItem);
+        PasteScriptCommand = CreateAsyncCommand(_ => ExecuteProjectOperationAsync(PasteScriptAsync), _ => IsProjectEditingEnabled && !string.IsNullOrWhiteSpace(_copiedScriptJson));
         SettingsCommand = CreateAsyncCommand(_ => EditSettingsAsync(), _ => !IsRecording && !_isProjectOperationInProgress);
         ToggleProjectFilesPaneCommand = new RelayCommand(_ => ToggleProjectFilesPane());
         ToggleScriptListPaneCommand = new RelayCommand(_ => ToggleScriptListPane());

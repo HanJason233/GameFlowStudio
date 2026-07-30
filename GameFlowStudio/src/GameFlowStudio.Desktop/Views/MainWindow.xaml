@@ -24,12 +24,51 @@
             </Expander>
         </DataTemplate>
         <DataTemplate x:Key="ScriptItemTemplate">
-                <Grid Width="190" HorizontalAlignment="Left" Margin="0,2">
-                    <Button Command="{Binding DataContext.SelectScriptCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" PreviewMouseRightButtonDown="ScriptRightClick" HorizontalContentAlignment="Stretch" Padding="8,7">
-                    <StackPanel>
-                        <controls:SelectableTextBlock Text="{Binding Path=Name, Mode=OneWay}" Foreground="#F8FAFC" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                    </StackPanel>
+                <Grid Width="190"
+                      HorizontalAlignment="Left"
+                      Margin="0,2"
+                      Background="Transparent"
+                      PreviewMouseRightButtonDown="ScriptRightClick">
+                    <Button Command="{Binding DataContext.SelectScriptCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                            CommandParameter="{Binding}"
+                            Cursor="Hand"
+                            HorizontalContentAlignment="Stretch"
+                            Padding="8,7"
+                            Margin="0"
+                            ToolTip="左键点击切换脚本，右键打开菜单">
+                        <Grid IsHitTestVisible="False">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0"
+                                       Text="{Binding Path=Name, Mode=OneWay}"
+                                       Foreground="#F8FAFC"
+                                       FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis"/>
+                            <Border Grid.Column="1"
+                                    Width="64"
+                                    Visibility="{Binding IsActive, Converter={StaticResource BoolVisibility}}"/>
+                        </Grid>
                     </Button>
+                    <Grid HorizontalAlignment="Right"
+                          VerticalAlignment="Stretch"
+                          Margin="0,3,3,3"
+                          Panel.ZIndex="1"
+                          Visibility="{Binding IsActive, Converter={StaticResource BoolVisibility}}">
+                        <Button Content="● 录制"
+                                Command="{Binding DataContext.StartRecordingCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                Visibility="{Binding DataContext.IsRecording, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource InverseBoolVisibility}}"
+                                MinWidth="58" Margin="0" Padding="6,2"
+                                Background="#B91C1C" BorderBrush="#EF4444"
+                                ToolTip="选择基于屏幕或指定窗口录制；停止后把步骤追加到当前脚本。"/>
+                        <Button Content="■ 停止"
+                                Command="{Binding DataContext.StopRecordingCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                Visibility="{Binding DataContext.IsRecording, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolVisibility}}"
+                                MinWidth="58" Margin="0" Padding="6,2"
+                                Background="#991B1B" BorderBrush="#EF4444"
+                                ToolTip="停止录制并追加到当前脚本（F7）"/>
+                    </Grid>
                 </Grid>
         </DataTemplate>
         <Style x:Key="ProjectFileActionButton" TargetType="Button" BasedOn="{StaticResource PaneHeaderButton}">
@@ -50,13 +89,6 @@
             <StackPanel>
                 <DockPanel Margin="8,3,8,7">
                     <StackPanel Orientation="Horizontal">
-                        <Button Content="● 录制" Command="{Binding StartRecordingCommand}"
-                                Visibility="{Binding IsRecording, Converter={StaticResource InverseBoolVisibility}}"
-                                Background="#B91C1C" BorderBrush="#EF4444"
-                                ToolTip="选择基于屏幕或指定窗口录制；停止后把步骤追加到当前脚本。暂不还原同时按键或按住键配合鼠标。"/>
-                        <Button Content="■ 停止 (F7)" Command="{Binding StopRecordingCommand}"
-                                Visibility="{Binding IsRecording, Converter={StaticResource BoolVisibility}}"
-                                Background="#991B1B" BorderBrush="#EF4444" ToolTip="停止录制并追加到当前脚本（F7）"/>
                         <Button Content="▶ 运行" Command="{Binding RuntimeLaunchCommand}" Background="#0F766E" BorderBrush="#14B8A6" ToolTip="关闭编辑器并启动轻量纯运行悬浮窗"/>
                         <Button Content="▶ 调试运行" Command="{Binding RunCommand}" Background="#2563EB" BorderBrush="#3B82F6" ToolTip="在编辑器中运行并显示调试状态"/>
                         <Button Content="Ⅱ 暂停" Command="{Binding PauseCommand}"/>
@@ -119,15 +151,28 @@
                         </StackPanel>
                         <Button Content="—" Style="{StaticResource ProjectPaneCollapseButton}" HorizontalAlignment="Right" Command="{Binding ToggleProjectFilesPaneCommand}" ToolTip="最小化项目文件"/>
                     </Grid>
-                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="8,0,8,8">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  Background="Transparent"
+                                  Padding="8,0,8,8"
+                                  MouseRightButtonDown="ProjectPaneRightClick">
                         <StackPanel>
                             <controls:SelectableTextBlock Text="当前文件" Foreground="#64748B" FontSize="11" Margin="3,2,3,4"/>
-                            <Border Background="#1D2A42" BorderBrush="#3B82F6" BorderThickness="1" CornerRadius="5" Padding="9,8" Margin="0,0,0,12">
-                                <StackPanel>
-                                    <controls:SelectableTextBlock Text="{Binding Path=CurrentFileName, Mode=OneWay}" Foreground="#F8FAFC" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                                    <controls:SelectableTextBlock Text="{Binding Path=CurrentPathText, Mode=OneWay}" Foreground="#94A3B8" FontSize="10" TextTrimming="CharacterEllipsis" Margin="0,3,0,0"/>
+                            <Button Style="{StaticResource StepButtonStyle}"
+                                    Command="{Binding OpenCommand}"
+                                    Cursor="Hand"
+                                    HorizontalContentAlignment="Stretch"
+                                    Background="#1D2A42"
+                                    BorderBrush="#3B82F6"
+                                    Padding="9,8"
+                                    Margin="0,0,0,12"
+                                    PreviewMouseRightButtonDown="ProjectCardRightClick"
+                                    ToolTip="左键点击打开并切换项目，右键复制项目">
+                                <StackPanel IsHitTestVisible="False">
+                                    <TextBlock Text="{Binding Path=CurrentFileName, Mode=OneWay}" Foreground="#F8FAFC" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Text="{Binding Path=CurrentPathText, Mode=OneWay}" Foreground="#94A3B8" FontSize="10" TextTrimming="CharacterEllipsis" Margin="0,3,0,0"/>
                                 </StackPanel>
-                            </Border>
+                            </Button>
                         </StackPanel>
                     </ScrollViewer>
                 </DockPanel>
@@ -142,7 +187,11 @@
                         <Button Content="—" Style="{StaticResource PaneHeaderButton}" HorizontalAlignment="Right" Command="{Binding ToggleScriptListPaneCommand}" ToolTip="最小化脚本列表"/>
                         <Button Content="+" Style="{StaticResource PaneHeaderButton}" HorizontalAlignment="Right" Margin="4,5,38,5" Command="{Binding NewScriptCommand}" ToolTip="新建脚本"/>
                     </Grid>
-                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="8,0,8,8">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  Background="Transparent"
+                                  Padding="8,0,8,8"
+                                  MouseRightButtonDown="ScriptPaneRightClick">
                         <StackPanel>
                             <ItemsControl ItemsSource="{Binding Scripts}" ItemTemplate="{StaticResource ScriptItemTemplate}"/>
                         </StackPanel>

@@ -37,10 +37,45 @@ public partial class MainWindow : Window
     {
         if (sender is not FrameworkElement { DataContext: ScriptListItem item } element) return;
         e.Handled = true;
-        var menu = new ContextMenu();
-        menu.Items.Add(new MenuItem { Header = "属性", Command = _viewModel.OpenScriptPropertiesCommand, CommandParameter = item });
-        menu.Items.Add(new MenuItem { Header = "删除", Command = _viewModel.DeleteScriptCommand, CommandParameter = item });
-        menu.PlacementTarget = element;
+        ShowContextMenu(
+            element,
+            new MenuItem { Header = "复制", Command = _viewModel.CopyScriptCommand, CommandParameter = item },
+            new Separator(),
+            new MenuItem { Header = "属性", Command = _viewModel.OpenScriptPropertiesCommand, CommandParameter = item },
+            new MenuItem { Header = "删除", Command = _viewModel.DeleteScriptCommand, CommandParameter = item });
+    }
+
+    private void ProjectCardRightClick(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not FrameworkElement element) return;
+        e.Handled = true;
+        ShowContextMenu(
+            element,
+            new MenuItem { Header = "复制", Command = _viewModel.CopyProjectCommand });
+    }
+
+    private void ProjectPaneRightClick(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not FrameworkElement element) return;
+        e.Handled = true;
+        ShowContextMenu(
+            element,
+            new MenuItem { Header = "粘贴", Command = _viewModel.PasteProjectCommand });
+    }
+
+    private void ScriptPaneRightClick(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not FrameworkElement element) return;
+        e.Handled = true;
+        ShowContextMenu(
+            element,
+            new MenuItem { Header = "粘贴", Command = _viewModel.PasteScriptCommand });
+    }
+
+    private static void ShowContextMenu(FrameworkElement placementTarget, params object[] items)
+    {
+        var menu = new ContextMenu { PlacementTarget = placementTarget };
+        foreach (var item in items) menu.Items.Add(item);
         menu.IsOpen = true;
     }
 
