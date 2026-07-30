@@ -51,6 +51,8 @@ public sealed class MainViewModel : ObservableObject
     private bool _dirty;
     private bool _runtimeLaunchInProgress;
     private bool _isProjectOperationInProgress;
+    private bool _deferCommandStateNotifications;
+    private bool _isWorkspaceInputBlocked;
     private bool _isRecordingStarting;
     private bool _isRecordingFinalizing;
     private bool _editorReadOnlyRequested;
@@ -145,6 +147,7 @@ public sealed class MainViewModel : ObservableObject
     public bool IsRecording => _isRecordingStarting || _inputRecorder.IsRecording || _isRecordingFinalizing;
     // 录制时允许当前脚本卡片上的“停止”按钮继续响应；画布自身仍由只读状态保护。
     public bool IsEditorInteractionEnabled => IsRecording || IsProjectEditingEnabled;
+    public bool IsWorkspaceInputEnabled => !_isWorkspaceInputBlocked;
     public string RecordingStatusText => _isRecordingStarting
         ? "正在准备录制…"
         : _isRecordingFinalizing
@@ -973,13 +976,15 @@ public sealed class MainViewModel : ObservableObject
         await ExportAsync();
         var script = _project.Scripts.FirstOrDefault(candidate => candidate.Id == item.Id);
         if (script is null) return;
+
+        // 编辑器确认目标脚本导入成功后再切换活动状态，避免模型与画布错位。
+        await ImportEditorWorkflowAsync(CreateEditorSnapshot(_project, script));
         _activeScriptId = script.Id;
         SyncRuntimeScriptView(script);
         RefreshScripts();
         RefreshScriptSettings();
         SelectedNode = null;
         IsScriptPropertiesVisible = true;
-        await _editor.SendAsync("import_workflow", CreateEditorSnapshot(script));
     }
 
     private async Task OpenScriptPropertiesAsync(ScriptListItem? item)
@@ -1137,9 +1142,35 @@ public sealed class MainViewModel : ObservableObject
 
     private void RefreshScripts()
     {
-        Scripts.Clear();
-        foreach (var script in _project.Scripts)
-            Scripts.Add(new ScriptListItem(script.Id, script.Name) { IsActive = script.Id == _activeScriptId });
+        for (var index = 0; index < _project.Scripts.Count; index++)
+        {
+            var script = _project.Scripts[index];
+            var currentIndex = -1;
+            for (var candidateIndex = index; candidateIndex < Scripts.Count; candidateIndex++)
+            {
+                if (Scripts[candidateIndex].Id != script.Id) continue;
+                currentIndex = candidateIndex;
+                break;
+            }
+
+            ScriptListItem item;
+            if (currentIndex < 0)
+            {
+                item = new ScriptListItem(script.Id, script.Name);
+                Scripts.Insert(index, item);
+            }
+            else
+            {
+                if (currentIndex != index) Scripts.Move(currentIndex, index);
+                item = Scripts[index];
+            }
+
+            item.Name = script.Name;
+            item.IsActive = script.Id == _activeScriptId;
+        }
+
+        while (Scripts.Count > _project.Scripts.Count)
+            Scripts.RemoveAt(Scripts.Count - 1);
     }
 
     private string CreateScriptName()
@@ -1218,6 +1249,7 @@ public sealed class MainViewModel : ObservableObject
     });
     private void RaiseCommandStates()
     {
+        if (_deferCommandStateNotifications) return;
         foreach (var command in new[]
         {
             NewCommand, OpenCommand, SaveCommand, SaveAsCommand, OpenSampleCommand,
@@ -1248,8 +1280,18 @@ public sealed class MainViewModel : ObservableObject
         PickCoordinateCommand = CreateAsyncCommand(_ => ExecuteProjectOperationAsync(PickCoordinateAsync), _ => IsProjectEditingEnabled && SelectedNode?.CanPickCoordinate == true);
         SelectProgramPathCommand = CreateAsyncCommand(_ => ExecuteProjectOperationAsync(SelectProgramPathAsync), _ => IsProjectEditingEnabled && SelectedNode?.CanPickProgramPath == true);
         NewScriptCommand = CreateAsyncCommand(_ => ExecuteProjectOperationAsync(NewScriptAsync), _ => IsProjectEditingEnabled);
-        SelectScriptCommand = CreateAsyncCommand(item => ExecuteProjectOperationAsync(() => SelectScriptAsync(item as ScriptListItem)), _ => IsProjectEditingEnabled);
-        OpenScriptPropertiesCommand = CreateAsyncCommand(item => ExecuteProjectOperationAsync(() => OpenScriptPropertiesAsync(item as ScriptListItem)), _ => IsProjectEditingEnabled);
+        SelectScriptCommand = CreateAsyncCommand(
+            item => ExecuteProjectOperationAsync(
+                () => SelectScriptAsync(item as ScriptListItem),
+                notifyBusyState: false),
+            _ => IsProjectEditingEnabled,
+            disableWhileRunning: false);
+        OpenScriptPropertiesCommand = CreateAsyncCommand(
+            item => ExecuteProjectOperationAsync(
+                () => OpenScriptPropertiesAsync(item as ScriptListItem),
+                notifyBusyState: false),
+            _ => IsProjectEditingEnabled,
+            disableWhileRunning: false);
         DeleteScriptCommand = CreateAsyncCommand(item => ExecuteProjectOperationAsync(() => DeleteScriptAsync(item as ScriptListItem)), _ => IsProjectEditingEnabled);
         CopyProjectCommand = CreateAsyncCommand(_ => ExecuteProjectOperationAsync(CopyProjectAsync), _ => IsProjectEditingEnabled);
         PasteProjectCommand = CreateAsyncCommand(_ => ExecuteProjectOperationAsync(PasteProjectAsync), _ => IsProjectEditingEnabled && !string.IsNullOrWhiteSpace(_copiedProjectJson));
@@ -1265,19 +1307,43 @@ public sealed class MainViewModel : ObservableObject
 
     private AsyncRelayCommand CreateAsyncCommand(
         Func<object?, Task> execute,
-        Func<object?, bool>? canExecute = null) =>
-        new(execute, canExecute, exception => ReportOperationError(exception, "命令执行失败"));
+        Func<object?, bool>? canExecute = null,
+        bool disableWhileRunning = true) =>
+        new(
+            execute,
+            canExecute,
+            exception => ReportOperationError(exception, "命令执行失败"),
+            disableWhileRunning);
 
-    private async Task ExecuteProjectOperationAsync(Func<Task> operation)
+    private async Task ExecuteProjectOperationAsync(
+        Func<Task> operation,
+        bool notifyBusyState = true)
     {
         if (_isProjectOperationInProgress) return;
         _isProjectOperationInProgress = true;
-        RaiseProjectOperationState();
+        if (notifyBusyState)
+            RaiseProjectOperationState();
+        else
+        {
+            _deferCommandStateNotifications = true;
+            _isWorkspaceInputBlocked = true;
+            Raise(nameof(IsWorkspaceInputEnabled));
+        }
         try { await operation(); }
         finally
         {
             _isProjectOperationInProgress = false;
-            RaiseProjectOperationState();
+            if (notifyBusyState)
+            {
+                RaiseProjectOperationState();
+            }
+            else
+            {
+                _isWorkspaceInputBlocked = false;
+                Raise(nameof(IsWorkspaceInputEnabled));
+                _deferCommandStateNotifications = false;
+                RaiseCommandStates();
+            }
         }
     }
 

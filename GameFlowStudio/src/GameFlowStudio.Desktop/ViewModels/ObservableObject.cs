@@ -23,15 +23,19 @@ public sealed class RelayCommand(Action<object?> execute, Func<object?, bool>? c
 public sealed class AsyncRelayCommand(
     Func<object?, Task> execute,
     Func<object?, bool>? canExecute = null,
-    Action<Exception>? errorHandler = null) : ICommand
+    Action<Exception>? errorHandler = null,
+    bool disableWhileRunning = true) : ICommand
 {
     private bool _running;
     public event EventHandler? CanExecuteChanged;
-    public bool CanExecute(object? parameter) => !_running && (canExecute?.Invoke(parameter) ?? true);
+    public bool CanExecute(object? parameter) =>
+        (!disableWhileRunning || !_running) && (canExecute?.Invoke(parameter) ?? true);
     public async void Execute(object? parameter)
     {
-        if (!CanExecute(parameter)) return;
-        _running = true; CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+        // 即使执行期间保持按钮的可用外观，也始终阻止同一异步命令重入。
+        if (_running || !(canExecute?.Invoke(parameter) ?? true)) return;
+        _running = true;
+        if (disableWhileRunning) CanExecuteChanged?.Invoke(this, EventArgs.Empty);
         try
         {
             await execute(parameter);
@@ -44,7 +48,7 @@ public sealed class AsyncRelayCommand(
         finally
         {
             _running = false;
-            CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+            if (disableWhileRunning) CanExecuteChanged?.Invoke(this, EventArgs.Empty);
         }
     }
     public void RaiseCanExecuteChanged() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);

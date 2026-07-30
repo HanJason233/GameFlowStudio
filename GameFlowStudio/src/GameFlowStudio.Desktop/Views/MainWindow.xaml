@@ -118,7 +118,8 @@
             </StackPanel>
         </Border>
 
-        <Grid IsEnabled="{Binding IsEditorInteractionEnabled}">
+        <Grid IsEnabled="{Binding IsEditorInteractionEnabled}"
+              IsHitTestVisible="{Binding IsWorkspaceInputEnabled}">
             <Grid.RowDefinitions>
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="5"/>
