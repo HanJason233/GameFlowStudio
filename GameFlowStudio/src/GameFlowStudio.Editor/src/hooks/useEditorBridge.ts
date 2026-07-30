@@ -33,6 +33,22 @@ function routeMessage(message: BridgeMessage, handlers: EditorBridgeHandlers): v
       handlers.importDocument(message.payload)
       break
     }
+    case 'request_import_workflow': {
+      if (!message.requestId) return reject(message.type, 'missing request id')
+      if (!isWorkflowDocument(message.payload)) {
+        postBridgeMessage('workflow_imported', { success: false, error: 'invalid workflow document' }, message.requestId)
+        return reject(message.type, 'invalid workflow document')
+      }
+      try {
+        handlers.importDocument(message.payload)
+        postBridgeMessage('workflow_imported', { success: true }, message.requestId)
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error)
+        postBridgeMessage('workflow_imported', { success: false, error: detail }, message.requestId)
+        reportError(message.type, error)
+      }
+      break
+    }
     case 'request_workflow_export':
       if (!message.requestId) return reject(message.type, 'missing request id')
       postBridgeMessage('workflow_exported', handlers.exportDocument(), message.requestId); break
@@ -61,6 +77,17 @@ function routeMessage(message: BridgeMessage, handlers: EditorBridgeHandlers): v
       const payload = readRecord(message.payload)
       if (!payload || typeof payload.readOnly !== 'boolean') return reject(message.type, 'invalid read-only state')
       handlers.setReadOnly(payload.readOnly)
+      break
+    }
+    case 'request_set_editor_readonly': {
+      if (!message.requestId) return reject(message.type, 'missing request id')
+      const payload = readRecord(message.payload)
+      if (!payload || typeof payload.readOnly !== 'boolean') {
+        postBridgeMessage('editor_readonly_set', { success: false, error: 'invalid read-only state' }, message.requestId)
+        return reject(message.type, 'invalid read-only state')
+      }
+      handlers.setReadOnly(payload.readOnly)
+      postBridgeMessage('editor_readonly_set', { success: true, readOnly: payload.readOnly }, message.requestId)
       break
     }
   }

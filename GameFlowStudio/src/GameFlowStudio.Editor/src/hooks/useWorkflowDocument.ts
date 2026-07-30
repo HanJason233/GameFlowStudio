@@ -58,9 +58,10 @@ export function useWorkflowDocument() {
   }, [flow, markChanged, readOnly, setNodes])
 
   const updateNodeData = useCallback((nodeId: string, data: NodeDataUpdate) => {
+    if (readOnly) return
     setNodes(current => current.map(node => node.id === nodeId ? { ...node, data: { ...node.data, ...data, parameters: { ...node.data.parameters, ...data.parameters } } } : node))
     markChanged()
-  }, [markChanged, setNodes])
+  }, [markChanged, readOnly, setNodes])
 
   const updateExecutionStatus = useCallback((nodeId: string, status: 'running' | 'success' | 'error') => {
     setNodes(current => current.map(node => {

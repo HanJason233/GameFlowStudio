@@ -14,16 +14,20 @@
 - `workflow_changed`：画布被修改，用于未保存状态。
 - `node_selected`：单选节点及其 data；无单选时 payload 为 null。
 - `workflow_exported`：最新项目快照，响应导出请求。
+- `workflow_imported`：工作流导入已通过前端校验并被接受，响应带确认的导入请求。
+- `editor_readonly_set`：编辑器已接受只读状态，响应带确认的只读切换请求。
 - `validation_requested`：保留给编辑器主动验证。
 - `coordinate_picker_requested`：保留给 React 内属性 UI。
 
 ## WPF → React
 
 - `initialize_editor`、`import_workflow`：载入完整项目。
+- `request_import_workflow`：载入完整项目并等待 `workflow_imported` 确认；录制结果切换使用此请求，避免宿主模型与画布失去同步。
 - `request_workflow_export`：请求最新快照。
 - `add_node`：按 nodeType 在视口中心创建节点。
 - `update_node_data`：按 nodeId 合并名称、enabled 和 parameters。
 - `highlight_node`、`mark_node_success`、`mark_node_error`、`clear_execution_state`：执行状态。
-- `set_editor_readonly`：运行期间禁止结构编辑，仍允许选择、缩放和平移。
+- `set_editor_readonly`：兼容用的单向只读切换。
+- `request_set_editor_readonly`：切换结构和属性数据的只读状态并等待 `editor_readonly_set` 确认；仍允许选择、缩放和平移。
 
 C# 使用 `CoreWebView2.PostWebMessageAsJson` 与 `CoreWebView2.WebMessageReceived`；React 使用 `window.chrome.webview.postMessage` 和 message 事件。协议不使用 `ExecuteScriptAsync`，也不拼接不可信脚本。

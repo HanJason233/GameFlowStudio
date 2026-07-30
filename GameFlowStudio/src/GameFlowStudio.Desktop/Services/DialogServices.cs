@@ -12,6 +12,7 @@ public interface IFileDialogService
     string? OpenProgram(string? initialDirectory = null);
     string? SaveProject(string? currentPath = null);
     bool ConfirmDiscardChanges();
+    bool ConfirmDiscardRecording();
     void ShowError(string message);
     bool EditSettings(AppSettings settings);
 }
@@ -32,6 +33,7 @@ public sealed class FileDialogService : IFileDialogService
     }
     public string? SaveProject(string? currentPath = null) { var dialog = new SaveFileDialog { Filter = "GameFlow 项目 (*.gflow)|*.gflow", DefaultExt = ".gflow", AddExtension = true, FileName = currentPath is null ? null : Path.GetFileName(currentPath), InitialDirectory = currentPath is null ? null : Path.GetDirectoryName(currentPath) }; return dialog.ShowDialog() == true ? dialog.FileName : null; }
     public bool ConfirmDiscardChanges() => MessageBox.Show("当前项目有未保存的更改，是否放弃？", "GameFlow Studio", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes;
+    public bool ConfirmDiscardRecording() => MessageBox.Show("操作录制仍在进行，关闭软件会丢弃本次录制。是否继续关闭？", "GameFlow Studio", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes;
     public void ShowError(string message) => MessageBox.Show(message, "GameFlow Studio", MessageBoxButton.OK, MessageBoxImage.Error);
     public bool EditSettings(AppSettings settings)
     {

@@ -6,7 +6,7 @@
 WPF Desktop ── WebView2 JSON ── React Flow Editor
      │
      ├── Workflow（验证、逻辑判断、执行器、变量、暂停门）
-     ├── Automation（SendInput、窗口、坐标、Interop）
+     ├── Automation（SendInput、低级键鼠录制、窗口、坐标、Interop）
      ├── Storage（.gflow 原子保存、settings.json）
      └── Infrastructure（DI、ILogger UI/每日文件输出）
             │
@@ -39,6 +39,8 @@ Desktop 负责窗口生命周期、文件对话框、运行命令和可视状态
 5. 运行器验证快照，逐节点执行并发出 NodeStarted/NodeCompleted/NodeFailed。
 6. ViewModel 把事件映射为画布高亮/成功/失败消息，同时 ILogger 写入 UI 和每日文件。
 
+录制是独立于运行器的状态：Desktop 先导出并锁定当前画布，Automation 在当前交互桌面安装 `WH_MOUSE_LL`/`WH_KEYBOARD_LL`，过滤本进程窗口和注入输入，再把消息归并为操作快照。停止后 Workflow 将快照转换为只包含现有节点类型的新线性脚本，Desktop 通过既有 `import_workflow` 消息显示它。F7 是录制期间保留的全局停止键。
+
 ## 执行状态
 
 `Idle → Running → Paused → Running → Completed` 是正常路径。停止时进入 `Stopping` 并取消关联令牌，清理后回到 `Idle`。验证或执行异常进入 `Failed`。只有非 Running/Paused/Stopping 状态可以开始新任务。
@@ -49,5 +51,6 @@ Desktop 负责窗口生命周期、文件对话框、运行命令和可视状态
 
 - 新节点：新增稳定 NodeType、参数验证、`INodeExecutor` 和 React 默认参数/显示信息。
 - 新输入方式：替换 `IInputAutomationService`，不修改运行器。
+- 新录制后端：替换 `IInputRecordingService`；录制快照与工作流转换不依赖 WPF 或原生钩子。
 - 项目文件使用 1.4 结构，每个脚本独立保存检测器和节点图；逻辑判断只在当前脚本内执行，编辑器通过活动脚本视图与 React 编辑器通信。
 - 日志后端：增加 ILoggerProvider，不改变执行器。

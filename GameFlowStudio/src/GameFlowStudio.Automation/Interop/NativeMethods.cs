@@ -27,6 +27,11 @@ internal static class NativeMethods
     public const uint SwpNoActivate = 0x0010;
     public const uint SwpShowWindow = 0x0040;
     public const uint WdaExcludeFromCapture = 0x00000011;
+    public const int WhKeyboardLowLevel = 13;
+    public const int WhMouseLowLevel = 14;
+    public const uint LowLevelMouseInjected = 0x00000001;
+    public const uint LowLevelKeyboardInjected = 0x00000010;
+    public const uint GetAncestorRoot = 2;
 
     [DllImport("user32.dll", SetLastError = true)] public static extern uint SendInput(uint count, INPUT[] inputs, int size);
     [DllImport("user32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)] public static extern bool SetPhysicalCursorPos(int x, int y);
@@ -46,12 +51,21 @@ internal static class NativeMethods
     [DllImport("user32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)] public static extern bool GetClientRect(nint window, out RECT rectangle);
     [DllImport("user32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)] public static extern bool GetWindowRect(nint window, out RECT rectangle);
     [DllImport("user32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)] public static extern bool SetWindowDisplayAffinity(nint window, uint affinity);
+    [DllImport("user32.dll", SetLastError = true)] public static extern nint SetWindowsHookEx(int hookId, LowLevelHookProc callback, nint module, uint threadId);
+    [DllImport("user32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)] public static extern bool UnhookWindowsHookEx(nint hook);
+    [DllImport("user32.dll")] public static extern nint CallNextHookEx(nint hook, int code, nint message, nint data);
+    [DllImport("user32.dll")] public static extern nint GetForegroundWindow();
+    [DllImport("user32.dll")] public static extern nint WindowFromPoint(POINT point);
+    [DllImport("user32.dll")] public static extern nint GetAncestor(nint window, uint flags);
+    [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(nint window, out uint processId);
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)] public static extern nint GetModuleHandle(string? moduleName);
     [DllImport("dwmapi.dll", PreserveSig = true)] public static extern int DwmFlush();
 
     [return: MarshalAs(UnmanagedType.Bool)]
     public delegate bool MonitorEnumProc(nint monitor, nint monitorDeviceContext, ref RECT monitorRectangle, nint data);
 
     public delegate bool EnumWindowsProc(nint window, nint parameter);
+    public delegate nint LowLevelHookProc(int code, nint message, nint data);
 }
 
 [StructLayout(LayoutKind.Sequential)]
@@ -65,6 +79,26 @@ internal struct RECT
 
 [StructLayout(LayoutKind.Sequential)]
 internal struct POINT { public int X; public int Y; }
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct MSLLHOOKSTRUCT
+{
+    public POINT Point;
+    public uint MouseData;
+    public uint Flags;
+    public uint Time;
+    public nuint ExtraInfo;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct KBDLLHOOKSTRUCT
+{
+    public uint VirtualKey;
+    public uint ScanCode;
+    public uint Flags;
+    public uint Time;
+    public nuint ExtraInfo;
+}
 
 [StructLayout(LayoutKind.Sequential)]
 internal struct INPUT { public uint Type; public InputUnion Data; }

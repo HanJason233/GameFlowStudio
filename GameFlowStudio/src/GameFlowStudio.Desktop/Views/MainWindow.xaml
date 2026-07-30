@@ -50,6 +50,13 @@
             <StackPanel>
                 <DockPanel Margin="8,3,8,7">
                     <StackPanel Orientation="Horizontal">
+                        <Button Content="● 录制" Command="{Binding StartRecordingCommand}"
+                                Visibility="{Binding IsRecording, Converter={StaticResource InverseBoolVisibility}}"
+                                Background="#B91C1C" BorderBrush="#EF4444"
+                                ToolTip="开始录制顺序操作；停止后生成新脚本。暂不还原同时按键或按住键配合鼠标。"/>
+                        <Button Content="■ 停止 (F7)" Command="{Binding StopRecordingCommand}"
+                                Visibility="{Binding IsRecording, Converter={StaticResource BoolVisibility}}"
+                                Background="#991B1B" BorderBrush="#EF4444" ToolTip="停止录制并生成脚本（F7）"/>
                         <Button Content="▶ 运行" Command="{Binding RuntimeLaunchCommand}" Background="#0F766E" BorderBrush="#14B8A6" ToolTip="关闭编辑器并启动轻量纯运行悬浮窗"/>
                         <Button Content="▶ 调试运行" Command="{Binding RunCommand}" Background="#2563EB" BorderBrush="#3B82F6" ToolTip="在编辑器中运行并显示调试状态"/>
                         <Button Content="Ⅱ 暂停" Command="{Binding PauseCommand}"/>
@@ -66,6 +73,10 @@
                     </StackPanel>
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
                         <controls:SelectableTextBlock Text="{Binding Path=ProjectName, Mode=OneWay}" FontWeight="SemiBold" Margin="12,0" VerticalAlignment="Center"/>
+                        <Border Background="#7F1D1D" BorderBrush="#EF4444" BorderThickness="1" CornerRadius="12" Padding="12,4" Margin="0,0,8,0"
+                                Visibility="{Binding IsRecording, Converter={StaticResource BoolVisibility}}">
+                            <controls:SelectableTextBlock Text="{Binding Path=RecordingStatusText, Mode=OneWay}" Foreground="#FCA5A5"/>
+                        </Border>
                         <Border Background="#1E293B" CornerRadius="12" Padding="12,4">
                             <controls:SelectableTextBlock Text="{Binding Path=StateText, Mode=OneWay}" Foreground="#93C5FD"/>
                         </Border>
@@ -75,7 +86,7 @@
             </StackPanel>
         </Border>
 
-        <Grid>
+        <Grid IsEnabled="{Binding IsEditorInteractionEnabled}">
             <Grid.RowDefinitions>
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="5"/>

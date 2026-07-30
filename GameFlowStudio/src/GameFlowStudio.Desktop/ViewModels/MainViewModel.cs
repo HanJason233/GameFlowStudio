@@ -2,17 +2,20 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Runtime.ExceptionServices;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Input;
 using GameFlowStudio.Contracts.Enums;
 using GameFlowStudio.Contracts.Events;
 using GameFlowStudio.Contracts.Nodes;
+using GameFlowStudio.Contracts.Recording;
 using GameFlowStudio.Contracts.Results;
 using GameFlowStudio.Contracts.Services;
 using GameFlowStudio.Contracts.Workflows;
 using GameFlowStudio.Desktop.Services;
 using GameFlowStudio.Infrastructure.Logging;
+using GameFlowStudio.Workflow.Recording;
 using Microsoft.Extensions.Logging;
 
 namespace GameFlowStudio.Desktop.ViewModels;
@@ -34,6 +37,7 @@ public sealed class MainViewModel : ObservableObject
     private readonly IWindowAutomationService _windows;
     private readonly IRelativeCoordinatePickerService _relativeCoordinatePicker;
     private readonly IRuntimeProcessLauncher _runtimeLauncher;
+    private readonly IInputRecordingService _inputRecorder;
     private readonly ILogger<MainViewModel> _logger;
     private readonly object _settingsSaveSync = new();
     private Task _settingsSaveChain = Task.CompletedTask;
@@ -46,6 +50,12 @@ public sealed class MainViewModel : ObservableObject
     private string _elapsedText = "—";
     private bool _dirty;
     private bool _runtimeLaunchInProgress;
+    private bool _isProjectOperationInProgress;
+    private bool _isRecordingStarting;
+    private bool _isRecordingFinalizing;
+    private bool _editorReadOnlyRequested;
+    private int _recordedActionCount;
+    private int _recordingStatusNotificationPending;
     private SelectedNodeViewModel? _selectedNode;
     private bool _suppressSelectedNodeUpdates;
     private readonly Stopwatch _executionTimer = new();
@@ -80,11 +90,12 @@ public sealed class MainViewModel : ObservableObject
         IRectanglePickerService rectanglePicker, IImageCaptureService imageCapture,
         ICoordinatePickModeService coordinatePickMode,
         IWindowSelectionService windowSelection, IWindowAutomationService windows, IRelativeCoordinatePickerService relativeCoordinatePicker,
-        IRuntimeProcessLauncher runtimeLauncher, GameFlowLogProvider logProvider, ILogger<MainViewModel> logger)
+        IRuntimeProcessLauncher runtimeLauncher, IInputRecordingService inputRecorder,
+        GameFlowLogProvider logProvider, ILogger<MainViewModel> logger)
     {
         _editor = editor; _runner = runner; _validator = validator; _storage = storage; _settingsStorage = settingsStorage;
         _dialogs = dialogs; _coordinatePicker = coordinatePicker; _colorPicker = colorPicker; _rectanglePicker = rectanglePicker; _imageCapture = imageCapture;
-        _coordinatePickMode = coordinatePickMode; _windowSelection = windowSelection; _windows = windows; _relativeCoordinatePicker = relativeCoordinatePicker; _runtimeLauncher = runtimeLauncher; _logger = logger;
+        _coordinatePickMode = coordinatePickMode; _windowSelection = windowSelection; _windows = windows; _relativeCoordinatePicker = relativeCoordinatePicker; _runtimeLauncher = runtimeLauncher; _inputRecorder = inputRecorder; _logger = logger;
         ToolboxGroups = NodeCatalog.Groups;
         EnsureScriptModel(_project);
         InitializeCommands();
@@ -122,6 +133,13 @@ public sealed class MainViewModel : ObservableObject
     public string StateText { get => _stateText; private set => Set(ref _stateText, value); }
     public string CurrentNodeText { get => _currentNodeText; private set => Set(ref _currentNodeText, value); }
     public string ElapsedText { get => _elapsedText; private set => Set(ref _elapsedText, value); }
+    public bool IsRecording => _isRecordingStarting || _inputRecorder.IsRecording || _isRecordingFinalizing;
+    public bool IsEditorInteractionEnabled => IsProjectEditingEnabled;
+    public string RecordingStatusText => _isRecordingStarting
+        ? "正在准备录制…"
+        : _isRecordingFinalizing
+            ? "正在生成录制脚本…"
+            : $"正在录制 · {Volatile.Read(ref _recordedActionCount)} 个操作 · F7 停止";
     public SelectedNodeViewModel? SelectedNode
     {
         get => _selectedNode;
@@ -141,7 +159,11 @@ public sealed class MainViewModel : ObservableObject
     public bool HasDetectorConditionSelection => SelectedNode?.IsDetectorCondition == true;
     public bool IsRegularNodeSelection => SelectedNode is { IsDetectorCondition: false };
     public bool HasPropertySelection => HasSelectedNode || IsScriptPropertiesVisible;
-    public bool IsProjectEditingEnabled => !IsWorkflowActive();
+    public bool IsProjectEditingEnabled =>
+        !IsWorkflowActive()
+        && !IsRecording
+        && !_runtimeLaunchInProgress
+        && !_isProjectOperationInProgress;
     public bool IsScriptPropertiesVisible
     {
         get => _isScriptPropertiesVisible;
@@ -258,6 +280,8 @@ public sealed class MainViewModel : ObservableObject
     public ICommand NewCommand { get; private set; } = null!; public ICommand OpenCommand { get; private set; } = null!; public ICommand SaveCommand { get; private set; } = null!;
     public ICommand SaveAsCommand { get; private set; } = null!; public ICommand OpenSampleCommand { get; private set; } = null!; public ICommand RunCommand { get; private set; } = null!;
     public ICommand RuntimeLaunchCommand { get; private set; } = null!;
+    public ICommand StartRecordingCommand { get; private set; } = null!;
+    public ICommand StopRecordingCommand { get; private set; } = null!;
     public ICommand PauseCommand { get; private set; } = null!; public ICommand ResumeCommand { get; private set; } = null!; public ICommand StopCommand { get; private set; } = null!;
     public ICommand AddNodeCommand { get; private set; } = null!; public ICommand PickCoordinateCommand { get; private set; } = null!; public ICommand SelectProgramPathCommand { get; private set; } = null!;
     public ICommand NewScriptCommand { get; private set; } = null!;
@@ -281,11 +305,23 @@ public sealed class MainViewModel : ObservableObject
         if (_editor.IsReady) await _editor.SendAsync("initialize_editor", CreateEditorSnapshot(ActiveScript));
     }
 
-    public Task LoadStartupProjectAsync(string path) => LoadProjectAsync(path, true);
+    public Task LoadStartupProjectAsync(string path) =>
+        LoadProjectAsync(path, rememberPath: false, markDirty: true);
 
     public bool CanClose()
     {
+        if (!_runtimeLaunchInProgress
+            && (_isRecordingStarting || _isRecordingFinalizing || _isProjectOperationInProgress))
+            return false;
+        if (_inputRecorder.IsRecording && !_dialogs.ConfirmDiscardRecording()) return false;
+        if (!_runtimeLaunchInProgress
+            && (_isRecordingStarting || _isRecordingFinalizing || _isProjectOperationInProgress))
+            return false;
         if (!_runtimeLaunchInProgress && _dirty && !_dialogs.ConfirmDiscardChanges()) return false;
+        if (!_runtimeLaunchInProgress
+            && (_isRecordingStarting || _isRecordingFinalizing || _isProjectOperationInProgress))
+            return false;
+        StopActiveRecording();
         StopActiveWorkflow();
         CaptureWindowSettings();
         CapturePaneLayout();
@@ -300,7 +336,11 @@ public sealed class MainViewModel : ObservableObject
         {
             switch (message.Type)
             {
-                  case "editor_ready": await _editor.SendAsync("initialize_editor", CreateEditorSnapshot(ActiveScript)); break;
+                  case "editor_ready":
+                      await _editor.SendAsync("initialize_editor", CreateEditorSnapshot(ActiveScript));
+                      if (_editorReadOnlyRequested)
+                          await SetEditorReadOnlyAsync(true);
+                      break;
                   case "workflow_changed": _dirty = true; break;
                   case "editor_error":
                       _logger.LogError("Editor reported an error: {Payload}", message.Payload.ValueKind is JsonValueKind.Undefined or JsonValueKind.Null ? "unknown" : message.Payload.GetRawText());
@@ -559,12 +599,15 @@ public sealed class MainViewModel : ObservableObject
         await LoadProjectAsync(path, false);
     }
 
-    private async Task LoadProjectAsync(string path, bool rememberPath = true)
+    private async Task LoadProjectAsync(
+        string path,
+        bool rememberPath = true,
+        bool markDirty = false)
     {
         try
         {
             var project = await _storage.LoadAsync(path, CancellationToken.None);
-            ApplyLoadedProject(project, path, rememberPath);
+            ApplyLoadedProject(project, path, rememberPath, markDirty);
             await _editor.SendAsync("import_workflow", CreateEditorSnapshot(ActiveScript));
             _logger.LogInformation("已打开项目 {Path}", path);
         }
@@ -605,6 +648,12 @@ public sealed class MainViewModel : ObservableObject
         {
             var project = await ExportAsync();
             if (!await ValidateForRunAsync(project)) return;
+            if (_dirty || _currentPath is null)
+            {
+                await SaveAsync(false);
+                if (_dirty || _currentPath is null) return;
+                project = _project;
+            }
             await _runtimeLauncher.LaunchAsync(project, CancellationToken.None);
             _runtimeLaunchInProgress = true;
             Application.Current?.Shutdown();
@@ -619,6 +668,105 @@ public sealed class MainViewModel : ObservableObject
     {
         if (item is not null)
             await _editor.SendAsync("add_node", new { nodeType = item.Type });
+    }
+
+    private async Task StartRecordingAsync()
+    {
+        if (IsRecording || IsWorkflowActive()) return;
+        _isRecordingStarting = true;
+        Interlocked.Exchange(ref _recordedActionCount, 0);
+        RaiseRecordingState();
+        Exception? failure = null;
+        try
+        {
+            await SetEditorReadOnlyAsync(true);
+            await ExportAsync();
+            _inputRecorder.Start();
+            _logger.LogInformation("已开始录制键鼠操作；按 F7 停止录制。");
+        }
+        catch (Exception exception) { failure = exception; }
+        finally
+        {
+            _isRecordingStarting = false;
+            try
+            {
+                if (!_inputRecorder.IsRecording && _editorReadOnlyRequested)
+                    await SetEditorReadOnlyAsync(false);
+            }
+            catch (Exception unlockException)
+            {
+                _logger.LogError(unlockException, "录制启动失败后恢复编辑器只读状态失败");
+                failure ??= unlockException;
+            }
+            finally { RaiseRecordingState(); }
+        }
+        if (failure is not null) ExceptionDispatchInfo.Capture(failure).Throw();
+    }
+
+    private async Task StopRecordingAsync()
+    {
+        if (!_inputRecorder.IsRecording || _isRecordingFinalizing) return;
+        _isRecordingFinalizing = true;
+        RaiseRecordingState();
+        Exception? failure = null;
+        AutomationScript? retainedScript = null;
+        try
+        {
+            var actions = _inputRecorder.Stop();
+            Interlocked.Exchange(ref _recordedActionCount, actions.Count);
+            Raise(nameof(RecordingStatusText));
+            if (actions.Count == 0)
+            {
+                _logger.LogInformation("录制结束，未捕获到可回放操作，因此没有创建脚本。");
+            }
+            else
+            {
+                var name = CreateRecordingScriptName();
+                var script = RecordedScriptFactory.Create(name, NextScriptId(), actions);
+                _project.Scripts.Add(script);
+                retainedScript = script;
+                _dirty = true;
+                RefreshScripts();
+                await ImportEditorWorkflowAsync(script);
+                _activeScriptId = script.Id;
+                SyncRuntimeScriptView(script);
+                RefreshScripts();
+                RefreshScriptSettings();
+                SelectedNode = null;
+                IsScriptPropertiesVisible = true;
+                _logger.LogInformation(
+                    "录制完成，已创建脚本 {ScriptName}，包含 {ActionCount} 个操作。",
+                    script.Name,
+                    actions.Count);
+            }
+        }
+        catch (Exception exception)
+        {
+            failure = exception;
+            if (retainedScript is not null)
+                _logger.LogWarning(
+                    exception,
+                    "录制脚本 {ScriptName} 已保留在项目中，但画布切换失败；可从脚本列表重新打开。",
+                    retainedScript.Name);
+        }
+        finally
+        {
+            try
+            {
+                await SetEditorReadOnlyAsync(false);
+            }
+            catch (Exception unlockException)
+            {
+                _logger.LogError(unlockException, "录制结束后恢复编辑器只读状态失败");
+                failure ??= unlockException;
+            }
+            finally
+            {
+                _isRecordingFinalizing = false;
+                RaiseRecordingState();
+            }
+        }
+        if (failure is not null) ExceptionDispatchInfo.Capture(failure).Throw();
     }
 
     private async Task NewScriptAsync()
@@ -702,6 +850,26 @@ public sealed class MainViewModel : ObservableObject
         RefreshScripts();
         return _project;
     }
+
+    private async Task SetEditorReadOnlyAsync(bool readOnly)
+    {
+        _editorReadOnlyRequested = readOnly;
+        var response = await _editor.RequestAsync<EditorReadOnlyResponse>(
+            "request_set_editor_readonly",
+            new { readOnly });
+        if (!response.Success || response.ReadOnly != readOnly)
+            throw new InvalidOperationException(response.Error ?? "编辑器未确认只读状态。");
+    }
+
+    private async Task ImportEditorWorkflowAsync(AutomationScript script)
+    {
+        var response = await _editor.RequestAsync<EditorOperationResponse>(
+            "request_import_workflow",
+            CreateEditorSnapshot(script));
+        if (!response.Success)
+            throw new InvalidOperationException(response.Error ?? "编辑器未确认工作流导入。");
+    }
+
     private async Task EditSettingsAsync()
     {
         CapturePaneLayout();
@@ -799,6 +967,15 @@ public sealed class MainViewModel : ObservableObject
         return name;
     }
 
+    private string CreateRecordingScriptName()
+    {
+        var index = 1;
+        var name = $"录制 {index}";
+        while (_project.Scripts.Any(script => string.Equals(script.Name, name, StringComparison.OrdinalIgnoreCase)))
+            name = $"录制 {++index}";
+        return name;
+    }
+
     private string NextScriptId()
     {
         var next = _project.Scripts
@@ -828,9 +1005,10 @@ public sealed class MainViewModel : ObservableObject
         foreach (var command in new[]
         {
             NewCommand, OpenCommand, SaveCommand, SaveAsCommand, OpenSampleCommand,
-            RunCommand, RuntimeLaunchCommand, PauseCommand, ResumeCommand, StopCommand, AddNodeCommand, PickCoordinateCommand,
+            RunCommand, RuntimeLaunchCommand, StartRecordingCommand, StopRecordingCommand,
+            PauseCommand, ResumeCommand, StopCommand, AddNodeCommand, PickCoordinateCommand,
             SelectProgramPathCommand, NewScriptCommand, SelectScriptCommand, OpenScriptPropertiesCommand,
-            DeleteScriptCommand
+            DeleteScriptCommand, SettingsCommand
         })
             if (command is AsyncRelayCommand asyncCommand)
                 asyncCommand.RaiseCanExecuteChanged();
@@ -840,21 +1018,23 @@ public sealed class MainViewModel : ObservableObject
 
     private void InitializeCommands()
     {
-        NewCommand = CreateAsyncCommand(_ => NewAsync(), _ => IsProjectEditingEnabled); OpenCommand = CreateAsyncCommand(_ => OpenAsync(), _ => IsProjectEditingEnabled);
-        SaveCommand = CreateAsyncCommand(_ => SaveAsync(false), _ => IsProjectEditingEnabled); SaveAsCommand = CreateAsyncCommand(_ => SaveAsync(true), _ => IsProjectEditingEnabled);
-        OpenSampleCommand = CreateAsyncCommand(_ => OpenSampleAsync(), _ => IsProjectEditingEnabled); RunCommand = CreateAsyncCommand(_ => RunAsync(), _ => IsProjectEditingEnabled);
-        RuntimeLaunchCommand = CreateAsyncCommand(_ => LaunchRuntimeAsync(), _ => IsProjectEditingEnabled);
+        NewCommand = CreateAsyncCommand(_ => ExecuteProjectOperationAsync(NewAsync), _ => IsProjectEditingEnabled); OpenCommand = CreateAsyncCommand(_ => ExecuteProjectOperationAsync(OpenAsync), _ => IsProjectEditingEnabled);
+        SaveCommand = CreateAsyncCommand(_ => ExecuteProjectOperationAsync(() => SaveAsync(false)), _ => IsProjectEditingEnabled); SaveAsCommand = CreateAsyncCommand(_ => ExecuteProjectOperationAsync(() => SaveAsync(true)), _ => IsProjectEditingEnabled);
+        OpenSampleCommand = CreateAsyncCommand(_ => ExecuteProjectOperationAsync(OpenSampleAsync), _ => IsProjectEditingEnabled); RunCommand = CreateAsyncCommand(_ => ExecuteProjectOperationAsync(RunAsync), _ => IsProjectEditingEnabled);
+        RuntimeLaunchCommand = CreateAsyncCommand(_ => ExecuteProjectOperationAsync(LaunchRuntimeAsync), _ => IsProjectEditingEnabled);
+        StartRecordingCommand = CreateAsyncCommand(_ => ExecuteProjectOperationAsync(StartRecordingAsync), _ => IsProjectEditingEnabled);
+        StopRecordingCommand = CreateAsyncCommand(_ => StopRecordingAsync(), _ => _inputRecorder.IsRecording && !_isRecordingFinalizing);
         PauseCommand = CreateAsyncCommand(_ => _runner.PauseAsync(), _ => _runner.State == WorkflowExecutionState.Running);
         ResumeCommand = CreateAsyncCommand(_ => _runner.ResumeAsync(), _ => _runner.State == WorkflowExecutionState.Paused);
         StopCommand = CreateAsyncCommand(_ => _runner.StopAsync(), _ => IsWorkflowActive());
-        AddNodeCommand = CreateAsyncCommand(item => AddNodeAsync(item as ToolboxItem), _ => IsProjectEditingEnabled);
-        PickCoordinateCommand = CreateAsyncCommand(_ => PickCoordinateAsync(), _ => IsProjectEditingEnabled && SelectedNode?.CanPickCoordinate == true);
-        SelectProgramPathCommand = CreateAsyncCommand(_ => SelectProgramPathAsync(), _ => IsProjectEditingEnabled && SelectedNode?.CanPickProgramPath == true);
-        NewScriptCommand = CreateAsyncCommand(_ => NewScriptAsync(), _ => IsProjectEditingEnabled);
-        SelectScriptCommand = CreateAsyncCommand(item => SelectScriptAsync(item as ScriptListItem), _ => IsProjectEditingEnabled);
-        OpenScriptPropertiesCommand = CreateAsyncCommand(item => OpenScriptPropertiesAsync(item as ScriptListItem), _ => IsProjectEditingEnabled);
-        DeleteScriptCommand = CreateAsyncCommand(item => DeleteScriptAsync(item as ScriptListItem), _ => IsProjectEditingEnabled);
-        SettingsCommand = CreateAsyncCommand(_ => EditSettingsAsync());
+        AddNodeCommand = CreateAsyncCommand(item => ExecuteProjectOperationAsync(() => AddNodeAsync(item as ToolboxItem)), _ => IsProjectEditingEnabled);
+        PickCoordinateCommand = CreateAsyncCommand(_ => ExecuteProjectOperationAsync(PickCoordinateAsync), _ => IsProjectEditingEnabled && SelectedNode?.CanPickCoordinate == true);
+        SelectProgramPathCommand = CreateAsyncCommand(_ => ExecuteProjectOperationAsync(SelectProgramPathAsync), _ => IsProjectEditingEnabled && SelectedNode?.CanPickProgramPath == true);
+        NewScriptCommand = CreateAsyncCommand(_ => ExecuteProjectOperationAsync(NewScriptAsync), _ => IsProjectEditingEnabled);
+        SelectScriptCommand = CreateAsyncCommand(item => ExecuteProjectOperationAsync(() => SelectScriptAsync(item as ScriptListItem)), _ => IsProjectEditingEnabled);
+        OpenScriptPropertiesCommand = CreateAsyncCommand(item => ExecuteProjectOperationAsync(() => OpenScriptPropertiesAsync(item as ScriptListItem)), _ => IsProjectEditingEnabled);
+        DeleteScriptCommand = CreateAsyncCommand(item => ExecuteProjectOperationAsync(() => DeleteScriptAsync(item as ScriptListItem)), _ => IsProjectEditingEnabled);
+        SettingsCommand = CreateAsyncCommand(_ => EditSettingsAsync(), _ => !IsRecording && !_isProjectOperationInProgress);
         ToggleProjectFilesPaneCommand = new RelayCommand(_ => ToggleProjectFilesPane());
         ToggleScriptListPaneCommand = new RelayCommand(_ => ToggleScriptListPane());
         ToggleToolboxPaneCommand = new RelayCommand(_ => ToggleToolboxPane());
@@ -867,6 +1047,26 @@ public sealed class MainViewModel : ObservableObject
         Func<object?, bool>? canExecute = null) =>
         new(execute, canExecute, exception => ReportOperationError(exception, "命令执行失败"));
 
+    private async Task ExecuteProjectOperationAsync(Func<Task> operation)
+    {
+        if (_isProjectOperationInProgress) return;
+        _isProjectOperationInProgress = true;
+        RaiseProjectOperationState();
+        try { await operation(); }
+        finally
+        {
+            _isProjectOperationInProgress = false;
+            RaiseProjectOperationState();
+        }
+    }
+
+    private void RaiseProjectOperationState()
+    {
+        Raise(nameof(IsProjectEditingEnabled));
+        Raise(nameof(IsEditorInteractionEnabled));
+        RaiseCommandStates();
+    }
+
     private void SubscribeToEvents(GameFlowLogProvider logProvider)
     {
         _editor.MessageReceived += OnEditorMessage;
@@ -874,6 +1074,8 @@ public sealed class MainViewModel : ObservableObject
         _runner.NodeCompleted += (_, args) => ObserveTask(_editor.SendAsync("mark_node_success", new { nodeId = args.Node.Id }), "同步节点成功状态失败");
         _runner.NodeFailed += (_, args) => ObserveTask(_editor.SendAsync("mark_node_error", new { nodeId = args.Node.Id }), "同步节点失败状态失败");
         _runner.StateChanged += OnWorkflowStateChanged;
+        _inputRecorder.ActionRecorded += OnRecordedAction;
+        _inputRecorder.StopRequested += OnRecordingStopRequested;
         logProvider.EntryAdded += OnLogEntryAdded;
     }
 
@@ -887,8 +1089,45 @@ public sealed class MainViewModel : ObservableObject
         {
             StateText = StateLabel(args.Current);
             Raise(nameof(IsProjectEditingEnabled));
+            Raise(nameof(IsEditorInteractionEnabled));
             RaiseCommandStates();
         });
+
+    private void OnRecordedAction(object? sender, RecordedInputActionEventArgs args)
+    {
+        _ = args;
+        Interlocked.Increment(ref _recordedActionCount);
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher is null) return;
+        if (Interlocked.Exchange(ref _recordingStatusNotificationPending, 1) != 0) return;
+        _ = dispatcher.BeginInvoke(() =>
+        {
+            Interlocked.Exchange(ref _recordingStatusNotificationPending, 0);
+            Raise(nameof(RecordingStatusText));
+        });
+    }
+
+    private void OnRecordingStopRequested(object? sender, EventArgs args)
+    {
+        _ = sender;
+        _ = args;
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher is null) return;
+        _ = dispatcher.BeginInvoke(() =>
+        {
+            if (StopRecordingCommand.CanExecute(null))
+                StopRecordingCommand.Execute(null);
+        });
+    }
+
+    private void RaiseRecordingState()
+    {
+        Raise(nameof(IsRecording));
+        Raise(nameof(IsEditorInteractionEnabled));
+        Raise(nameof(RecordingStatusText));
+        Raise(nameof(IsProjectEditingEnabled));
+        RaiseCommandStates();
+    }
 
     private void OnLogEntryAdded(object? sender, DisplayLogEntry entry) =>
         Application.Current.Dispatcher.Invoke(() => { Logs.Add(entry); while (Logs.Count > 1000) Logs.RemoveAt(0); });
@@ -904,6 +1143,13 @@ public sealed class MainViewModel : ObservableObject
     private void StopActiveWorkflow()
     {
         if (IsWorkflowActive()) _runner.StopAsync().GetAwaiter().GetResult();
+    }
+
+    private void StopActiveRecording()
+    {
+        if (!_inputRecorder.IsRecording) return;
+        try { _ = _inputRecorder.Stop(); }
+        catch (Exception exception) { _logger.LogError(exception, "关闭前停止操作录制失败"); }
     }
 
     private bool IsWorkflowActive() => _runner.State is WorkflowExecutionState.Running or WorkflowExecutionState.Paused or WorkflowExecutionState.Stopping;
@@ -1078,10 +1324,14 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
-    private void ApplyLoadedProject(AutomationProject project, string path, bool rememberPath)
+    private void ApplyLoadedProject(
+        AutomationProject project,
+        string path,
+        bool rememberPath,
+        bool markDirty = false)
     {
         _project = project; _activeScriptId = string.Empty; EnsureScriptModel(_project);
-        _currentPath = rememberPath ? path : null; _dirty = false; Raise(nameof(CurrentFileName)); Raise(nameof(CurrentPathText));
+        _currentPath = rememberPath ? path : null; _dirty = markDirty; Raise(nameof(CurrentFileName)); Raise(nameof(CurrentPathText));
         ProjectName = project.Project.Name; SelectedNode = null;
     }
 
@@ -1108,7 +1358,7 @@ public sealed class MainViewModel : ObservableObject
 
     private async Task ExecuteWorkflowAsync(AutomationProject project)
     {
-        await _editor.SendAsync("set_editor_readonly", new { readOnly = true });
+        await SetEditorReadOnlyAsync(true);
         _executionTimer.Restart();
         await _runner.RunAsync(project, CancellationToken.None);
     }
@@ -1116,7 +1366,7 @@ public sealed class MainViewModel : ObservableObject
     private async Task FinishRunAsync()
     {
         _executionTimer.Stop(); ElapsedText = $"{_executionTimer.ElapsedMilliseconds} ms";
-        await _editor.SendAsync("set_editor_readonly", new { readOnly = false });
+        await SetEditorReadOnlyAsync(false);
         RaiseCommandStates();
     }
 
@@ -1132,4 +1382,7 @@ public sealed class MainViewModel : ObservableObject
         Application.Current.Resources["AppBackground"] = new System.Windows.Media.SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(light ? "#F1F5F9" : "#0B1120"));
         Application.Current.Resources["PanelBackground"] = new System.Windows.Media.SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(light ? "#E2E8F0" : "#111827"));
     }
+
+    private sealed record EditorOperationResponse(bool Success, string? Error);
+    private sealed record EditorReadOnlyResponse(bool Success, bool ReadOnly, string? Error);
 }

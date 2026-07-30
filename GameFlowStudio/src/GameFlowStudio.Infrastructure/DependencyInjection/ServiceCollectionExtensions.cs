@@ -21,6 +21,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddGameFlowCore(this IServiceCollection services)
     {
         services.AddSingleton<IInputAutomationService, InputAutomationService>();
+        services.AddSingleton<IInputRecordingService, GlobalInputRecordingService>();
         services.AddSingleton<IWindowAutomationService, WindowAutomationService>();
         services.AddSingleton<IProgramAutomationService, ProgramAutomationService>();
         services.AddSingleton<IWindowScopeService, WindowScopeService>();

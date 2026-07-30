@@ -3,6 +3,7 @@ using GameFlowStudio.Contracts.Events;
 using GameFlowStudio.Contracts.Results;
 using GameFlowStudio.Contracts.Workflows;
 using GameFlowStudio.Contracts.States;
+using GameFlowStudio.Contracts.Recording;
 
 namespace GameFlowStudio.Contracts.Services;
 
@@ -92,6 +93,16 @@ public interface IInputAutomationService
     Task ScrollMouseAsync(int x, int y, int delta, CancellationToken cancellationToken);
     Task PressKeyAsync(string key, int durationMs, int repeatCount, int intervalMs, CancellationToken cancellationToken);
     Task TypeTextAsync(string text, int intervalMs, CancellationToken cancellationToken);
+}
+
+/// <summary>在当前 Windows 交互桌面录制可回放的全局键鼠操作。</summary>
+public interface IInputRecordingService : IDisposable
+{
+    bool IsRecording { get; }
+    event EventHandler<RecordedInputActionEventArgs>? ActionRecorded;
+    event EventHandler? StopRequested;
+    void Start();
+    IReadOnlyList<RecordedInputAction> Stop();
 }
 
 public interface IWindowAutomationService
