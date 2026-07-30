@@ -102,6 +102,7 @@
                         <Button Content="日志" Command="{Binding ToggleOutputPaneCommand}" ToolTip="显示或隐藏运行日志"/>
                         <Border Width="1" Height="20" Margin="8,0" Background="#334155"/>
                         <Button Content="设置" Command="{Binding SettingsCommand}" ToolTip="打开全局设置"/>
+                        <Button Content="帮助" Command="{Binding HelpCommand}" ToolTip="查看软件使用说明和模式解释"/>
                     </StackPanel>
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
                         <controls:SelectableTextBlock Text="{Binding Path=ProjectName, Mode=OneWay}" FontWeight="SemiBold" Margin="12,0" VerticalAlignment="Center"/>

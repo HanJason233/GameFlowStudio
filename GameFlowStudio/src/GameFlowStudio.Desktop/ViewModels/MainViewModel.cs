@@ -308,6 +308,7 @@ public sealed class MainViewModel : ObservableObject
     public ICommand ToggleProjectFilesPaneCommand { get; private set; } = null!;
     public ICommand ToggleScriptListPaneCommand { get; private set; } = null!;
     public ICommand SettingsCommand { get; private set; } = null!;
+    public ICommand HelpCommand { get; private set; } = null!;
     public ICommand ToggleToolboxPaneCommand { get; private set; } = null!;
     public ICommand TogglePropertiesPaneCommand { get; private set; } = null!;
     public ICommand ToggleOutputPaneCommand { get; private set; } = null!;
@@ -1298,6 +1299,7 @@ public sealed class MainViewModel : ObservableObject
         CopyScriptCommand = CreateAsyncCommand(item => ExecuteProjectOperationAsync(() => CopyScriptAsync(item as ScriptListItem)), item => IsProjectEditingEnabled && item is ScriptListItem);
         PasteScriptCommand = CreateAsyncCommand(_ => ExecuteProjectOperationAsync(PasteScriptAsync), _ => IsProjectEditingEnabled && !string.IsNullOrWhiteSpace(_copiedScriptJson));
         SettingsCommand = CreateAsyncCommand(_ => EditSettingsAsync(), _ => !IsRecording && !_isProjectOperationInProgress);
+        HelpCommand = new RelayCommand(_ => _dialogs.ShowHelp());
         ToggleProjectFilesPaneCommand = new RelayCommand(_ => ToggleProjectFilesPane());
         ToggleScriptListPaneCommand = new RelayCommand(_ => ToggleScriptListPane());
         ToggleToolboxPaneCommand = new RelayCommand(_ => ToggleToolboxPane());

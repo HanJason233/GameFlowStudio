@@ -15,6 +15,7 @@ public interface IFileDialogService
     bool ConfirmDiscardRecording();
     void ShowError(string message);
     bool EditSettings(AppSettings settings);
+    void ShowHelp();
 }
 
 public sealed class FileDialogService : IFileDialogService
@@ -43,4 +44,7 @@ public sealed class FileDialogService : IFileDialogService
         settings.DefaultProjectDirectory = copy.DefaultProjectDirectory; settings.GeminiApiKey = copy.GeminiApiKey; settings.Theme = copy.Theme; settings.StepCategoryLayout = copy.StepCategoryLayout;
         return true;
     }
+
+    public void ShowHelp() =>
+        new HelpWindow { Owner = Application.Current.MainWindow }.ShowDialog();
 }
