@@ -21,7 +21,7 @@ html, body, #root { width: 100%; height: 100%; margin: 0; overflow: hidden; }
 .node-context-menu button:disabled { cursor: not-allowed; opacity: .45; }
 .game-node, .game-node * { user-select: text; }
 .react-flow__handle { user-select: none; }
-.game-node { --node-color: #3b82f6; position: relative; width: 80px; min-width: 80px; max-width: 80px; padding: 6px 8px; border-radius: 6px; background: #111b2e; border: 1px solid color-mix(in srgb, var(--node-color) 60%, #334155); box-shadow: 0 5px 12px #0005, inset 2px 0 var(--node-color); transition: .15s ease; overflow-wrap: anywhere; }
+.game-node { --node-color: #3b82f6; position: relative; width: 112px; min-width: 112px; max-width: 112px; padding: 6px 8px; border-radius: 6px; background: #111b2e; border: 1px solid color-mix(in srgb, var(--node-color) 60%, #334155); box-shadow: 0 5px 12px #0005, inset 2px 0 var(--node-color); transition: .15s ease; overflow-wrap: anywhere; }
 .game-node.selected { box-shadow: 0 0 0 2px #93c5fd, 0 10px 25px #0006; }
 .game-node.status-running { animation: pulse 1.1s infinite; box-shadow: 0 0 0 3px #facc15, 0 0 25px #facc1566; }
 .game-node.status-success { border-color: #22c55e; box-shadow: inset 4px 0 #22c55e; }

@@ -18,7 +18,7 @@ internal static class ProjectFactory
     {
         var script = new AutomationScript { Id = id, Name = name };
         script.Nodes.Add(new() { Id = "1", Type = NodeTypes.Start, Position = new() { X = 120, Y = 180 }, Data = new() { DisplayName = "开始" } });
-        script.Nodes.Add(new() { Id = "2", Type = NodeTypes.End, Position = new() { X = 450, Y = 180 }, Data = new() { DisplayName = "结束" } });
+        script.Nodes.Add(new() { Id = "2", Type = NodeTypes.End, Position = new() { X = 310, Y = 180 }, Data = new() { DisplayName = "结束" } });
         script.Edges.Add(new() { Id = $"{script.Id}-edge-start-end", Source = script.Nodes[0].Id, Target = script.Nodes[1].Id });
         return script;
     }

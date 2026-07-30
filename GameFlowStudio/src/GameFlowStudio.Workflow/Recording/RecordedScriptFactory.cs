@@ -10,9 +10,9 @@ namespace GameFlowStudio.Workflow.Recording;
 public static class RecordedScriptFactory
 {
     public const int MinimumWaitMilliseconds = 20;
-    private const int NodesPerRow = 12;
-    private const double HorizontalGap = 280;
-    private const double VerticalGap = 170;
+    private const int NodesPerRow = 6;
+    private const double HorizontalStep = 190;
+    private const double VerticalStep = 120;
 
     public static AutomationScript Create(
         string name,
@@ -146,18 +146,15 @@ public static class RecordedScriptFactory
     {
         var index = script.Nodes.Count;
         var row = index / NodesPerRow;
-        var columnInRow = index % NodesPerRow;
-        var column = row % 2 == 0
-            ? columnInRow
-            : NodesPerRow - 1 - columnInRow;
+        var column = index % NodesPerRow;
         script.Nodes.Add(new WorkflowNode
         {
             Id = (index + 1).ToString(CultureInfo.InvariantCulture),
             Type = type,
             Position = new NodePosition
             {
-                X = 100 + column * HorizontalGap,
-                Y = 100 + row * VerticalGap
+                X = 48 + column * HorizontalStep,
+                Y = 48 + row * VerticalStep
             },
             Data = new WorkflowNodeData
             {

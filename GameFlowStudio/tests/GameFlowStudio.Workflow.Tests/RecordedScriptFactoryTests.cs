@@ -127,6 +127,29 @@ public sealed class RecordedScriptFactoryTests
     }
 
     [Fact]
+    public void RecordedScriptUsesCompactLeftToRightRows()
+    {
+        var actions = Enumerable
+            .Range(0, 13)
+            .Select(index => new RecordedInputAction
+            {
+                Kind = RecordedInputActionKind.KeyPress,
+                OffsetMilliseconds = index * 10,
+                Key = "A"
+            })
+            .ToArray();
+
+        var script = RecordedScriptFactory.Create("紧凑录制", "5", actions);
+        Assert.All(
+            script.Nodes.Select((node, index) => (node, index)),
+            item =>
+            {
+                Assert.Equal(48 + item.index % 6 * 190, item.node.Position.X);
+                Assert.Equal(48 + item.index / 6 * 120, item.node.Position.Y);
+            });
+    }
+
+    [Fact]
     public void RecordingAboveTheActionLimitIsRejected()
     {
         var action = new RecordedInputAction
@@ -139,7 +162,7 @@ public sealed class RecordedScriptFactoryTests
             .ToArray();
 
         var error = Assert.Throws<ArgumentOutOfRangeException>(
-            () => RecordedScriptFactory.Create("过长录制", "5", actions));
+            () => RecordedScriptFactory.Create("过长录制", "6", actions));
 
         Assert.Contains(InputRecordingLimits.MaxActions.ToString(), error.Message);
     }

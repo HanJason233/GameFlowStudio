@@ -95,6 +95,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'npm ci failed.' }
     & npm.cmd run lint
     if ($LASTEXITCODE -ne 0) { throw 'Frontend lint failed.' }
+    & npm.cmd run test
+    if ($LASTEXITCODE -ne 0) { throw 'Frontend tests failed.' }
     & npm.cmd run build
     if ($LASTEXITCODE -ne 0) { throw 'Frontend build failed.' }
 }

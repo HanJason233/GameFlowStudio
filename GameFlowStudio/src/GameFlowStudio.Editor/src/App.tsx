@@ -231,11 +231,12 @@ function EditorCanvas() {
       onConnect={document.onConnect} isValidConnection={isValidConnection} onSelectionChange={onSelectionChange}
       onNodeContextMenu={onNodeContextMenu} onEdgeContextMenu={onEdgeContextMenu} onPaneContextMenu={onPaneContextMenu}
       nodesDraggable={!document.readOnly} nodesConnectable={!document.readOnly} edgesReconnectable={!document.readOnly}
-      deleteKeyCode={document.readOnly ? null : ['Backspace', 'Delete']} fitView>
+      deleteKeyCode={document.readOnly ? null : ['Backspace', 'Delete']}
+      minZoom={.2} maxZoom={1.5}>
       <Background variant={BackgroundVariant.Dots} gap={22} size={1.2} color="#4b6386" />
       <Controls showInteractive={false} />
       <Panel position="bottom-left" className="flow-toolbar flow-actions-panel">
-        <button type="button" className="organize-button icon-button" onClick={document.arrangeNodes} disabled={document.readOnly || document.nodes.length < 2} aria-label="整理流程" title="整理流程">
+        <button type="button" className="organize-button icon-button" onClick={document.arrangeNodes} disabled={document.readOnly || document.nodes.length < 2} aria-label="紧凑整理流程" title="紧凑整理并聚焦流程">
           <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
             <rect x="3" y="3" width="6" height="5" rx="1" />
             <rect x="15" y="3" width="6" height="5" rx="1" />

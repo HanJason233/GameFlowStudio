@@ -1,10 +1,11 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  addEdge, useEdgesState, useNodesState, useReactFlow,
+  addEdge, useEdgesState, useNodes as useRenderedNodes,
+  useNodesInitialized, useNodesState, useReactFlow,
   type Connection, type Edge, type EdgeChange, type NodeChange,
 } from '@xyflow/react'
 import { postBridgeMessage } from '../services/bridge'
-import { arrangeWorkflowNodes } from '../workflowLayout'
+import { arrangeWorkflowNodes, selectWorkflowFocusNodeIds } from '../workflowLayout'
 import {
   defaultParameters, fromDocument, nodeLabels, toDocument,
   nextActionId, type GameFlowNode, type NodeDataUpdate, type NodeType, type WorkflowDocument,
@@ -16,12 +17,27 @@ const createEmptyDocument = (): WorkflowDocument => ({
   variables: {}, nodes: [], edges: [],
 })
 
+const largeWorkflowFocusNodeCount = 12
+const minimumReadableAutomaticZoom = .55
+const fallbackFitAllNodeLimit = 36
+
+interface PendingFitRequest {
+  token: number
+  nodes: GameFlowNode[]
+  edges: Edge[]
+  duration: number
+}
+
 export function useWorkflowDocument() {
   const [sourceDocument, setSourceDocument] = useState<WorkflowDocument>(createEmptyDocument)
   const [nodes, setNodes, applyNodeChanges] = useNodesState<GameFlowNode>([])
   const [edges, setEdges, applyEdgeChanges] = useEdgesState<Edge>([])
   const [readOnly, setReadOnly] = useState(false)
   const flow = useReactFlow<GameFlowNode, Edge>()
+  const renderedNodes = useRenderedNodes<GameFlowNode>()
+  const nodesInitialized = useNodesInitialized()
+  const fitToken = useRef(0)
+  const [pendingFit, setPendingFit] = useState<PendingFitRequest | null>(null)
 
   const exportDocument = useCallback(
     (): WorkflowDocument => toDocument(sourceDocument, nodes, edges),
@@ -30,13 +46,81 @@ export function useWorkflowDocument() {
 
   const markChanged = useCallback(() => postBridgeMessage('workflow_changed'), [])
 
+  const fitWorkflowView = useCallback((
+    viewNodes: GameFlowNode[],
+    viewEdges: Edge[],
+    duration = 0,
+  ) => {
+    const token = ++fitToken.current
+    setPendingFit({
+      token,
+      nodes: viewNodes,
+      edges: viewEdges,
+      duration,
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!pendingFit
+      || !nodesInitialized
+      || !renderedNodesMatchRequest(renderedNodes, pendingFit.nodes)
+      || !renderedNodes.every(hasMeasuredSize))
+      return
+
+    const frame = requestAnimationFrame(() => {
+      if (fitToken.current !== pendingFit.token) return
+      const liveNodes = flow.getNodes()
+      if (!renderedNodesMatchRequest(liveNodes, pendingFit.nodes)
+        || !liveNodes.every(hasMeasuredSize))
+        return
+
+      const viewport = globalThis.document
+        .querySelector('.react-flow')
+        ?.getBoundingClientRect()
+      const graphBounds = flow.getNodesBounds(pendingFit.nodes.map(node => node.id))
+      const hasMeasuredBounds = viewport !== undefined
+        && viewport.width > 0
+        && viewport.height > 0
+        && graphBounds.width > 0
+        && graphBounds.height > 0
+      const estimatedZoom = hasMeasuredBounds
+        ? Math.min(
+          viewport.width * .8 / graphBounds.width,
+          viewport.height * .8 / graphBounds.height,
+          1,
+        )
+        : 1
+      const shouldFocus = hasMeasuredBounds
+        ? estimatedZoom < minimumReadableAutomaticZoom
+        : pendingFit.nodes.length > fallbackFitAllNodeLimit
+      const focusNodes = shouldFocus
+        ? selectWorkflowFocusNodeIds(
+          pendingFit.nodes,
+          pendingFit.edges,
+          largeWorkflowFocusNodeCount,
+        ).map(id => ({ id }))
+        : undefined
+      void flow.fitView({
+        nodes: focusNodes,
+        padding: .1,
+        minZoom: .2,
+        maxZoom: 1,
+        duration: pendingFit.duration,
+      })
+      setPendingFit(current =>
+        current?.token === pendingFit.token ? null : current)
+    })
+
+    return () => cancelAnimationFrame(frame)
+  }, [flow, nodesInitialized, pendingFit, renderedNodes])
+
   const importDocument = useCallback((incoming: WorkflowDocument) => {
     const graph = fromDocument(incoming)
     setSourceDocument(incoming)
     setNodes(graph.nodes)
     setEdges(graph.edges)
-    setTimeout(() => flow.fitView({ padding: .2 }), 30)
-  }, [flow, setEdges, setNodes])
+    fitWorkflowView(graph.nodes, graph.edges)
+  }, [fitWorkflowView, setEdges, setNodes])
 
   const addNode = useCallback((nodeType: NodeType) => {
     if (readOnly) return
@@ -113,10 +197,15 @@ export function useWorkflowDocument() {
 
   const arrangeNodes = useCallback(() => {
     if (readOnly || nodes.length < 2) return
-    setNodes(arrangeWorkflowNodes(nodes, edges))
+    const viewportWidth = globalThis.document
+      .querySelector('.react-flow')
+      ?.getBoundingClientRect()
+      .width
+    const arranged = arrangeWorkflowNodes(nodes, edges, { viewportWidth })
+    setNodes(arranged)
     markChanged()
-    setTimeout(() => flow.fitView({ padding: .2, duration: 260 }), 30)
-  }, [edges, flow, markChanged, nodes, readOnly, setNodes])
+    fitWorkflowView(arranged, edges, 260)
+  }, [edges, fitWorkflowView, markChanged, nodes, readOnly, setNodes])
 
   return {
     nodes, edges, readOnly, setNodes, setReadOnly, exportDocument, importDocument, addNode,
@@ -138,4 +227,29 @@ function isPersistentNodeChange(change: NodeChange<GameFlowNode>): boolean {
 
 function isPersistentEdgeChange(change: EdgeChange<Edge>): boolean {
   return change.type === 'add' || change.type === 'remove' || change.type === 'replace'
+}
+
+function renderedNodesMatchRequest(
+  renderedNodes: GameFlowNode[],
+  requestedNodes: GameFlowNode[],
+): boolean {
+  if (renderedNodes.length !== requestedNodes.length) return false
+  const requestedById = new Map(requestedNodes.map(node => [node.id, node]))
+  return renderedNodes.every(rendered => {
+    const requested = requestedById.get(rendered.id)
+    return requested !== undefined
+      && rendered.position.x === requested.position.x
+      && rendered.position.y === requested.position.y
+      && rendered.data.nodeType === requested.data.nodeType
+      && rendered.data.displayName === requested.data.displayName
+  })
+}
+
+function hasMeasuredSize(node: GameFlowNode): boolean {
+  return typeof node.measured?.width === 'number'
+    && Number.isFinite(node.measured.width)
+    && node.measured.width > 0
+    && typeof node.measured.height === 'number'
+    && Number.isFinite(node.measured.height)
+    && node.measured.height > 0
 }
