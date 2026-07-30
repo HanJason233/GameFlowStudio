@@ -166,4 +166,247 @@ public sealed class RecordedScriptFactoryTests
 
         Assert.Contains(InputRecordingLimits.MaxActions.ToString(), error.Message);
     }
+
+    [Fact]
+    public void ScreenRecordingIsAppendedBeforeCurrentEndWithoutChangingScriptSettings()
+    {
+        var source = CreateBaseScript();
+        source.DefaultNodeDelayMs = 1350;
+        source.WindowScope = new()
+        {
+            Enabled = true,
+            TitlePattern = "^原窗口$",
+            ExecutionMode = WindowExecutionMode.ActionPriority
+        };
+        source.Variables["保留"] = new()
+        {
+            Type = VariableType.Number,
+            Value = ProjectJson.Element(7)
+        };
+        RecordedInputAction[] actions =
+        [
+            new()
+            {
+                Kind = RecordedInputActionKind.MouseClick,
+                OffsetMilliseconds = 120,
+                X = 320,
+                Y = 240
+            }
+        ];
+
+        var appended = RecordedScriptFactory.Append(
+            source,
+            actions,
+            new()
+            {
+                TargetEndNodeId = "end",
+                Scope = InputRecordingScope.Screen,
+                SessionId = "screen-session"
+            });
+
+        Assert.Equal("script", appended.Id);
+        Assert.Equal("当前脚本", appended.Name);
+        Assert.Equal(1350, appended.DefaultNodeDelayMs);
+        Assert.True(appended.WindowScope.Enabled);
+        Assert.Equal("^原窗口$", appended.WindowScope.TitlePattern);
+        Assert.Equal(WindowExecutionMode.ActionPriority, appended.WindowScope.ExecutionMode);
+        Assert.Equal(7, appended.Variables["保留"].Value.GetInt32());
+        Assert.Equal([NodeTypes.Start, NodeTypes.End], source.Nodes.Select(node => node.Type));
+        Assert.Equal("end", source.Edges.Single().Target);
+
+        var ordered = FollowLinearPath(appended);
+        Assert.Equal(
+            [NodeTypes.Start, NodeTypes.Wait, NodeTypes.Wait, NodeTypes.MouseClick, NodeTypes.Wait, NodeTypes.End],
+            ordered.Select(node => node.Type));
+        Assert.Equal("录制开始 · 整个屏幕", ordered[1].Data.DisplayName);
+        Assert.Equal(120, ordered[2].Data.Parameters["durationMs"].GetInt32());
+        Assert.Equal("absolute", ordered[3].Data.Parameters["coordinateMode"].GetString());
+        Assert.Equal("录制结束 · 整个屏幕", ordered[4].Data.DisplayName);
+        Assert.All(
+            ordered.Skip(1).Take(4),
+            node => Assert.Equal(
+                "screen-session",
+                node.Data.Parameters[RecordedScriptFactory.RecordingSessionParameter].GetString()));
+        Assert.True(Validate(appended).IsValid);
+    }
+
+    [Fact]
+    public void WindowRecordingUsesExistingWindowScopeNodeAndRelativeCoordinates()
+    {
+        var source = CreateBaseScript();
+        var action = new RecordedInputAction
+        {
+            Kind = RecordedInputActionKind.MouseDrag,
+            X = 15,
+            Y = 25,
+            EndX = 115,
+            EndY = 125,
+            DurationMilliseconds = 300
+        };
+
+        var appended = RecordedScriptFactory.Append(
+            source,
+            [action],
+            new()
+            {
+                TargetEndNodeId = "end",
+                Scope = InputRecordingScope.Window,
+                WindowTitle = "Game [1].*",
+                SessionId = "window-session"
+            });
+
+        var ordered = FollowLinearPath(appended);
+        Assert.Equal(
+            [NodeTypes.Start, NodeTypes.WindowScope, NodeTypes.MouseDrag, NodeTypes.Wait, NodeTypes.End],
+            ordered.Select(node => node.Type));
+        var scope = ordered[1];
+        Assert.Equal("录制开始 · 窗口：Game [1].*", scope.Data.DisplayName);
+        Assert.Equal(@"^Game\ \[1]\.\*$", scope.Data.Parameters["titlePattern"].GetString());
+        Assert.True(scope.Data.Parameters["singleWindow"].GetBoolean());
+        Assert.True(scope.Data.Parameters["activateWindow"].GetBoolean());
+        Assert.Equal("relative", ordered[2].Data.Parameters["coordinateMode"].GetString());
+        Assert.Equal(15, ordered[2].Data.Parameters["startX"].GetInt32());
+        Assert.Equal(125, ordered[2].Data.Parameters["endY"].GetInt32());
+        Assert.Equal("录制结束 · 窗口：Game [1].*", ordered[3].Data.DisplayName);
+        Assert.True(Validate(appended).IsValid);
+    }
+
+    [Fact]
+    public void AppendingBeforeSharedEndPreservesConditionalSourceHandles()
+    {
+        var source = CreateBranchedScript();
+
+        var appended = RecordedScriptFactory.Append(
+            source,
+            [
+                new RecordedInputAction
+                {
+                    Kind = RecordedInputActionKind.KeyPress,
+                    Key = "A"
+                }
+            ],
+            new()
+            {
+                TargetEndNodeId = "end",
+                Scope = InputRecordingScope.Screen,
+                SessionId = "branch-session"
+            });
+
+        var boundary = appended.Nodes.Single(node =>
+            node.Data.Parameters.TryGetValue(
+                RecordedScriptFactory.RecordingBoundaryParameter,
+                out var value)
+            && value.GetString() == "start");
+        var redirected = appended.Edges
+            .Where(edge => edge.Source == "condition")
+            .OrderBy(edge => edge.SourceHandle)
+            .ToArray();
+        Assert.Equal(2, redirected.Length);
+        Assert.All(redirected, edge => Assert.Equal(boundary.Id, edge.Target));
+        Assert.Equal(["false", "true"], redirected.Select(edge => edge.SourceHandle));
+        Assert.True(Validate(appended).IsValid);
+    }
+
+    [Fact]
+    public void AppendRejectsAnEndWithoutAnIncomingConnection()
+    {
+        var source = CreateBaseScript();
+        source.Edges.Clear();
+
+        var error = Assert.Throws<InvalidOperationException>(() =>
+            RecordedScriptFactory.Append(
+                source,
+                [new RecordedInputAction { Kind = RecordedInputActionKind.KeyPress, Key = "A" }],
+                new()
+                {
+                    TargetEndNodeId = "end",
+                    Scope = InputRecordingScope.Screen,
+                    SessionId = "invalid-session"
+                }));
+
+        Assert.Contains("输入连接", error.Message);
+    }
+
+    private static AutomationScript CreateBaseScript()
+    {
+        var script = new AutomationScript
+        {
+            Id = "script",
+            Name = "当前脚本",
+            Nodes =
+            [
+                new()
+                {
+                    Id = "start",
+                    Type = NodeTypes.Start,
+                    Position = new() { X = 48, Y = 48 },
+                    Data = new() { DisplayName = "开始" }
+                },
+                new()
+                {
+                    Id = "end",
+                    Type = NodeTypes.End,
+                    Position = new() { X = 238, Y = 48 },
+                    Data = new() { DisplayName = "结束" }
+                }
+            ],
+            Edges =
+            [
+                new() { Id = "start-end", Source = "start", Target = "end" }
+            ]
+        };
+        return script;
+    }
+
+    private static AutomationScript CreateBranchedScript()
+    {
+        var script = CreateBaseScript();
+        script.Nodes.Insert(1, new WorkflowNode
+        {
+            Id = "condition",
+            Type = NodeTypes.ColorCondition,
+            Position = new() { X = 238, Y = 48 },
+            Data = new()
+            {
+                DisplayName = "判断",
+                Parameters = new()
+                {
+                    ["coordinateMode"] = ProjectJson.Element("absolute")
+                }
+            }
+        });
+        script.Edges =
+        [
+            new() { Id = "start-condition", Source = "start", Target = "condition" },
+            new() { Id = "condition-true", Source = "condition", SourceHandle = "true", Target = "end" },
+            new() { Id = "condition-false", Source = "condition", SourceHandle = "false", Target = "end" }
+        ];
+        return script;
+    }
+
+    private static IReadOnlyList<WorkflowNode> FollowLinearPath(AutomationScript script)
+    {
+        var byId = script.Nodes.ToDictionary(node => node.Id, StringComparer.Ordinal);
+        var outgoing = script.Edges
+            .GroupBy(edge => edge.Source, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.ToArray(), StringComparer.Ordinal);
+        var result = new List<WorkflowNode>();
+        var current = script.Nodes.Single(node => node.Type == NodeTypes.Start);
+        while (true)
+        {
+            result.Add(current);
+            if (!outgoing.TryGetValue(current.Id, out var edges) || edges.Length == 0) break;
+            Assert.Single(edges);
+            current = byId[edges[0].Target];
+        }
+        return result;
+    }
+
+    private static Contracts.Results.WorkflowValidationResult Validate(AutomationScript script)
+    {
+        var project = new AutomationProject();
+        project.Scripts.Add(script);
+        project.SetActiveScript(script);
+        return new WorkflowValidator().Validate(project);
+    }
 }

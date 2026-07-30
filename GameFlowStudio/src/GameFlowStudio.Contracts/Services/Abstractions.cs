@@ -95,13 +95,13 @@ public interface IInputAutomationService
     Task TypeTextAsync(string text, int intervalMs, CancellationToken cancellationToken);
 }
 
-/// <summary>在当前 Windows 交互桌面录制可回放的全局键鼠操作。</summary>
+/// <summary>在当前 Windows 交互桌面按屏幕或指定窗口范围录制可回放键鼠操作。</summary>
 public interface IInputRecordingService : IDisposable
 {
     bool IsRecording { get; }
     event EventHandler<RecordedInputActionEventArgs>? ActionRecorded;
     event EventHandler? StopRequested;
-    void Start();
+    void Start(InputRecordingOptions options);
     IReadOnlyList<RecordedInputAction> Stop();
 }
 

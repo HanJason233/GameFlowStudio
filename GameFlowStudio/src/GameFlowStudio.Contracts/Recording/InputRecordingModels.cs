@@ -7,6 +7,20 @@ public static class InputRecordingLimits
     public const int MaxActions = 4_000;
 }
 
+/// <summary>操作录制使用的坐标和输入来源范围。</summary>
+public enum InputRecordingScope
+{
+    Screen,
+    Window
+}
+
+/// <summary>启动操作录制时使用的范围选项。</summary>
+public sealed record InputRecordingOptions
+{
+    public InputRecordingScope Scope { get; init; } = InputRecordingScope.Screen;
+    public nint TargetWindowHandle { get; init; }
+}
+
 /// <summary>可转换为现有工作流节点的输入操作类型。</summary>
 public enum RecordedInputActionKind
 {
@@ -17,7 +31,8 @@ public enum RecordedInputActionKind
 }
 
 /// <summary>
-/// 一次全局输入操作。时间和坐标均来自录制开始后的单调时钟与虚拟桌面物理像素。
+/// 一次输入操作。时间来自录制开始后的单调时钟；
+/// 屏幕模式坐标使用虚拟桌面物理像素，窗口模式坐标使用所选窗口外框的相对物理像素。
 /// </summary>
 public sealed record RecordedInputAction
 {

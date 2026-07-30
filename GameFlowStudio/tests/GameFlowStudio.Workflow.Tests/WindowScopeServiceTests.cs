@@ -56,10 +56,41 @@ public sealed class WindowScopeServiceTests
         Assert.Equal(new long[] { 101, 202 }, Assert.IsType<long[]>(context.Variables["targets"]));
     }
 
+    [Fact]
+    public async Task RecordedWindowScopeSelectsAndActivatesOneWindow()
+    {
+        var windows = new FakeWindowAutomationService([]);
+        var executor = new WindowScopeNodeExecutor(
+            new FakeWindowScopeService([(nint)101, (nint)202]),
+            windows);
+        var node = WorkflowEngineTests.Node("scope", Contracts.Nodes.NodeTypes.WindowScope,
+            ("titlePattern", "^Game$"),
+            ("outputVariable", "targets"),
+            ("singleWindow", true),
+            ("activateWindow", true));
+        var context = new Contracts.Results.WorkflowExecutionContext
+        {
+            Workflow = new AutomationProject(),
+            WaitIfPausedAsync = _ => Task.CompletedTask,
+            Log = _ => { }
+        };
+
+        var result = await executor.ExecuteAsync(node, context, CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.Equal([(nint)101], context.WindowHandles);
+        Assert.Equal((nint)101, windows.ActivatedHandle);
+    }
+
     private sealed class FakeWindowAutomationService(IReadOnlyList<WindowInfo> windows) : IWindowAutomationService
     {
+        public nint ActivatedHandle { get; private set; }
         public IReadOnlyList<WindowInfo> GetOpenWindows() => windows;
-        public bool ActivateWindow(nint handle) => true;
+        public bool ActivateWindow(nint handle)
+        {
+            ActivatedHandle = handle;
+            return true;
+        }
         public bool CloseWindow(nint handle) => true;
         public bool MinimizeWindow(nint handle) => true;
         public bool ArrangeWindows(IReadOnlyList<nint> handles, int x, int y, int offsetY) => true;

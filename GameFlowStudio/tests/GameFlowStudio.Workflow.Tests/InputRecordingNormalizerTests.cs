@@ -207,6 +207,30 @@ public sealed class InputRecordingNormalizerTests
     }
 
     [Fact]
+    public void ModifierPressedOutsideTheRecordingScopeIsNotApplied()
+    {
+        var normalizer = new InputRecordingNormalizer();
+
+        _ = normalizer.ProcessKeyboard(
+            InputRecordingMessages.KeyDown,
+            virtualKey: 0x11,
+            elapsedMilliseconds: 5,
+            capture: false);
+        _ = normalizer.ProcessKeyboard(
+            InputRecordingMessages.KeyDown,
+            virtualKey: 0x41,
+            elapsedMilliseconds: 20,
+            capture: true);
+        var result = normalizer.ProcessKeyboard(
+            InputRecordingMessages.KeyUp,
+            virtualKey: 0x41,
+            elapsedMilliseconds: 55,
+            capture: true);
+
+        Assert.Equal("A", Assert.IsType<RecordedInputAction>(result.Action).Key);
+    }
+
+    [Fact]
     public void F7IsSuppressedAndRequestsStopOnRelease()
     {
         var normalizer = new InputRecordingNormalizer();

@@ -53,10 +53,10 @@
                         <Button Content="● 录制" Command="{Binding StartRecordingCommand}"
                                 Visibility="{Binding IsRecording, Converter={StaticResource InverseBoolVisibility}}"
                                 Background="#B91C1C" BorderBrush="#EF4444"
-                                ToolTip="开始录制顺序操作；停止后生成新脚本。暂不还原同时按键或按住键配合鼠标。"/>
+                                ToolTip="选择基于屏幕或指定窗口录制；停止后把步骤追加到当前脚本。暂不还原同时按键或按住键配合鼠标。"/>
                         <Button Content="■ 停止 (F7)" Command="{Binding StopRecordingCommand}"
                                 Visibility="{Binding IsRecording, Converter={StaticResource BoolVisibility}}"
-                                Background="#991B1B" BorderBrush="#EF4444" ToolTip="停止录制并生成脚本（F7）"/>
+                                Background="#991B1B" BorderBrush="#EF4444" ToolTip="停止录制并追加到当前脚本（F7）"/>
                         <Button Content="▶ 运行" Command="{Binding RuntimeLaunchCommand}" Background="#0F766E" BorderBrush="#14B8A6" ToolTip="关闭编辑器并启动轻量纯运行悬浮窗"/>
                         <Button Content="▶ 调试运行" Command="{Binding RunCommand}" Background="#2563EB" BorderBrush="#3B82F6" ToolTip="在编辑器中运行并显示调试状态"/>
                         <Button Content="Ⅱ 暂停" Command="{Binding PauseCommand}"/>

@@ -74,6 +74,14 @@ public sealed class NodeParameterItem(string name, string value, JsonValueKind k
 
 public sealed class SelectedNodeViewModel : ObservableObject
 {
+    private static readonly IReadOnlySet<string> InternalParameterNames =
+        new HashSet<string>(StringComparer.Ordinal)
+        {
+            "recordingSessionId",
+            "recordingBoundary",
+            "singleWindow",
+            "activateWindow"
+        };
     private string _displayName = string.Empty;
     private Action? _changed;
     public required string Id { get; init; }
@@ -90,18 +98,18 @@ public sealed class SelectedNodeViewModel : ObservableObject
     public bool IsDetectorCondition => Type is NodeTypes.ColorCondition or NodeTypes.ImageCondition or NodeTypes.OcrCondition;
     public bool SupportsCoordinateMode => Type is NodeTypes.ColorCondition or NodeTypes.ImageCondition or NodeTypes.OcrCondition
         or NodeTypes.MouseClick or NodeTypes.MouseMove or NodeTypes.MouseDrag or NodeTypes.MouseScroll;
-    public IEnumerable<NodeParameterItem> NumericParameters => Parameters.Where(parameter => parameter.Kind == JsonValueKind.Number
+    public IEnumerable<NodeParameterItem> NumericParameters => VisibleParameters.Where(parameter => parameter.Kind == JsonValueKind.Number
         && parameter.Name is not ("minMatchRatio" or "matchThreshold")
         && (!IsCurrentDetectorSearch || parameter.Name is not ("x" or "y" or "width" or "height")));
-    public IEnumerable<NodeParameterItem> TextParameters => Parameters.Where(parameter => parameter.Kind == JsonValueKind.String && !IsChoiceParameter(parameter.Name) && parameter.Name != "coordinateMode");
-    public IEnumerable<NodeParameterItem> ChoiceParameters => Parameters.Where(parameter => parameter.Kind == JsonValueKind.String && IsChoiceParameter(parameter.Name) && parameter.Name != "coordinateMode");
-    public IEnumerable<NodeParameterItem> CoordinateParameters => Parameters.Where(parameter => parameter.Name == "coordinateMode");
+    public IEnumerable<NodeParameterItem> TextParameters => VisibleParameters.Where(parameter => parameter.Kind == JsonValueKind.String && !IsChoiceParameter(parameter.Name) && parameter.Name != "coordinateMode");
+    public IEnumerable<NodeParameterItem> ChoiceParameters => VisibleParameters.Where(parameter => parameter.Kind == JsonValueKind.String && IsChoiceParameter(parameter.Name) && parameter.Name != "coordinateMode");
+    public IEnumerable<NodeParameterItem> CoordinateParameters => VisibleParameters.Where(parameter => parameter.Name == "coordinateMode");
     public NodeParameterItem? ImageSearchModeParameter => Parameters.FirstOrDefault(parameter => parameter.Name == "imageSearchMode");
     public NodeParameterItem? TextSearchModeParameter => Parameters.FirstOrDefault(parameter => parameter.Name == "textSearchMode");
     public NodeParameterItem? ImageMatchEngineParameter => Parameters.FirstOrDefault(parameter => parameter.Name == "imageMatchEngine");
     public NodeParameterItem? OcrEngineParameter => Parameters.FirstOrDefault(parameter => parameter.Name == "ocrEngine");
-    public IEnumerable<NodeParameterItem> BooleanParameters => Parameters.Where(parameter => parameter.Kind is JsonValueKind.True or JsonValueKind.False);
-    public IEnumerable<NodeParameterItem> OtherParameters => Parameters.Where(parameter => parameter.Kind is not (JsonValueKind.Number or JsonValueKind.String or JsonValueKind.True or JsonValueKind.False));
+    public IEnumerable<NodeParameterItem> BooleanParameters => VisibleParameters.Where(parameter => parameter.Kind is JsonValueKind.True or JsonValueKind.False);
+    public IEnumerable<NodeParameterItem> OtherParameters => VisibleParameters.Where(parameter => parameter.Kind is not (JsonValueKind.Number or JsonValueKind.String or JsonValueKind.True or JsonValueKind.False));
     public bool HasNumericParameters => NumericParameters.Any();
     public bool HasTextParameters => TextParameters.Any();
     public bool HasChoiceParameters => ChoiceParameters.Any();
@@ -176,6 +184,9 @@ public sealed class SelectedNodeViewModel : ObservableObject
     private bool IsCurrentDetectorSearch =>
         (Type == NodeTypes.ImageCondition && string.Equals(ImageSearchModeParameter?.Value, "current", StringComparison.OrdinalIgnoreCase))
         || (Type == NodeTypes.OcrCondition && string.Equals(TextSearchModeParameter?.Value, "current", StringComparison.OrdinalIgnoreCase));
+
+    private IEnumerable<NodeParameterItem> VisibleParameters =>
+        Parameters.Where(parameter => !InternalParameterNames.Contains(parameter.Name));
 
     private static bool IsChoiceParameter(string name) => name is "coordinateMode" or "button" or "level" or "imageSearchMode" or "textSearchMode" or "imageMatchEngine" or "ocrEngine";
 }

@@ -6,6 +6,7 @@ using GameFlowStudio.Contracts.Services;
 using GameFlowStudio.Contracts.Workflows;
 using GameFlowStudio.Workflow.Engine;
 using GameFlowStudio.Workflow.Executors;
+using GameFlowStudio.Workflow.Recording;
 using GameFlowStudio.Workflow.Validation;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -124,6 +125,25 @@ public sealed class WorkflowEngineTests
 
         timer.Stop();
         Assert.True(timer.ElapsedMilliseconds >= 25, $"Expected the workflow-specific delay to override the runner default, elapsed {timer.ElapsedMilliseconds} ms.");
+    }
+
+    [Fact]
+    public async Task RecordedNodesDoNotReceiveTheCurrentScriptDefaultDelay()
+    {
+        var runner = Runner(new TrackingActionExecutor());
+        runner.DefaultNodeDelayMs = 500;
+        var existing = Action("existing");
+        var boundary = Action("recording-start");
+        var recorded = Action("recorded");
+        boundary.Data.Parameters[RecordedScriptFactory.RecordingSessionParameter] = ProjectJson.Element("session");
+        boundary.Data.Parameters[RecordedScriptFactory.RecordingBoundaryParameter] = ProjectJson.Element("start");
+        recorded.Data.Parameters[RecordedScriptFactory.RecordingSessionParameter] = ProjectJson.Element("session");
+        var timer = System.Diagnostics.Stopwatch.StartNew();
+
+        await runner.RunAsync(Chain(existing, boundary, recorded), CancellationToken.None);
+
+        timer.Stop();
+        Assert.True(timer.ElapsedMilliseconds < 250, $"Recorded nodes unexpectedly received the default delay; elapsed {timer.ElapsedMilliseconds} ms.");
     }
 
     [Fact]

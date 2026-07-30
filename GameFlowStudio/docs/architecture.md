@@ -39,7 +39,7 @@ Desktop 负责窗口生命周期、文件对话框、运行命令和可视状态
 5. 运行器验证快照，逐节点执行并发出 NodeStarted/NodeCompleted/NodeFailed。
 6. ViewModel 把事件映射为画布高亮/成功/失败消息，同时 ILogger 写入 UI 和每日文件。
 
-录制是独立于运行器的状态：Desktop 先导出并锁定当前画布，Automation 在当前交互桌面安装 `WH_MOUSE_LL`/`WH_KEYBOARD_LL`，过滤本进程窗口和注入输入，再把消息归并为操作快照。停止后 Workflow 将快照转换为只包含现有节点类型的新线性脚本，Desktop 通过既有 `import_workflow` 消息显示它。F7 是录制期间保留的全局停止键。
+录制是独立于运行器的状态：Desktop 复用坐标拾取的模式和窗口选择对话框，导出并锁定当前画布；Automation 在当前交互桌面安装 `WH_MOUSE_LL`/`WH_KEYBOARD_LL`，屏幕模式过滤本进程窗口，窗口模式只保留目标窗口输入并在事件发生时转换为窗口外框相对坐标，再把消息归并为操作快照。停止后 Workflow 在当前脚本的目标结束节点前插入带边界标记的录制片段，Desktop 通过既有 `request_import_workflow` 请求原子刷新画布，不创建新脚本。F7 是录制期间保留的全局停止键。
 
 ## 执行状态
 

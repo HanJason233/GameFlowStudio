@@ -56,6 +56,10 @@ public sealed class MainViewModel : ObservableObject
     private bool _editorReadOnlyRequested;
     private int _recordedActionCount;
     private int _recordingStatusNotificationPending;
+    private InputRecordingScope _recordingScope = InputRecordingScope.Screen;
+    private WindowInfo? _recordingWindow;
+    private string? _recordingScriptId;
+    private string? _recordingTargetEndNodeId;
     private SelectedNodeViewModel? _selectedNode;
     private bool _suppressSelectedNodeUpdates;
     private readonly Stopwatch _executionTimer = new();
@@ -138,8 +142,8 @@ public sealed class MainViewModel : ObservableObject
     public string RecordingStatusText => _isRecordingStarting
         ? "正在准备录制…"
         : _isRecordingFinalizing
-            ? "正在生成录制脚本…"
-            : $"正在录制 · {Volatile.Read(ref _recordedActionCount)} 个操作 · F7 停止";
+            ? "正在把录制步骤追加到当前脚本…"
+            : $"正在录制（{RecordingScopeLabel()}） · {Volatile.Read(ref _recordedActionCount)} 个操作 · F7 停止";
     public SelectedNodeViewModel? SelectedNode
     {
         get => _selectedNode;
@@ -673,6 +677,16 @@ public sealed class MainViewModel : ObservableObject
     private async Task StartRecordingAsync()
     {
         if (IsRecording || IsWorkflowActive()) return;
+        var mode = _coordinatePickMode.Select();
+        if (mode is null) return;
+
+        WindowInfo? window = null;
+        if (mode == CoordinatePickMode.Window)
+        {
+            window = _windowSelection.SelectWindow();
+            if (window is null) return;
+        }
+
         _isRecordingStarting = true;
         Interlocked.Exchange(ref _recordedActionCount, 0);
         RaiseRecordingState();
@@ -681,8 +695,20 @@ public sealed class MainViewModel : ObservableObject
         {
             await SetEditorReadOnlyAsync(true);
             await ExportAsync();
-            _inputRecorder.Start();
-            _logger.LogInformation("已开始录制键鼠操作；按 F7 停止录制。");
+            _recordingScope = mode == CoordinatePickMode.Window
+                ? InputRecordingScope.Window
+                : InputRecordingScope.Screen;
+            _recordingWindow = window;
+            _recordingScriptId = ActiveScript.Id;
+            _recordingTargetEndNodeId = ResolveRecordingTargetEndNodeId();
+            _inputRecorder.Start(new InputRecordingOptions
+            {
+                Scope = _recordingScope,
+                TargetWindowHandle = window?.Handle ?? nint.Zero
+            });
+            _logger.LogInformation(
+                "已开始录制键鼠操作，范围：{RecordingScope}；按 F7 停止录制。",
+                RecordingScopeLabel());
         }
         catch (Exception exception) { failure = exception; }
         finally
@@ -698,7 +724,11 @@ public sealed class MainViewModel : ObservableObject
                 _logger.LogError(unlockException, "录制启动失败后恢复编辑器只读状态失败");
                 failure ??= unlockException;
             }
-            finally { RaiseRecordingState(); }
+            finally
+            {
+                if (!_inputRecorder.IsRecording) ClearRecordingContext();
+                RaiseRecordingState();
+            }
         }
         if (failure is not null) ExceptionDispatchInfo.Capture(failure).Throw();
     }
@@ -709,7 +739,6 @@ public sealed class MainViewModel : ObservableObject
         _isRecordingFinalizing = true;
         RaiseRecordingState();
         Exception? failure = null;
-        AutomationScript? retainedScript = null;
         try
         {
             var actions = _inputRecorder.Stop();
@@ -717,37 +746,48 @@ public sealed class MainViewModel : ObservableObject
             Raise(nameof(RecordingStatusText));
             if (actions.Count == 0)
             {
-                _logger.LogInformation("录制结束，未捕获到可回放操作，因此没有创建脚本。");
+                _logger.LogInformation("录制结束，未捕获到可回放操作，当前脚本未发生变化。");
             }
             else
             {
-                var name = CreateRecordingScriptName();
-                var script = RecordedScriptFactory.Create(name, NextScriptId(), actions);
-                _project.Scripts.Add(script);
-                retainedScript = script;
+                if (_recordingScriptId is null
+                    || _recordingTargetEndNodeId is null
+                    || ActiveScript.Id != _recordingScriptId)
+                    throw new InvalidOperationException("录制期间当前脚本发生变化，无法安全追加录制步骤。");
+
+                var current = ActiveScript;
+                var candidate = RecordedScriptFactory.Append(
+                    current,
+                    actions,
+                    new RecordedScriptAppendOptions
+                    {
+                        TargetEndNodeId = _recordingTargetEndNodeId,
+                        Scope = _recordingScope,
+                        WindowTitle = _recordingWindow?.Title
+                    });
+                await ImportEditorWorkflowAsync(candidate);
+                var scriptIndex = _project.Scripts.FindIndex(script => script.Id == current.Id);
+                if (scriptIndex < 0)
+                    throw new InvalidOperationException("找不到录制开始时的当前脚本。");
+                _project.Scripts[scriptIndex] = candidate;
                 _dirty = true;
-                RefreshScripts();
-                await ImportEditorWorkflowAsync(script);
-                _activeScriptId = script.Id;
-                SyncRuntimeScriptView(script);
+                SyncRuntimeScriptView(candidate);
                 RefreshScripts();
                 RefreshScriptSettings();
                 SelectedNode = null;
-                IsScriptPropertiesVisible = true;
                 _logger.LogInformation(
-                    "录制完成，已创建脚本 {ScriptName}，包含 {ActionCount} 个操作。",
-                    script.Name,
-                    actions.Count);
+                    "录制完成，已向当前脚本 {ScriptName} 追加 {ActionCount} 个操作，范围：{RecordingScope}。",
+                    candidate.Name,
+                    actions.Count,
+                    RecordingScopeLabel());
             }
         }
         catch (Exception exception)
         {
             failure = exception;
-            if (retainedScript is not null)
-                _logger.LogWarning(
-                    exception,
-                    "录制脚本 {ScriptName} 已保留在项目中，但画布切换失败；可从脚本列表重新打开。",
-                    retainedScript.Name);
+            _logger.LogError(
+                exception,
+                "录制步骤未能追加到当前脚本，原脚本保持不变。");
         }
         finally
         {
@@ -762,11 +802,44 @@ public sealed class MainViewModel : ObservableObject
             }
             finally
             {
+                ClearRecordingContext();
                 _isRecordingFinalizing = false;
                 RaiseRecordingState();
             }
         }
         if (failure is not null) ExceptionDispatchInfo.Capture(failure).Throw();
+    }
+
+    private string ResolveRecordingTargetEndNodeId()
+    {
+        var endNodes = ActiveScript.Nodes
+            .Where(node => node.Type == NodeTypes.End)
+            .ToArray();
+        var selectedEnd = SelectedNode?.Type == NodeTypes.End
+            ? endNodes.FirstOrDefault(node => node.Id == SelectedNode.Id)
+            : null;
+        var target = selectedEnd ?? (endNodes.Length == 1 ? endNodes[0] : null);
+        if (target is null)
+            throw new InvalidOperationException(
+                endNodes.Length == 0
+                    ? "当前脚本没有结束节点，无法追加录制步骤。"
+                    : "当前脚本有多个结束节点，请先在画布中选中要追加录制步骤的结束节点。");
+        if (!ActiveScript.Edges.Any(edge => edge.Target == target.Id))
+            throw new InvalidOperationException("选中的结束节点没有输入连接，无法追加录制步骤。");
+        return target.Id;
+    }
+
+    private string RecordingScopeLabel() =>
+        _recordingScope == InputRecordingScope.Window
+            ? $"窗口：{_recordingWindow?.Title ?? "未知窗口"}"
+            : "整个屏幕";
+
+    private void ClearRecordingContext()
+    {
+        _recordingScope = InputRecordingScope.Screen;
+        _recordingWindow = null;
+        _recordingScriptId = null;
+        _recordingTargetEndNodeId = null;
     }
 
     private async Task NewScriptAsync()
@@ -964,15 +1037,6 @@ public sealed class MainViewModel : ObservableObject
         var name = $"脚本 {index}";
         while (_project.Scripts.Any(script => string.Equals(script.Name, name, StringComparison.OrdinalIgnoreCase)))
             name = $"脚本 {++index}";
-        return name;
-    }
-
-    private string CreateRecordingScriptName()
-    {
-        var index = 1;
-        var name = $"录制 {index}";
-        while (_project.Scripts.Any(script => string.Equals(script.Name, name, StringComparison.OrdinalIgnoreCase)))
-            name = $"录制 {++index}";
         return name;
     }
 

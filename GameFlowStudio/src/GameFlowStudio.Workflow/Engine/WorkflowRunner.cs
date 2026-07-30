@@ -6,6 +6,7 @@ using GameFlowStudio.Contracts.Nodes;
 using GameFlowStudio.Contracts.Results;
 using GameFlowStudio.Contracts.Services;
 using GameFlowStudio.Contracts.Workflows;
+using GameFlowStudio.Workflow.Recording;
 using GameFlowStudio.Workflow.Synchronization;
 using Microsoft.Extensions.Logging;
 
@@ -363,7 +364,32 @@ public sealed class WorkflowRunner : IWorkflowRunner
     private static bool ShouldApplyDefaultDelay(int delay, WorkflowNode current, WorkflowNode next) =>
         delay > 0
         && current.Type is not (Contracts.Nodes.NodeTypes.Start or Contracts.Nodes.NodeTypes.Wait)
-        && next.Type is not (Contracts.Nodes.NodeTypes.End or Contracts.Nodes.NodeTypes.Wait);
+        && next.Type is not (Contracts.Nodes.NodeTypes.End or Contracts.Nodes.NodeTypes.Wait)
+        && !IsRecordingBoundary(current)
+        && !IsRecordingBoundary(next)
+        && !SharesRecordingSession(current, next);
+
+    private static bool IsRecordingBoundary(WorkflowNode node) =>
+        node.Data.Parameters.TryGetValue(RecordedScriptFactory.RecordingBoundaryParameter, out var boundary)
+        && boundary.ValueKind == JsonValueKind.String
+        && !string.IsNullOrWhiteSpace(boundary.GetString());
+
+    private static bool SharesRecordingSession(WorkflowNode current, WorkflowNode next) =>
+        TryGetRecordingSession(current, out var currentSession)
+        && TryGetRecordingSession(next, out var nextSession)
+        && string.Equals(currentSession, nextSession, StringComparison.Ordinal);
+
+    private static bool TryGetRecordingSession(WorkflowNode node, out string? session)
+    {
+        session = null;
+        if (!node.Data.Parameters.TryGetValue(
+                RecordedScriptFactory.RecordingSessionParameter,
+                out var value)
+            || value.ValueKind != JsonValueKind.String)
+            return false;
+        session = value.GetString();
+        return !string.IsNullOrWhiteSpace(session);
+    }
 
     public async Task PauseAsync()
     {

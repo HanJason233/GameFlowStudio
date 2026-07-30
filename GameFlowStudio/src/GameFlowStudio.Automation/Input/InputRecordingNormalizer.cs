@@ -160,7 +160,7 @@ internal sealed class InputRecordingNormalizer
 
         if (IsModifier(virtualKey))
         {
-            if (isDown) _modifiers.Add(virtualKey);
+            if (isDown && capture) _modifiers.Add(virtualKey);
             else _modifiers.Remove(virtualKey);
             return default;
         }

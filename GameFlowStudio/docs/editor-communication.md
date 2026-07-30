@@ -22,7 +22,7 @@
 ## WPF → React
 
 - `initialize_editor`、`import_workflow`：载入完整项目。
-- `request_import_workflow`：载入完整项目并等待 `workflow_imported` 确认；录制结果切换使用此请求，避免宿主模型与画布失去同步。
+- `request_import_workflow`：载入完整项目并等待 `workflow_imported` 确认；录制步骤追加到当前脚本后使用此请求原子刷新画布，避免宿主模型与画布失去同步。
 - `request_workflow_export`：请求最新快照。
 - `add_node`：按 nodeType 在视口中心创建节点。
 - `update_node_data`：按 nodeId 合并名称、enabled 和 parameters。

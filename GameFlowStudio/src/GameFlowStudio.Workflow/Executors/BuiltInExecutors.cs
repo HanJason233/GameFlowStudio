@@ -24,12 +24,23 @@ public sealed class EndNodeExecutor() : NodeExecutorBase(NodeTypes.End)
     public override Task<NodeExecutionResult> ExecuteAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken cancellationToken) => Task.FromResult(NodeExecutionResult.Ok());
 }
 
-public sealed class WindowScopeNodeExecutor(IWindowScopeService scopes) : NodeExecutorBase(NodeTypes.WindowScope)
+public sealed class WindowScopeNodeExecutor(
+    IWindowScopeService scopes,
+    IWindowAutomationService? windows = null) : NodeExecutorBase(NodeTypes.WindowScope)
 {
     public override Task<NodeExecutionResult> ExecuteAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var handles = scopes.ResolveWindowHandles(NodeParameterReader.String(node, "titlePattern"));
+        IReadOnlyList<nint> handles = scopes.ResolveWindowHandles(NodeParameterReader.String(node, "titlePattern"));
+        if (NodeParameterReader.Bool(node, "singleWindow", false) && handles.Count > 1)
+            handles = [handles[0]];
+        if (NodeParameterReader.Bool(node, "activateWindow", false))
+        {
+            if (handles.Count == 0)
+                throw new InvalidOperationException("窗口作用域没有找到匹配的窗口。");
+            if (windows is null || !windows.ActivateWindow(handles[0]))
+                throw new InvalidOperationException("无法激活窗口作用域中的目标窗口。");
+        }
         var outputVariable = NodeParameterReader.String(node, "outputVariable", "windowHandles");
         context.WindowHandles = handles;
         context.Variables[outputVariable] = handles.Select(handle => handle.ToInt64()).ToArray();
