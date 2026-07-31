@@ -40,7 +40,10 @@ public sealed class ColorStateDetector : IStateDetector
         var target = ParseColor(DetectorParameterReader.String(detector, "targetColor", "#FFFFFF"));
         var tolerance = Math.Clamp(DetectorParameterReader.Int(detector, "tolerance", 10), 0, 255);
         var minimumRatio = Math.Clamp(DetectorParameterReader.Double(detector, "minMatchRatio", 1), 0, 1);
-        var frame = await context.CaptureAsync(region, cancellationToken).ConfigureAwait(false);
+        var frame = await context.CaptureAsync(
+            region,
+            DetectorCaptureModeReader.IsBackground(detector),
+            cancellationToken).ConfigureAwait(false);
         var total = frame.Width * frame.Height;
         var matching = 0;
         for (var y = 0; y < frame.Height; y++)
@@ -97,7 +100,10 @@ public sealed class ImageStateDetector : IStateDetector
         var search = searchMode == "current"
             ? DetectorSearchRegionReader.ReadCurrent(context)
             : ReadSearchRegion(detector, context.Capture.VirtualScreenBounds, CoordinateOrigin.Read(detector, context));
-        var frame = await context.CaptureAsync(search, cancellationToken).ConfigureAwait(false);
+        var frame = await context.CaptureAsync(
+            search,
+            DetectorCaptureModeReader.IsBackground(detector),
+            cancellationToken).ConfigureAwait(false);
         var tolerance = Math.Clamp(DetectorParameterReader.Int(detector, "tolerance", 10), 0, 255);
         var threshold = Math.Clamp(DetectorParameterReader.Double(detector, "matchThreshold", 0.95), 0, 1);
         var engine = DetectorParameterReader.String(detector, "imageMatchEngine", "custom").Trim().ToLowerInvariant();
@@ -186,6 +192,21 @@ internal static class DetectorSearchRegionReader
     }
 }
 
+internal static class DetectorCaptureModeReader
+{
+    public static bool IsBackground(DetectorDefinition detector)
+    {
+        var value = DetectorParameterReader.String(detector, "captureMode", "foreground").Trim();
+        return value.ToLowerInvariant() switch
+        {
+            "" or "foreground" => false,
+            "background" => true,
+            _ => throw new InvalidOperationException(
+                $"参数 captureMode 只支持 foreground 或 background，当前值为「{value}」。")
+        };
+    }
+}
+
 /// <summary>在屏幕区域执行 OCR，并按识别文本及置信度输出状态。</summary>
 public sealed class OcrStateDetector(IOcrService geminiOcr, ILocalOcrService? localOcr = null) : IStateDetector
 {
@@ -202,7 +223,10 @@ public sealed class OcrStateDetector(IOcrService geminiOcr, ILocalOcrService? lo
         var region = searchMode == "current"
             ? DetectorSearchRegionReader.ReadCurrent(context)
             : ReadRegion(detector, context.Capture.VirtualScreenBounds, CoordinateOrigin.Read(detector, context));
-        var frame = await context.CaptureAsync(region, cancellationToken).ConfigureAwait(false);
+        var frame = await context.CaptureAsync(
+            region,
+            DetectorCaptureModeReader.IsBackground(detector),
+            cancellationToken).ConfigureAwait(false);
         var engine = DetectorParameterReader.String(detector, "ocrEngine", "gemini").Trim().ToLowerInvariant();
         var selectedOcr = engine switch
         {

@@ -33,27 +33,33 @@
 | type | 主要参数 | 输出 |
 |---|---|---|
 | `start` | 无 | `output` |
-| `mouseClick` | `coordinateMode`, `x`, `y`, `button`, `clickCount`, `intervalMs` | `output` |
+| `mouseClick` | `clickMode`, `coordinateMode`, `x`, `y`, `button`, `clickCount`, `intervalMs` | `output` |
 
-| `mouseMove` | `coordinateMode`, `x`, `y`, `durationMs` | `output` |
-| `mouseDrag` | `coordinateMode`, `startX`, `startY`, `endX`, `endY`, `button`, `durationMs` | `output` |
-| `mouseScroll` | `coordinateMode`, `x`, `y`, `delta` | `output` |
-| `keyPress` | `key`, `durationMs`, `repeatCount`, `intervalMs` | `output` |
-| `textInput` | `text`, `intervalMs` | `output` |
+| `mouseMove` | `inputMode`, `coordinateMode`, `x`, `y`, `durationMs` | `output` |
+| `mouseDrag` | `inputMode`, `coordinateMode`, `startX`, `startY`, `endX`, `endY`, `button`, `durationMs` | `output` |
+| `mouseScroll` | `inputMode`, `coordinateMode`, `x`, `y`, `delta` | `output` |
+| `keyPress` | `inputMode`, `key`, `durationMs`, `repeatCount`, `intervalMs` | `output` |
+| `textInput` | `inputMode`, `text`, `intervalMs` | `output` |
 | `wait` | `durationMs`，可选 `randomMinMs`/`randomMaxMs` | `output` |
-| `colorCondition` | `coordinateMode`, `x`, `y`, `width`, `height`, `targetColor`, `tolerance`, `minMatchRatio` | `true`, `false` |
-| `imageCondition` | `coordinateMode`, `templatePath`, `x`, `y`, 可选 `width`/`height`、`tolerance`、`matchThreshold` | `true`, `false` |
-| `ocrCondition` | `coordinateMode`, `x`, `y`, `width`, `height`, `targetText`, `matchThreshold` | `true`, `false` |
+| `colorCondition` | `captureMode`, `coordinateMode`, `x`, `y`, `width`, `height`, `targetColor`, `tolerance`, `minMatchRatio` | `true`, `false` |
+| `imageCondition` | `captureMode`, `coordinateMode`, `templatePath`, `x`, `y`, 可选 `width`/`height`、`tolerance`、`matchThreshold` | `true`, `false` |
+| `ocrCondition` | `captureMode`, `coordinateMode`, `x`, `y`, `width`, `height`, `targetText`, `matchThreshold` | `true`, `false` |
 | `runProgram` | `path`, `arguments` | `output` |
-| `closeProgram` | `titlePattern` | `output` |
-| `minimizeWindow` | `titlePattern` | `output` |
+| `closeProgram` | `windowActionMode`, `titlePattern` | `output` |
+| `minimizeWindow` | `windowActionMode`, `titlePattern` | `output` |
 | `arrangeWindows` | `titlePattern`, `x`, `y`, `offsetY` | `output` |
-| `setWindowResolution` | `titlePattern`, `width`, `height` | `output` |
+| `setWindowResolution` | `windowActionMode`, `titlePattern`, `width`, `height` | `output` |
 | `end` | 无 | 无 |
 
 `coordinateMode` 默认为 `followScript`（跟随脚本）：脚本使用整个屏幕时按屏幕绝对坐标，脚本使用正则匹配窗口时按当前目标窗口的相对坐标。`absolute`（强制绝对）和 `relative`（强制相对）会覆盖脚本窗口范围。
 
-关闭程序、最小化窗口、窗口整理和设置窗口分辨率会使用动作自身的 `titlePattern` 查找正在运行的窗口，不使用脚本窗口作用域的匹配结果；这些动作都会对全部匹配窗口句柄执行。窗口整理将首个匹配窗口的左上角移动到屏幕坐标 `(x, y)`，后续窗口保持原有大小并按 `offsetY` 像素依次向下堆叠。
+`mouseClick.clickMode`、其他键鼠节点的 `inputMode`、检测节点的 `captureMode`，以及关闭/最小化/分辨率节点的 `windowActionMode` 均支持 `foreground`（默认）和 `background`（危险）。旧项目缺少字段时始终按 `foreground` 执行。
+
+后台键鼠要求当前执行上下文恰好包含一个窗口，通过 `WM_MOUSE*`、`WM_KEY*` 或 `WM_CHAR` 投递传统窗口消息，不移动真实鼠标或激活窗口。依赖 Raw Input、DirectInput、前台状态、更高进程权限或保护机制的程序可能忽略或拒绝消息。单个后台点击节点的 `clickCount` 上限为 100。
+
+后台检测同样要求唯一窗口，通过 `PrintWindow` 请求目标绘制整窗，再按节点的物理屏幕区域裁剪。硬件加速、受保护或最小化窗口可能拒绝绘制或返回黑图；抓取失败和区域越界会直接令节点失败，不回退到桌面截图。单次后台读取最多等待 5 秒；不可取消的本机调用若仍未返回，会占用唯一抓图闸门，避免继续堆积线程和 GDI 资源。
+
+关闭程序、最小化窗口、窗口整理和设置窗口分辨率会使用动作自身的 `titlePattern` 查找正在运行的窗口，不使用脚本窗口作用域的匹配结果；这些动作都会对全部匹配窗口句柄执行。`windowActionMode=background` 时关闭、最小化和设置分辨率不先激活匹配窗口。窗口整理本身使用不激活窗口的排列方式：将首个匹配窗口的左上角移动到屏幕坐标 `(x, y)`，后续窗口保持原有大小并按 `offsetY` 像素依次向下堆叠。
 
 变量类型为 `string`、`number`、`boolean`。鼠标按钮为 `left`、`right`、`middle`；日志级别为 `debug`、`information`、`warning`、`error`。
 

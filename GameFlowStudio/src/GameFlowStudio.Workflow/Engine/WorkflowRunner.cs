@@ -6,6 +6,7 @@ using GameFlowStudio.Contracts.Nodes;
 using GameFlowStudio.Contracts.Results;
 using GameFlowStudio.Contracts.Services;
 using GameFlowStudio.Contracts.Workflows;
+using GameFlowStudio.Workflow.Executors;
 using GameFlowStudio.Workflow.Recording;
 using GameFlowStudio.Workflow.Synchronization;
 using Microsoft.Extensions.Logging;
@@ -306,7 +307,7 @@ public sealed class WorkflowRunner : IWorkflowRunner
         Raise(NodeStarted, new(node));
         try
         {
-            if (!UsesIndependentWindowTarget(node.Type)) ActivateContextWindow(context);
+            if (RequiresContextWindowActivation(node)) ActivateContextWindow(context);
             var result = await InvokeExecutorAsync(node, context, token).ConfigureAwait(false);
             timer.Stop();
             if (!result.Success) throw new InvalidOperationException(result.ErrorMessage ?? "节点执行失败。");
@@ -331,6 +332,26 @@ public sealed class WorkflowRunner : IWorkflowRunner
 
     private static bool UsesIndependentWindowTarget(string nodeType) => nodeType is
         NodeTypes.RunProgram or NodeTypes.CloseProgram or NodeTypes.MinimizeWindow or NodeTypes.ArrangeWindows or NodeTypes.SetWindowResolution;
+
+    private static bool RequiresContextWindowActivation(WorkflowNode node)
+    {
+        if (UsesIndependentWindowTarget(node.Type)
+            || node.Type is NodeTypes.Start or NodeTypes.End or NodeTypes.Wait or NodeTypes.Jump or NodeTypes.WindowScope)
+            return false;
+
+        return !UsesBackgroundInteraction(node);
+    }
+
+    private static bool UsesBackgroundInteraction(WorkflowNode node) => node.Type switch
+    {
+        NodeTypes.MouseClick => MouseClickParameterReader.ReadClickMode(node) == MouseClickMode.Background,
+        NodeTypes.MouseMove or NodeTypes.MouseDrag or NodeTypes.MouseScroll
+            or NodeTypes.KeyPress or NodeTypes.TextInput =>
+            InteractionModeParameterReader.IsBackground(node, "inputMode"),
+        NodeTypes.ColorCondition or NodeTypes.ImageCondition or NodeTypes.OcrCondition =>
+            InteractionModeParameterReader.IsBackground(node, "captureMode"),
+        _ => false
+    };
 
     private static IReadOnlyList<nint>? CurrentWindowScope(WorkflowExecutionContext context) =>
         context.WindowHandles.Count == 1 ? context.WindowHandles : null;
@@ -471,7 +492,6 @@ public sealed class WorkflowRunner : IWorkflowRunner
         if (scope is not { Enabled: true }) return;
         var handles = windowHandles ?? ResolveWindowHandles(scope);
         if (handles is null || handles.Count == 0) throw new InvalidOperationException("窗口作用域没有找到匹配的窗口。");
-        if (_windows is not null && !_windows.ActivateWindow(handles[0])) throw new InvalidOperationException("无法激活窗口作用域中的目标窗口。");
         context.WindowHandles = handles;
         context.Variables["windowHandles"] = handles.Select(handle => handle.ToInt64()).ToArray();
     }

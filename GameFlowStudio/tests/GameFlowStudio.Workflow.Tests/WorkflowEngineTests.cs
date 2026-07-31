@@ -291,8 +291,98 @@ public sealed class WorkflowEngineTests
 
         await runner.RunAsync(project, CancellationToken.None);
 
-        Assert.Equal(5, windows.Activations.Count);
-        Assert.Equal([3, 4], executor.ActivationCounts);
+        Assert.Equal(2, windows.Activations.Count);
+        Assert.Equal([1, 2], executor.ActivationCounts);
+    }
+
+    [Fact]
+    public async Task BackgroundClickDoesNotActivateTheScopedWindow()
+    {
+        var windows = new RecordingWindowAutomationService();
+        var background = new RecordingBackgroundMouseClickService();
+        var runner = Runner(
+            new TrackingActionExecutor(),
+            new FixedWindowScopeService([(nint)101]),
+            windows: windows,
+            backgroundClicks: background);
+        var click = Node(
+            "background-click",
+            NodeTypes.MouseClick,
+            ("clickMode", "background"),
+            ("coordinateMode", "relative"),
+            ("x", 10),
+            ("y", 20));
+        var project = Chain(click);
+        project.WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.FirstOnly };
+
+        await runner.RunAsync(project, CancellationToken.None);
+
+        Assert.Empty(windows.Activations);
+        Assert.Equal((nint)101, background.WindowHandle);
+        Assert.Equal((10, 20), (background.X, background.Y));
+    }
+
+    [Fact]
+    public async Task BackgroundKeyboardInputDoesNotActivateTheScopedWindow()
+    {
+        var windows = new RecordingWindowAutomationService();
+        var executor = new ActivationAwareActionExecutor(windows);
+        var runner = Runner(executor, new FixedWindowScopeService([(nint)101]), windows: windows);
+        var input = Node("background-input", NodeTypes.TextInput, ("inputMode", "background"), ("text", "test"));
+        var project = Chain(input);
+        project.WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.FirstOnly };
+
+        await runner.RunAsync(project, CancellationToken.None);
+
+        Assert.Empty(windows.Activations);
+        Assert.Equal([0], executor.ActivationCounts);
+    }
+
+    [Fact]
+    public async Task BackgroundDetectorReadDoesNotActivateTheScopedWindow()
+    {
+        var windows = new RecordingWindowAutomationService();
+        var executor = new ActivationAwareActionExecutor(windows, NodeTypes.ColorCondition, "true");
+        var runner = Runner(executor, new FixedWindowScopeService([(nint)101]), windows: windows);
+        var project = NewProject();
+        var start = Node("start", NodeTypes.Start);
+        var condition = Node(
+            "background-color",
+            NodeTypes.ColorCondition,
+            ("captureMode", "background"),
+            ("targetColor", "#FFFFFF"));
+        var trueEnd = Node("true-end", NodeTypes.End);
+        var falseEnd = Node("false-end", NodeTypes.End);
+        project.Nodes = [start, condition, trueEnd, falseEnd];
+        project.Edges =
+        [
+            Edge(start, "output", condition),
+            Edge(condition, "true", trueEnd),
+            Edge(condition, "false", falseEnd)
+        ];
+        project.WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.FirstOnly };
+
+        await runner.RunAsync(project, CancellationToken.None);
+
+        Assert.Empty(windows.Activations);
+        Assert.Equal([0], executor.ActivationCounts);
+    }
+
+    [Fact]
+    public async Task ForegroundClickStillActivatesTheScopedWindow()
+    {
+        var windows = new RecordingWindowAutomationService();
+        var runner = Runner(
+            new TrackingActionExecutor(),
+            new FixedWindowScopeService([(nint)101]),
+            windows: windows);
+        var click = Node("foreground-click", NodeTypes.MouseClick, ("x", 10), ("y", 20));
+        var project = Chain(click);
+        project.WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.FirstOnly };
+
+        await runner.RunAsync(project, CancellationToken.None);
+
+        Assert.Equal([(nint)101], windows.Activations);
     }
 
     [Fact]
@@ -340,8 +430,13 @@ public sealed class WorkflowEngineTests
         Assert.InRange(timer.ElapsedMilliseconds, 10, 90);
     }
 
-    private static WorkflowRunner Runner(INodeExecutor actionExecutor, IWindowScopeService? windowScopes = null, INodeExecutor? endExecutor = null, IWindowAutomationService? windows = null) => new(
-        [new StartNodeExecutor(), endExecutor ?? new EndNodeExecutor(), new WaitNodeExecutor(), new JumpNodeExecutor(), new MouseClickNodeExecutor(new NullInputAutomationService(), new NullCoordinateResolver()), actionExecutor],
+    private static WorkflowRunner Runner(
+        INodeExecutor actionExecutor,
+        IWindowScopeService? windowScopes = null,
+        INodeExecutor? endExecutor = null,
+        IWindowAutomationService? windows = null,
+        IBackgroundMouseClickService? backgroundClicks = null) => new(
+        [new StartNodeExecutor(), endExecutor ?? new EndNodeExecutor(), new WaitNodeExecutor(), new JumpNodeExecutor(), new MouseClickNodeExecutor(new NullInputAutomationService(), new NullCoordinateResolver(), backgroundClicks), actionExecutor],
         new WorkflowValidator(), NullLogger<WorkflowRunner>.Instance, windowScopes, windows);
 
     private static async Task AssertCompletionBoundaryAsync(bool stop)
@@ -481,14 +576,17 @@ public sealed class WorkflowEngineTests
         }
     }
 
-    private sealed class ActivationAwareActionExecutor(RecordingWindowAutomationService windows) : NodeExecutorBase(NodeTypes.TextInput)
+    private sealed class ActivationAwareActionExecutor(
+        RecordingWindowAutomationService windows,
+        string nodeType = NodeTypes.TextInput,
+        string nextHandle = "output") : NodeExecutorBase(nodeType)
     {
         public List<int> ActivationCounts { get; } = [];
 
         public override Task<NodeExecutionResult> ExecuteAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken cancellationToken)
         {
             ActivationCounts.Add(windows.Activations.Count);
-            return Task.FromResult(NodeExecutionResult.Ok());
+            return Task.FromResult(NodeExecutionResult.Ok(nextHandle));
         }
     }
 
@@ -523,5 +621,27 @@ public sealed class WorkflowEngineTests
     private sealed class NullCoordinateResolver : IMouseCoordinateResolver
     {
         public (int X, int Y) Resolve(int x, int y, CoordinateMode mode, WorkflowExecutionContext context) => (x, y);
+    }
+
+    private sealed class RecordingBackgroundMouseClickService : IBackgroundMouseClickService
+    {
+        public nint WindowHandle { get; private set; }
+        public int X { get; private set; }
+        public int Y { get; private set; }
+
+        public Task ClickAsync(
+            nint windowHandle,
+            int screenX,
+            int screenY,
+            MouseButtonType button,
+            int clickCount,
+            int intervalMs,
+            CancellationToken cancellationToken)
+        {
+            WindowHandle = windowHandle;
+            X = screenX;
+            Y = screenY;
+            return Task.CompletedTask;
+        }
     }
 }

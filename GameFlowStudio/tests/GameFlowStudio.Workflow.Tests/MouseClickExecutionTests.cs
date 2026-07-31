@@ -98,6 +98,86 @@ public sealed class MouseClickExecutionTests
 
         Assert.Equal((25, 35), (input.X, input.Y));
         Assert.Equal(MouseButtonType.Right, input.Button);
+        Assert.Equal(1, input.ClickCalls);
+    }
+
+    [Fact]
+    public async Task BackgroundClickUsesTheUniqueWindowWithoutSendingForegroundInput()
+    {
+        var input = new RecordingInputAutomationService();
+        var background = new RecordingBackgroundMouseClickService();
+        var executor = new MouseClickNodeExecutor(
+            input,
+            new MouseCoordinateResolver(new FakeWindowAutomationService(new(101, 100, 200, 900, 800))),
+            background);
+        var node = WorkflowEngineTests.Node(
+            "click",
+            Contracts.Nodes.NodeTypes.MouseClick,
+            ("clickMode", "background"),
+            ("coordinateMode", "relative"),
+            ("x", 25),
+            ("y", 35),
+            ("button", "middle"),
+            ("clickCount", 2),
+            ("intervalMs", 42));
+        var context = Context();
+        context.WindowHandles = [(nint)101];
+
+        await executor.ExecuteAsync(node, context, CancellationToken.None);
+
+        Assert.Equal(0, input.ClickCalls);
+        Assert.Equal((nint)101, background.WindowHandle);
+        Assert.Equal((125, 235), (background.X, background.Y));
+        Assert.Equal(MouseButtonType.Middle, background.Button);
+        Assert.Equal(2, background.ClickCount);
+        Assert.Equal(42, background.IntervalMs);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(2)]
+    public async Task BackgroundClickRequiresExactlyOneTargetWindow(int windowCount)
+    {
+        var executor = new MouseClickNodeExecutor(
+            new RecordingInputAutomationService(),
+            new ThrowingCoordinateResolver(),
+            new RecordingBackgroundMouseClickService());
+        var node = WorkflowEngineTests.Node(
+            "click",
+            Contracts.Nodes.NodeTypes.MouseClick,
+            ("clickMode", "background"),
+            ("x", 25),
+            ("y", 35));
+        var context = Context();
+        context.WindowHandles = Enumerable.Range(1, windowCount).Select(value => (nint)value).ToArray();
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => executor.ExecuteAsync(node, context, CancellationToken.None));
+
+        Assert.Contains("唯一的目标窗口", error.Message);
+    }
+
+    [Theory]
+    [InlineData("unknown")]
+    [InlineData("1")]
+    [InlineData("999")]
+    public async Task InvalidClickModeIsRejected(string mode)
+    {
+        var executor = new MouseClickNodeExecutor(
+            new RecordingInputAutomationService(),
+            new NullCoordinateResolver(),
+            new RecordingBackgroundMouseClickService());
+        var node = WorkflowEngineTests.Node(
+            "click",
+            Contracts.Nodes.NodeTypes.MouseClick,
+            ("clickMode", mode),
+            ("x", 25),
+            ("y", 35));
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => executor.ExecuteAsync(node, Context(), CancellationToken.None));
+
+        Assert.Contains("点击模式", error.Message);
     }
 
     private static WorkflowExecutionContext Context() => new()
@@ -143,6 +223,7 @@ public sealed class MouseClickExecutionTests
         public int X { get; private set; }
         public int Y { get; private set; }
         public MouseButtonType Button { get; private set; }
+        public int ClickCalls { get; private set; }
 
         public Task MoveMouseAsync(int x, int y, int durationMs, CancellationToken cancellationToken) => Task.CompletedTask;
 
@@ -152,11 +233,51 @@ public sealed class MouseClickExecutionTests
 
         public Task ClickAsync(int x, int y, MouseButtonType button, int clickCount, int intervalMs, CancellationToken cancellationToken)
         {
+            ClickCalls++;
             X = x; Y = y; Button = button;
             return Task.CompletedTask;
         }
 
         public Task PressKeyAsync(string key, int durationMs, int repeatCount, int intervalMs, CancellationToken cancellationToken) => Task.CompletedTask;
         public Task TypeTextAsync(string text, int intervalMs, CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    private sealed class RecordingBackgroundMouseClickService : IBackgroundMouseClickService
+    {
+        public nint WindowHandle { get; private set; }
+        public int X { get; private set; }
+        public int Y { get; private set; }
+        public MouseButtonType Button { get; private set; }
+        public int ClickCount { get; private set; }
+        public int IntervalMs { get; private set; }
+
+        public Task ClickAsync(
+            nint windowHandle,
+            int screenX,
+            int screenY,
+            MouseButtonType button,
+            int clickCount,
+            int intervalMs,
+            CancellationToken cancellationToken)
+        {
+            WindowHandle = windowHandle;
+            X = screenX;
+            Y = screenY;
+            Button = button;
+            ClickCount = clickCount;
+            IntervalMs = intervalMs;
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class NullCoordinateResolver : IMouseCoordinateResolver
+    {
+        public (int X, int Y) Resolve(int x, int y, CoordinateMode mode, WorkflowExecutionContext context) => (x, y);
+    }
+
+    private sealed class ThrowingCoordinateResolver : IMouseCoordinateResolver
+    {
+        public (int X, int Y) Resolve(int x, int y, CoordinateMode mode, WorkflowExecutionContext context) =>
+            throw new InvalidOperationException("唯一目标窗口校验必须先于坐标解析。");
     }
 }

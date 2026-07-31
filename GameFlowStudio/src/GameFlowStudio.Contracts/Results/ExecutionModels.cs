@@ -88,20 +88,40 @@ public sealed record DetectorEvaluationResult(
 
 public sealed class DetectorEvaluationContext
 {
-    private readonly Dictionary<CaptureRegion, CapturedFrame> _frames = [];
+    private readonly Dictionary<(CaptureRegion Region, bool Background, nint WindowHandle), CapturedFrame> _frames = [];
     private readonly Dictionary<string, DetectorImage> _images = new(StringComparer.OrdinalIgnoreCase);
 
     public required IDesktopCaptureService Capture { get; init; }
+    public IWindowCaptureService? WindowCapture { get; init; }
     public IImageTemplateProvider? Images { get; init; }
     public IWindowAutomationService? Windows { get; init; }
     public IReadOnlyList<nint> WindowHandles { get; init; } = [];
 
-    public async Task<CapturedFrame> CaptureAsync(CaptureRegion region, CancellationToken cancellationToken)
+    public Task<CapturedFrame> CaptureAsync(CaptureRegion region, CancellationToken cancellationToken) =>
+        CaptureAsync(region, background: false, cancellationToken);
+
+    public async Task<CapturedFrame> CaptureAsync(
+        CaptureRegion region,
+        bool background,
+        CancellationToken cancellationToken)
     {
         var requested = region.IsValid ? region : Capture.VirtualScreenBounds;
-        if (_frames.TryGetValue(requested, out var cached)) return cached;
-        var frame = await Capture.CaptureAsync(requested, cancellationToken).ConfigureAwait(false);
-        _frames[requested] = frame;
+        var windowHandle = nint.Zero;
+        if (background)
+        {
+            if (WindowHandles.Count != 1)
+                throw new InvalidOperationException("后台读取需要唯一的目标窗口。请在脚本属性中设置窗口范围，或先使用只返回一个窗口的窗口作用域节点。");
+            if (WindowCapture is null)
+                throw new InvalidOperationException("后台窗口读取服务未注册，当前运行环境不支持后台读取。");
+            windowHandle = WindowHandles[0];
+        }
+
+        var key = (requested, background, windowHandle);
+        if (_frames.TryGetValue(key, out var cached)) return cached;
+        var frame = background
+            ? await WindowCapture!.CaptureAsync(windowHandle, requested, cancellationToken).ConfigureAwait(false)
+            : await Capture.CaptureAsync(requested, cancellationToken).ConfigureAwait(false);
+        _frames[key] = frame;
         return frame;
     }
 

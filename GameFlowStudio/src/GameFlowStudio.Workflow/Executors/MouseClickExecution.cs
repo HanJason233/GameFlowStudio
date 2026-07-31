@@ -12,7 +12,8 @@ public sealed record MouseClickParameters(
     MouseButtonType Button,
     int ClickCount,
     int IntervalMs,
-    CoordinateMode CoordinateMode);
+    CoordinateMode CoordinateMode,
+    MouseClickMode ClickMode);
 
 public interface IMouseCoordinateResolver
 {
@@ -35,17 +36,31 @@ internal static class MouseClickParameterReader
 {
     public static MouseClickParameters Read(WorkflowNode node)
     {
-        var buttonName = NodeParameterReader.String(node, "button", "left");
-        if (!Enum.TryParse<MouseButtonType>(buttonName, true, out var button))
-            throw new InvalidOperationException($"不支持的鼠标按键：{buttonName}。");
-
         return new(
             NodeParameterReader.Int(node, "x"),
             NodeParameterReader.Int(node, "y"),
-            button,
+            ReadButton(node),
             NodeParameterReader.Int(node, "clickCount", 1),
             NodeParameterReader.Int(node, "intervalMs", 0),
-            CoordinateModeReader.Read(NodeParameterReader.String(node, "coordinateMode", "followScript")));
+            CoordinateModeReader.Read(NodeParameterReader.String(node, "coordinateMode", "followScript")),
+            ReadClickMode(node));
+    }
+
+    internal static MouseClickMode ReadClickMode(WorkflowNode node)
+        => InteractionModeParameterReader.IsBackground(node, "clickMode")
+            ? MouseClickMode.Background
+            : MouseClickMode.Foreground;
+
+    private static MouseButtonType ReadButton(WorkflowNode node)
+    {
+        var name = NodeParameterReader.String(node, "button", "left");
+        return name.Trim().ToLowerInvariant() switch
+        {
+            "left" => MouseButtonType.Left,
+            "right" => MouseButtonType.Right,
+            "middle" => MouseButtonType.Middle,
+            _ => throw new InvalidOperationException($"不支持的鼠标按键：{name}。")
+        };
     }
 }
 

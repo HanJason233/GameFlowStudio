@@ -221,7 +221,7 @@
                                 <TextBlock Style="{StaticResource CardTitleStyle}" Text="脚本管理"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 左键单击脚本卡片进行切换；点击脚本列表右侧“+”创建新脚本。项目至少保留一个脚本。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 右键脚本可打开“复制、属性、删除”。脚本名称会在当前项目内自动保持唯一。"/>
-                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• “属性”可设置脚本名称、窗口范围、多窗口执行方式和默认节点等待时间。"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• “属性”可设置脚本名称、窗口范围、前台串行方式和默认节点等待时间。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 默认节点等待时间是普通节点之间的统一间隔；“等待”节点仍使用自己的等待时长。设为 0 可关闭默认间隔。"/>
                             </StackPanel>
                         </Border>
@@ -277,7 +277,8 @@
                             <StackPanel>
                                 <TextBlock Style="{StaticResource CardTitleStyle}" Text="窗口操作节点"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 关闭程序、最小化、窗口整理和分辨率节点使用各自填写的窗口标题正则，并处理所有匹配窗口。"/>
-                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• “窗口整理”把第一个窗口放到设置的 x、y，后续匹配窗口按垂直偏移量依次排列。"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 关闭、最小化和设置分辨率可选择前台操作或后台操作（危险）；后台方式不激活匹配窗口。"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• “窗口整理”本身不会激活窗口：把第一个窗口放到设置的 x、y，后续匹配窗口按垂直偏移量依次排列。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 节点自己的窗口正则与“脚本窗口范围”是两套设置，互不替代。"/>
                             </StackPanel>
                         </Border>
@@ -300,7 +301,7 @@
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="2. 点击当前脚本卡片右侧的“录制”，选择“基于屏幕”或“基于窗口”。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="3. 窗口模式需要从列表选择目标应用；随后在目标应用中执行点击、拖动、滚轮和键盘操作。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="4. 按 F7 或点击“停止”结束。录制步骤会插到目标结束节点之前，并加入“录制开始 / 录制结束”标记。"/>
-                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="5. 检查生成的节点和连线，然后手动保存项目。"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="5. 录制生成的点击、拖动、滚轮和按键均默认为前台方式；需要时可逐个节点改为后台操作（危险）。检查节点和连线后手动保存项目。"/>
                             </StackPanel>
                         </Border>
 
@@ -318,7 +319,7 @@
                                 <TextBlock Style="{StaticResource CardTitleStyle}" Text="基于窗口"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 只记录所选窗口及其所属弹出窗口中的操作；键盘输入仅在目标窗口处于前台时记录。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 鼠标坐标保存为相对于窗口外框左上角的位置；从窗口内开始的拖动即使中途移出，也保留为同一次拖动。"/>
-                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 录制片段会加入窗口定位和激活信息，回放时按录制时的完整窗口标题查找目标窗口。"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 录制片段会加入窗口定位信息，回放时按录制时的完整窗口标题查找目标窗口；前台操作执行时再激活该窗口。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 窗口标题变化或存在多个同名窗口时，可能找不到原窗口或匹配到另一个窗口，请检查“录制开始”节点参数。"/>
                             </StackPanel>
                         </Border>
@@ -363,6 +364,18 @@
                             </StackPanel>
                         </Border>
 
+                        <Border Style="{StaticResource HelpCardStyle}" BorderBrush="#A16207">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource CardTitleStyle}" Foreground="#FDE68A" Text="前台与后台模式"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 旧项目缺少模式参数时一律按前台执行。前台输入会激活目标窗口并发送真实系统输入；前台读取会激活窗口后读取桌面上的可见像素。"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 点击、移动、拖动、滚轮、按键和文本输入可改为“后台操作（危险）”：不移动真实鼠标或激活窗口，向唯一目标窗口或焦点控件投递传统 Win32 消息。"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 色判断、图判断和文本判断可改为“后台读取（危险）”：不激活窗口，通过 PrintWindow 请求唯一目标窗口自行绘制，再从结果中读取指定区域。"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 后台输入和后台读取都要求脚本窗口范围只得到一个窗口，或前面使用只返回一个窗口的窗口作用域节点；没有窗口目标时不能使用。"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 游戏、Raw Input、DirectInput、高权限或受保护程序可能忽略后台输入；硬件加速、受保护或最小化窗口可能拒绝后台绘制或返回黑图。后台读取单次最多等待 5 秒；消息投递成功不代表业务操作成功。"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 后台鼠标只支持客户区坐标，不用于标题栏、边框或窗口外部；单个后台点击节点最多点击 100 次。后台关闭、最小化和分辨率操作会直接处理标题正则匹配到的所有窗口。"/>
+                            </StackPanel>
+                        </Border>
+
                         <Border Style="{StaticResource HelpCardStyle}">
                             <StackPanel>
                                 <TextBlock Style="{StaticResource CardTitleStyle}" Text="图判断与文本判断的范围"/>
@@ -404,7 +417,7 @@
                             <StackPanel>
                                 <TextBlock Style="{StaticResource CardTitleStyle}" Text="整个屏幕"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 不按标题寻找窗口，也不自动建立目标窗口；脚本只执行一次。"/>
-                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• “跟随脚本”坐标按屏幕绝对坐标处理，多窗口执行方式在此范围下不生效。"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• “跟随脚本”坐标按屏幕绝对坐标处理，前台串行方式在此范围下不生效。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 这里的“整个屏幕”表示不限制目标窗口，不代表每个检测节点都会自动扫描全屏。"/>
                             </StackPanel>
                         </Border>
@@ -413,8 +426,8 @@
                             <StackPanel>
                                 <TextBlock Style="{StaticResource CardTitleStyle}" Text="正则匹配窗口"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 使用窗口标题正则表达式查找可见、有标题的顶级窗口，匹配不区分大小写。"/>
-                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 找不到窗口时运行失败；执行普通节点前会自动激活当前目标窗口。"/>
-                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 匹配到多个窗口时，按下面选择的“多窗口执行方式”运行。"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 找不到窗口时运行失败；前台输入和前台读取执行前会自动激活当前目标窗口，后台输入与后台读取不会激活。"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 匹配到多个窗口时，按下面选择的“前台串行方式”运行。"/>
                             </StackPanel>
                         </Border>
 

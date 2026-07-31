@@ -384,14 +384,24 @@ public sealed class MainViewModel : ObservableObject
         {
             foreach (var property in parameters.EnumerateObject())
             {
-                var value = property.Name == "coordinateMode"
-                    ? NormalizeCoordinateMode(DisplayValue(property.Value))
-                    : DisplayValue(property.Value);
+                var displayValue = DisplayValue(property.Value);
+                var value = property.Name switch
+                {
+                    "coordinateMode" => NormalizeCoordinateMode(displayValue),
+                    "clickMode" or "inputMode" or "captureMode" or "windowActionMode" =>
+                        NormalizeInteractionMode(displayValue),
+                    _ => displayValue
+                };
                 selected.Parameters.Add(new(property.Name, value, property.Value.ValueKind, OnSelectedNodeEditorChanged));
             }
         }
         if (selected.SupportsCoordinateMode && !selected.Parameters.Any(parameter => parameter.Name == "coordinateMode"))
             selected.Parameters.Insert(0, new("coordinateMode", "followScript", JsonValueKind.String, OnSelectedNodeEditorChanged));
+        var interactionModeParameter = InteractionModeParameterName(selected.Type);
+        if (interactionModeParameter is not null && !selected.Parameters.Any(parameter => parameter.Name == interactionModeParameter))
+            selected.Parameters.Insert(
+                selected.Parameters.Any(parameter => parameter.Name == "coordinateMode") ? 1 : 0,
+                new(interactionModeParameter, "foreground", JsonValueKind.String, OnSelectedNodeEditorChanged));
         if (selected.Type == NodeTypes.ImageCondition && !selected.Parameters.Any(parameter => parameter.Name == "imageSearchMode"))
             selected.Parameters.Insert(selected.Parameters.Any(parameter => parameter.Name == "coordinateMode") ? 1 : 0, new("imageSearchMode", "fixed", JsonValueKind.String, OnSelectedNodeEditorChanged));
         if (selected.Type == NodeTypes.ImageCondition && !selected.Parameters.Any(parameter => parameter.Name == "imageMatchEngine"))
@@ -415,6 +425,22 @@ public sealed class MainViewModel : ObservableObject
         "screen" => "absolute",
         "windowrelative" => "relative",
         _ => value
+    };
+
+    private static string NormalizeInteractionMode(string value) => value.Trim().ToLowerInvariant() switch
+    {
+        "foreground" => "foreground",
+        "background" => "background",
+        _ => value
+    };
+
+    private static string? InteractionModeParameterName(string nodeType) => nodeType switch
+    {
+        NodeTypes.MouseClick => "clickMode",
+        NodeTypes.MouseMove or NodeTypes.MouseDrag or NodeTypes.MouseScroll or NodeTypes.KeyPress or NodeTypes.TextInput => "inputMode",
+        NodeTypes.ColorCondition or NodeTypes.ImageCondition or NodeTypes.OcrCondition => "captureMode",
+        NodeTypes.CloseProgram or NodeTypes.MinimizeWindow or NodeTypes.SetWindowResolution => "windowActionMode",
+        _ => null
     };
 
     private void OnSelectedNodeEditorChanged()

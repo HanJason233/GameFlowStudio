@@ -29,6 +29,15 @@ public interface IDesktopCaptureService
     Task<CapturedFrame> CaptureAsync(CaptureRegion region, CancellationToken cancellationToken);
 }
 
+/// <summary>不激活目标窗口，直接请求窗口绘制并读取指定的屏幕坐标区域。</summary>
+public interface IWindowCaptureService
+{
+    Task<CapturedFrame> CaptureAsync(
+        nint windowHandle,
+        CaptureRegion region,
+        CancellationToken cancellationToken);
+}
+
 /// <summary>读取图片检测器使用的模板图片。</summary>
 public interface IImageTemplateProvider
 {
@@ -93,6 +102,61 @@ public interface IInputAutomationService
     Task ScrollMouseAsync(int x, int y, int delta, CancellationToken cancellationToken);
     Task PressKeyAsync(string key, int durationMs, int repeatCount, int intervalMs, CancellationToken cancellationToken);
     Task TypeTextAsync(string text, int intervalMs, CancellationToken cancellationToken);
+}
+
+/// <summary>通过目标窗口的消息队列投递鼠标点击，不移动真实鼠标或激活窗口。</summary>
+public interface IBackgroundMouseClickService
+{
+    Task ClickAsync(
+        nint windowHandle,
+        int screenX,
+        int screenY,
+        MouseButtonType button,
+        int clickCount,
+        int intervalMs,
+        CancellationToken cancellationToken);
+}
+
+/// <summary>通过目标窗口消息队列投递键鼠操作，不移动真实鼠标或主动激活窗口。</summary>
+public interface IBackgroundInputAutomationService : IBackgroundMouseClickService
+{
+    Task MoveMouseAsync(
+        nint windowHandle,
+        int screenX,
+        int screenY,
+        int durationMs,
+        CancellationToken cancellationToken);
+
+    Task DragMouseAsync(
+        nint windowHandle,
+        int startScreenX,
+        int startScreenY,
+        int endScreenX,
+        int endScreenY,
+        MouseButtonType button,
+        int durationMs,
+        CancellationToken cancellationToken);
+
+    Task ScrollMouseAsync(
+        nint windowHandle,
+        int screenX,
+        int screenY,
+        int delta,
+        CancellationToken cancellationToken);
+
+    Task PressKeyAsync(
+        nint windowHandle,
+        string key,
+        int durationMs,
+        int repeatCount,
+        int intervalMs,
+        CancellationToken cancellationToken);
+
+    Task TypeTextAsync(
+        nint windowHandle,
+        string text,
+        int intervalMs,
+        CancellationToken cancellationToken);
 }
 
 /// <summary>在当前 Windows 交互桌面按屏幕或指定窗口范围录制可回放键鼠操作。</summary>

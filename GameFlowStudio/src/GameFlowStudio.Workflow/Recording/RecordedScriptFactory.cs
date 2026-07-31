@@ -170,7 +170,7 @@ public static class RecordedScriptFactory
                     ("titlePattern", $"^{Regex.Escape(options.WindowTitle!.Trim())}$"),
                     ("outputVariable", "recordingWindowHandles"),
                     ("singleWindow", true),
-                    ("activateWindow", true),
+                    ("activateWindow", false),
                     (RecordingSessionParameter, sessionId),
                     (RecordingBoundaryParameter, "start")));
         }
@@ -244,6 +244,7 @@ public static class RecordedScriptFactory
                     RecordedParameters(
                         recordingSessionId,
                         ("coordinateMode", coordinateMode),
+                        ("clickMode", "foreground"),
                         ("x", action.X),
                         ("y", action.Y),
                         ("button", action.Button.ToString().ToLowerInvariant()),
@@ -258,6 +259,7 @@ public static class RecordedScriptFactory
                     RecordedParameters(
                         recordingSessionId,
                         ("coordinateMode", coordinateMode),
+                        ("inputMode", "foreground"),
                         ("startX", action.X),
                         ("startY", action.Y),
                         ("endX", action.EndX),
@@ -274,6 +276,7 @@ public static class RecordedScriptFactory
                     RecordedParameters(
                         recordingSessionId,
                         ("coordinateMode", coordinateMode),
+                        ("inputMode", "foreground"),
                         ("x", action.X),
                         ("y", action.Y),
                         ("delta", action.Delta)));
@@ -286,6 +289,7 @@ public static class RecordedScriptFactory
                     $"按键 {action.Key}",
                     RecordedParameters(
                         recordingSessionId,
+                        ("inputMode", "foreground"),
                         ("key", action.Key),
                         ("durationMs", Math.Max(0, action.DurationMilliseconds)),
                         ("repeatCount", 1),

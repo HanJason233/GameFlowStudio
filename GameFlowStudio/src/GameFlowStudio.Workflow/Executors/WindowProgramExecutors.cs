@@ -24,8 +24,9 @@ public sealed class CloseProgramNodeExecutor(IWindowAutomationService windows, I
     {
         cancellationToken.ThrowIfCancellationRequested();
         var handles = WindowActionParameters.SelectAll(node, scopes);
-        var result = WindowActionParameters.ActivateAndExecuteAll(windows, handles, windows.CloseWindow, "关闭目标窗口失败。");
-        if (result.Success) ActionExecutionLogging.Write(context, node, $"关闭 {handles.Count} 个匹配窗口。");
+        var background = InteractionModeParameterReader.IsBackground(node, "windowActionMode");
+        var result = WindowActionParameters.ExecuteAll(windows, handles, windows.CloseWindow, "关闭目标窗口失败。", !background);
+        if (result.Success) ActionExecutionLogging.Write(context, node, $"{(background ? "后台" : "前台")}关闭 {handles.Count} 个匹配窗口。");
         return Task.FromResult(result);
     }
 }
@@ -36,8 +37,9 @@ public sealed class MinimizeWindowNodeExecutor(IWindowAutomationService windows,
     {
         cancellationToken.ThrowIfCancellationRequested();
         var handles = WindowActionParameters.SelectAll(node, scopes);
-        var result = WindowActionParameters.ActivateAndExecuteAll(windows, handles, windows.MinimizeWindow, "最小化目标窗口失败。");
-        if (result.Success) ActionExecutionLogging.Write(context, node, $"最小化 {handles.Count} 个匹配窗口。");
+        var background = InteractionModeParameterReader.IsBackground(node, "windowActionMode");
+        var result = WindowActionParameters.ExecuteAll(windows, handles, windows.MinimizeWindow, "最小化目标窗口失败。", !background);
+        if (result.Success) ActionExecutionLogging.Write(context, node, $"{(background ? "后台" : "前台")}最小化 {handles.Count} 个匹配窗口。");
         return Task.FromResult(result);
     }
 }
@@ -64,8 +66,14 @@ public sealed class SetWindowResolutionNodeExecutor(IWindowAutomationService win
         var handles = WindowActionParameters.SelectAll(node, scopes);
         var width = NodeParameterReader.Int(node, "width");
         var height = NodeParameterReader.Int(node, "height");
-        var result = WindowActionParameters.ActivateAndExecuteAll(windows, handles, target => windows.SetWindowResolution(target, width, height), "设置窗口分辨率失败。");
-        if (result.Success) ActionExecutionLogging.Write(context, node, $"为 {handles.Count} 个匹配窗口设置分辨率为 {width}×{height}。");
+        var background = InteractionModeParameterReader.IsBackground(node, "windowActionMode");
+        var result = WindowActionParameters.ExecuteAll(
+            windows,
+            handles,
+            target => windows.SetWindowResolution(target, width, height),
+            "设置窗口分辨率失败。",
+            !background);
+        if (result.Success) ActionExecutionLogging.Write(context, node, $"{(background ? "后台" : "前台")}为 {handles.Count} 个匹配窗口设置分辨率为 {width}×{height}。");
         return Task.FromResult(result);
     }
 }
@@ -75,11 +83,16 @@ internal static class WindowActionParameters
     public static IReadOnlyList<nint> SelectAll(WorkflowNode node, IWindowScopeService scopes) =>
         WindowHandleSelector.SelectAll(scopes, NodeParameterReader.String(node, "titlePattern", ".*"));
 
-    public static NodeExecutionResult ActivateAndExecuteAll(IWindowAutomationService windows, IReadOnlyList<nint> handles, Func<nint, bool> action, string failure)
+    public static NodeExecutionResult ExecuteAll(
+        IWindowAutomationService windows,
+        IReadOnlyList<nint> handles,
+        Func<nint, bool> action,
+        string failure,
+        bool activate)
     {
         foreach (var handle in handles)
         {
-            if (!windows.ActivateWindow(handle)) return NodeExecutionResult.Fail($"无法激活目标窗口 {handle}。");
+            if (activate && !windows.ActivateWindow(handle)) return NodeExecutionResult.Fail($"无法激活目标窗口 {handle}。");
             if (!action(handle)) return NodeExecutionResult.Fail($"{failure}（窗口句柄 {handle}）。");
         }
 
