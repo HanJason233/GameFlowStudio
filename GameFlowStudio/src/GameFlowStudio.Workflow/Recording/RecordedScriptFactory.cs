@@ -122,7 +122,7 @@ public static class RecordedScriptFactory
         var fragment = CreateFragment(actions, options, sessionId);
         var nodeIds = script.Nodes.Select(node => node.Id).ToHashSet(StringComparer.Ordinal);
         var edgeIds = script.Edges.Select(edge => edge.Id).ToHashSet(StringComparer.Ordinal);
-        AssignFragmentIdsAndPositions(script, fragment, targetEnd, sessionId, nodeIds);
+        AssignFragmentIdsAndPositions(script, fragment, targetEnd, nodeIds);
 
         foreach (var edge in incoming)
             edge.Target = fragment[0].Id;
@@ -399,7 +399,6 @@ public static class RecordedScriptFactory
         AutomationScript script,
         IReadOnlyList<WorkflowNode> fragment,
         WorkflowNode targetEnd,
-        string sessionId,
         HashSet<string> nodeIds)
     {
         var top = script.Nodes
@@ -408,10 +407,19 @@ public static class RecordedScriptFactory
             .DefaultIfEmpty(targetEnd.Position.Y - VerticalStep)
             .Max() + VerticalStep;
 
+        var nextNodeId = script.Nodes
+            .Select(node => long.TryParse(node.Id, NumberStyles.None, CultureInfo.InvariantCulture, out var id) ? id : 0)
+            .DefaultIfEmpty(0)
+            .Max() + 1;
+
         for (var index = 0; index < fragment.Count; index++)
         {
             var node = fragment[index];
-            node.Id = NextUniqueId(nodeIds, $"recording-{sessionId}-{index + 1}");
+            var nodeId = nextNodeId.ToString(CultureInfo.InvariantCulture);
+            while (!nodeIds.Add(nodeId))
+                nodeId = (++nextNodeId).ToString(CultureInfo.InvariantCulture);
+            node.Id = nodeId;
+            nextNodeId++;
             node.Position = Position(index, top);
         }
         targetEnd.Position = Position(fragment.Count, top);

@@ -268,6 +268,8 @@ public sealed class RecordedScriptFactoryTests
         Assert.Equal(
             [NodeTypes.Start, NodeTypes.Wait, NodeTypes.MouseDrag, NodeTypes.Wait, NodeTypes.End],
             ordered.Select(node => node.Type));
+        Assert.Equal(["start", "1", "2", "3", "end"], ordered.Select(node => node.Id));
+        Assert.All(ordered.Skip(1).Take(3), node => Assert.Matches("^\\d+$", node.Id));
         Assert.True(appended.WindowScope.Enabled);
         Assert.Equal(@"^Game\ \[1]\.\*$", appended.WindowScope.MatchPattern);
         Assert.Equal(string.Empty, appended.WindowScope.ExcludePattern);
