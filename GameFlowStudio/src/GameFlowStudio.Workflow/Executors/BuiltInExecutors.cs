@@ -24,40 +24,6 @@ public sealed class EndNodeExecutor() : NodeExecutorBase(NodeTypes.End)
     public override Task<NodeExecutionResult> ExecuteAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken cancellationToken) => Task.FromResult(NodeExecutionResult.Ok());
 }
 
-public sealed class WindowScopeNodeExecutor(
-    IWindowScopeService scopes,
-    IWindowAutomationService? windows = null) : NodeExecutorBase(NodeTypes.WindowScope)
-{
-    public override Task<NodeExecutionResult> ExecuteAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        IReadOnlyList<nint> handles = scopes.ResolveWindowHandles(NodeParameterReader.String(node, "titlePattern"));
-        // 已绑定到单个窗口的执行轨道只能继续缩小到该窗口，不能重新引入脚本匹配模式已排除的目标。
-        if (context.WindowHandles.Count == 1)
-        {
-            var currentWindow = context.WindowHandles[0];
-            if (!handles.Contains(currentWindow))
-                throw new InvalidOperationException("窗口作用域不包含当前操作窗口。");
-            handles = [currentWindow];
-        }
-        if (NodeParameterReader.Bool(node, "singleWindow", false) && handles.Count > 1)
-            handles = [handles[0]];
-        if (context.ScriptInteractionMode == ScriptInteractionMode.Foreground
-            && NodeParameterReader.Bool(node, "activateWindow", false))
-        {
-            if (handles.Count == 0)
-                throw new InvalidOperationException("窗口作用域没有找到匹配的窗口。");
-            if (windows is null || !windows.ActivateWindow(handles[0]))
-                throw new InvalidOperationException("无法激活窗口作用域中的目标窗口。");
-        }
-        var outputVariable = NodeParameterReader.String(node, "outputVariable", "windowHandles");
-        context.WindowHandles = handles;
-        context.Variables[outputVariable] = handles.Select(handle => handle.ToInt64()).ToArray();
-        ActionExecutionLogging.Write(context, node, $"窗口作用域匹配到 {handles.Count} 个窗口，结果句柄写入变量「{outputVariable}」。");
-        return Task.FromResult(NodeExecutionResult.Ok());
-    }
-}
-
 public sealed class WaitNodeExecutor() : NodeExecutorBase(NodeTypes.Wait)
 {
     public override async Task<NodeExecutionResult> ExecuteAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken cancellationToken)

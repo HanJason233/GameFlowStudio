@@ -29,8 +29,6 @@ internal sealed class NodeParameterValidator
     {
         switch (node.Type)
         {
-            case NodeTypes.WindowScope:
-                ValidateWindowScope(node); break;
             case NodeTypes.MouseClick:
                 ValidateMouseClick(node, scriptInteractionMode); break;
             case NodeTypes.MouseMove:
@@ -62,12 +60,6 @@ internal sealed class NodeParameterValidator
             case NodeTypes.ArrangeWindows:
                 ValidateTitlePattern(node); Coordinate(node); NonNegative(node, "offsetY", 20); break;
         }
-    }
-
-    private static void ValidateWindowScope(WorkflowNode node)
-    {
-        ValidateTitlePattern(node);
-        RequiredText(node, "outputVariable");
     }
 
     private static void ValidateTitlePattern(WorkflowNode node)

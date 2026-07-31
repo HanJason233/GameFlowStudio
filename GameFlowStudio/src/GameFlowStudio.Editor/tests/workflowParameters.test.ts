@@ -3,6 +3,7 @@ import test from 'node:test'
 import {
   defaultParameters,
   fromDocument,
+  nodeTypes,
   type NodeType,
   type WorkflowDocument,
 } from '../src/types/workflow.ts'
@@ -42,4 +43,9 @@ test('节点加载时合并默认参数且已有值优先', () => {
     }
     assert.equal(parameters.customParameter, type)
   }
+})
+
+test('节点目录不再包含节点级窗口作用域', () => {
+  assert.equal((nodeTypes as readonly string[]).includes('windowScope'), false)
+  assert.equal(Object.hasOwn(defaultParameters, 'windowScope'), false)
 })

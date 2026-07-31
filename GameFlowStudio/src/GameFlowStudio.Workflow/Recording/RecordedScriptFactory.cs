@@ -105,7 +105,7 @@ public static class RecordedScriptFactory
             && string.IsNullOrWhiteSpace(options.WindowTitle))
             throw new ArgumentException("窗口录制必须提供目标窗口标题。", nameof(options));
 
-        var script = CloneScript(source);
+        var script = CloneScript(source, options);
         var targetEnd = script.Nodes.FirstOrDefault(node =>
             node.Id == options.TargetEndNodeId
             && node.Type == NodeTypes.End)
@@ -160,31 +160,14 @@ public static class RecordedScriptFactory
         var scopeLabel = options.Scope == InputRecordingScope.Window
             ? $"窗口：{options.WindowTitle!.Trim()}"
             : "整个屏幕";
-        if (options.Scope == InputRecordingScope.Window)
-        {
-            AddNode(
-                fragmentScript,
-                NodeTypes.WindowScope,
-                $"录制开始 · {scopeLabel}",
-                Parameters(
-                    ("titlePattern", $"^{Regex.Escape(options.WindowTitle!.Trim())}$"),
-                    ("outputVariable", "recordingWindowHandles"),
-                    ("singleWindow", true),
-                    ("activateWindow", false),
-                    (RecordingSessionParameter, sessionId),
-                    (RecordingBoundaryParameter, "start")));
-        }
-        else
-        {
-            AddNode(
-                fragmentScript,
-                NodeTypes.Wait,
-                $"录制开始 · {scopeLabel}",
-                Parameters(
-                    ("durationMs", 0),
-                    (RecordingSessionParameter, sessionId),
-                    (RecordingBoundaryParameter, "start")));
-        }
+        AddNode(
+            fragmentScript,
+            NodeTypes.Wait,
+            $"录制开始 · {scopeLabel}",
+            Parameters(
+                ("durationMs", 0),
+                (RecordingSessionParameter, sessionId),
+                (RecordingBoundaryParameter, "start")));
 
         var ordered = actions
             .OrderBy(action => action.OffsetMilliseconds)
@@ -347,18 +330,12 @@ public static class RecordedScriptFactory
                 $"单次录制最多支持 {InputRecordingLimits.MaxActions} 个操作。");
     }
 
-    private static AutomationScript CloneScript(AutomationScript source) => new()
+    private static AutomationScript CloneScript(AutomationScript source, RecordedScriptAppendOptions options) => new()
     {
         Id = source.Id,
         Name = source.Name,
         InteractionMode = source.InteractionMode,
-        WindowScope = new ScriptWindowScope
-        {
-            Enabled = source.WindowScope.Enabled,
-            MatchPattern = source.WindowScope.MatchPattern,
-            ExcludePattern = source.WindowScope.ExcludePattern,
-            ExecutionMode = source.WindowScope.ExecutionMode
-        },
+        WindowScope = CreateScriptWindowScope(source, options),
         DefaultNodeDelayMs = source.DefaultNodeDelayMs,
         Variables = source.Variables.ToDictionary(
             pair => pair.Key,
@@ -395,6 +372,28 @@ public static class RecordedScriptFactory
             TargetHandle = edge.TargetHandle
         }).ToList()
     };
+
+    private static ScriptWindowScope CreateScriptWindowScope(
+        AutomationScript source,
+        RecordedScriptAppendOptions options)
+    {
+        var scope = new ScriptWindowScope
+        {
+            Enabled = source.WindowScope.Enabled,
+            MatchPattern = source.WindowScope.MatchPattern,
+            ExcludePattern = source.WindowScope.ExcludePattern,
+            ExecutionMode = source.WindowScope.ExecutionMode
+        };
+
+        if (options.Scope == InputRecordingScope.Window)
+        {
+            scope.Enabled = true;
+            scope.MatchPattern = $"^{Regex.Escape(options.WindowTitle!.Trim())}$";
+            scope.ExcludePattern = string.Empty;
+        }
+
+        return scope;
+    }
 
     private static void AssignFragmentIdsAndPositions(
         AutomationScript script,

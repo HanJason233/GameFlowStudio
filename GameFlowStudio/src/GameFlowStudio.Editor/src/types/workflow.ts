@@ -1,7 +1,7 @@
 import type { Edge, Node } from '@xyflow/react'
 
 export const nodeTypes = [
-  'start', 'windowScope', 'mouseClick', 'mouseMove', 'mouseDrag', 'mouseScroll', 'keyPress', 'textInput', 'wait',
+  'start', 'mouseClick', 'mouseMove', 'mouseDrag', 'mouseScroll', 'keyPress', 'textInput', 'wait',
   'colorCondition', 'imageCondition', 'ocrCondition', 'jump', 'runProgram', 'closeProgram',
   'minimizeWindow', 'arrangeWindows', 'setWindowResolution', 'end',
 ] as const
@@ -49,7 +49,7 @@ export interface BridgeMessage<T = unknown> { type: string; requestId?: string; 
 export const nodeLabels: Record<NodeType, string> = {
   colorCondition: '色判断', imageCondition: '图判断', ocrCondition: '文本判断',
   jump: '跳转',
-  start: '开始', windowScope: '窗口作用域', mouseClick: '点击', mouseMove: '鼠标移动', mouseDrag: '鼠标拖动', mouseScroll: '鼠标滑动', keyPress: '键盘按键',
+  start: '开始', mouseClick: '点击', mouseMove: '鼠标移动', mouseDrag: '鼠标拖动', mouseScroll: '鼠标滑动', keyPress: '键盘按键',
   textInput: '输入文本', wait: '等待', runProgram: '启动程序', closeProgram: '关闭程序',
   minimizeWindow: '最小化窗口', arrangeWindows: '窗口整理',
   setWindowResolution: '设置窗口分辨率', end: '结束',
@@ -61,7 +61,6 @@ export const defaultParameters: Record<NodeType, Record<string, unknown>> = {
   ocrCondition: { textSearchMode: 'fixed', coordinateMode: 'followScript', ocrEngine: 'gemini', x: 0, y: 0, width: 1, height: 1, targetText: '', matchThreshold: 0.8 },
   jump: { scriptId: '', actionId: '' },
   start: {}, end: {},
-  windowScope: { titlePattern: '.*', outputVariable: 'windowHandles' },
   mouseClick: { coordinateMode: 'followScript', x: 500, y: 300, button: 'left', clickCount: 1, intervalMs: 100 },
   mouseMove: { coordinateMode: 'followScript', x: 500, y: 300, durationMs: 0 },
   mouseDrag: { coordinateMode: 'followScript', startX: 500, startY: 300, endX: 700, endY: 300, button: 'left', durationMs: 500 },

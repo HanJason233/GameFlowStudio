@@ -56,8 +56,6 @@
 
 `coordinateMode` 默认为 `followScript`（跟随脚本）：脚本使用整个屏幕时按屏幕绝对坐标，脚本使用正则匹配窗口时按当前目标窗口的相对坐标。`absolute`（强制绝对）和 `relative`（强制相对）会覆盖脚本窗口范围。
 
-`windowScope` 节点自身的 `titlePattern` 只能在脚本匹配模式建立的窗口边界内进一步限定目标。执行轨道已经绑定唯一窗口时，该节点只能保留当前窗口或明确失败，不能切换到其他窗口，也不能重新加入已被脚本 `excludePattern` 排除的目标。
-
 脚本的 `interactionMode` 支持 `foreground`（默认）和 `background`。该设置统一作用于脚本内所有可后台执行或读取的节点，操作卡片不能单独覆盖。前台通过 `executionMode` 选择伪并行或串行，后台固定使用并行流程。
 
 后台键鼠要求当前执行上下文恰好包含一个窗口，通过 `WM_MOUSE*`、`WM_KEY*` 或 `WM_CHAR` 投递传统窗口消息，不移动真实鼠标或激活窗口。依赖 Raw Input、DirectInput、前台状态、更高进程权限或保护机制的程序可能忽略或拒绝消息。单个后台点击节点的 `clickCount` 上限为 100。

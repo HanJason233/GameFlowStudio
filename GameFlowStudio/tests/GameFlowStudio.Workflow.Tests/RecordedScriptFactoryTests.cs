@@ -240,7 +240,7 @@ public sealed class RecordedScriptFactoryTests
     }
 
     [Fact]
-    public void WindowRecordingUsesExistingWindowScopeNodeAndRelativeCoordinates()
+    public void WindowRecordingUsesScriptWindowScopeAndRelativeCoordinates()
     {
         var source = CreateBaseScript();
         var action = new RecordedInputAction
@@ -266,13 +266,12 @@ public sealed class RecordedScriptFactoryTests
 
         var ordered = FollowLinearPath(appended);
         Assert.Equal(
-            [NodeTypes.Start, NodeTypes.WindowScope, NodeTypes.MouseDrag, NodeTypes.Wait, NodeTypes.End],
+            [NodeTypes.Start, NodeTypes.Wait, NodeTypes.MouseDrag, NodeTypes.Wait, NodeTypes.End],
             ordered.Select(node => node.Type));
-        var scope = ordered[1];
-        Assert.Equal("录制开始 · 窗口：Game [1].*", scope.Data.DisplayName);
-        Assert.Equal(@"^Game\ \[1]\.\*$", scope.Data.Parameters["titlePattern"].GetString());
-        Assert.True(scope.Data.Parameters["singleWindow"].GetBoolean());
-        Assert.False(scope.Data.Parameters["activateWindow"].GetBoolean());
+        Assert.True(appended.WindowScope.Enabled);
+        Assert.Equal(@"^Game\ \[1]\.\*$", appended.WindowScope.MatchPattern);
+        Assert.Equal(string.Empty, appended.WindowScope.ExcludePattern);
+        Assert.Equal("录制开始 · 窗口：Game [1].*", ordered[1].Data.DisplayName);
         Assert.Equal("relative", ordered[2].Data.Parameters["coordinateMode"].GetString());
         Assert.Equal(15, ordered[2].Data.Parameters["startX"].GetInt32());
         Assert.Equal(125, ordered[2].Data.Parameters["endY"].GetInt32());

@@ -1,9 +1,6 @@
 using GameFlowStudio.Automation.Windows;
-using GameFlowStudio.Contracts.Enums;
-using GameFlowStudio.Contracts.Results;
 using GameFlowStudio.Contracts.Services;
-using GameFlowStudio.Contracts.Workflows;
-using GameFlowStudio.Workflow.Executors;
+using GameFlowStudio.Contracts.Results;
 
 namespace GameFlowStudio.Workflow.Tests;
 
@@ -87,120 +84,15 @@ public sealed class WindowScopeServiceTests
         Assert.Contains("窗口排除正则表达式无效", error.Message);
     }
 
-    [Fact]
-    public async Task WindowScopeNodeStoresHandlesInExecutionContextAndVariable()
-    {
-        var executor = new WindowScopeNodeExecutor(new FakeWindowScopeService([(nint)101, (nint)202]));
-        var node = WorkflowEngineTests.Node("scope", Contracts.Nodes.NodeTypes.WindowScope,
-            ("titlePattern", "^Game"), ("outputVariable", "targets"));
-        var context = new Contracts.Results.WorkflowExecutionContext
-        {
-            Workflow = new AutomationProject(),
-            WaitIfPausedAsync = _ => Task.CompletedTask,
-            Log = _ => { }
-        };
-
-        var result = await executor.ExecuteAsync(node, context, CancellationToken.None);
-
-        Assert.True(result.Success);
-        Assert.Equal(new nint[] { 101, 202 }, context.WindowHandles);
-        Assert.Equal(new long[] { 101, 202 }, Assert.IsType<long[]>(context.Variables["targets"]));
-    }
-
-    [Fact]
-    public async Task RecordedWindowScopeSelectsAndActivatesOneWindow()
-    {
-        var windows = new FakeWindowAutomationService([]);
-        var executor = new WindowScopeNodeExecutor(
-            new FakeWindowScopeService([(nint)101, (nint)202]),
-            windows);
-        var node = WorkflowEngineTests.Node("scope", Contracts.Nodes.NodeTypes.WindowScope,
-            ("titlePattern", "^Game$"),
-            ("outputVariable", "targets"),
-            ("singleWindow", true),
-            ("activateWindow", true));
-        var context = new Contracts.Results.WorkflowExecutionContext
-        {
-            Workflow = new AutomationProject(),
-            WaitIfPausedAsync = _ => Task.CompletedTask,
-            Log = _ => { }
-        };
-
-        var result = await executor.ExecuteAsync(node, context, CancellationToken.None);
-
-        Assert.True(result.Success);
-        Assert.Equal([(nint)101], context.WindowHandles);
-        Assert.Equal((nint)101, windows.ActivatedHandle);
-    }
-
-    [Fact]
-    public async Task ForegroundWindowScopeKeepsTheCurrentScriptTrackWindow()
-    {
-        var windows = new FakeWindowAutomationService([]);
-        var executor = new WindowScopeNodeExecutor(
-            new FakeWindowScopeService([(nint)101, (nint)202]),
-            windows);
-        var node = WorkflowEngineTests.Node(
-            "scope",
-            Contracts.Nodes.NodeTypes.WindowScope,
-            ("titlePattern", "^Game$"),
-            ("outputVariable", "targets"),
-            ("activateWindow", true));
-        var context = new Contracts.Results.WorkflowExecutionContext
-        {
-            Workflow = new AutomationProject(),
-            ScriptInteractionMode = ScriptInteractionMode.Foreground,
-            WindowHandles = [(nint)202],
-            WaitIfPausedAsync = _ => Task.CompletedTask,
-            Log = _ => { }
-        };
-
-        var result = await executor.ExecuteAsync(node, context, CancellationToken.None);
-
-        Assert.True(result.Success);
-        Assert.Equal([(nint)202], context.WindowHandles);
-        Assert.Equal(new long[] { 202 }, Assert.IsType<long[]>(context.Variables["targets"]));
-        Assert.Equal((nint)202, windows.ActivatedHandle);
-    }
-
-    [Fact]
-    public async Task ForegroundWindowScopeCannotRetargetTheCurrentScriptTrack()
-    {
-        var executor = new WindowScopeNodeExecutor(new FakeWindowScopeService([(nint)101]));
-        var node = WorkflowEngineTests.Node(
-            "scope",
-            Contracts.Nodes.NodeTypes.WindowScope,
-            ("titlePattern", "^Other$"));
-        var context = new Contracts.Results.WorkflowExecutionContext
-        {
-            Workflow = new AutomationProject(),
-            ScriptInteractionMode = ScriptInteractionMode.Foreground,
-            WindowHandles = [(nint)202],
-            WaitIfPausedAsync = _ => Task.CompletedTask,
-            Log = _ => { }
-        };
-
-        var error = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => executor.ExecuteAsync(node, context, CancellationToken.None));
-
-        Assert.Equal("窗口作用域不包含当前操作窗口。", error.Message);
-        Assert.Equal([(nint)202], context.WindowHandles);
-    }
-
     private sealed class FakeWindowAutomationService(IReadOnlyList<WindowInfo> windows) : IWindowAutomationService
     {
         public int GetOpenWindowsCallCount { get; private set; }
-        public nint ActivatedHandle { get; private set; }
         public IReadOnlyList<WindowInfo> GetOpenWindows()
         {
             GetOpenWindowsCallCount++;
             return windows;
         }
-        public bool ActivateWindow(nint handle)
-        {
-            ActivatedHandle = handle;
-            return true;
-        }
+        public bool ActivateWindow(nint handle) => true;
         public bool CloseWindow(nint handle) => true;
         public bool MinimizeWindow(nint handle) => true;
         public bool ArrangeWindows(IReadOnlyList<nint> handles, int x, int y, int offsetY) => true;
@@ -208,8 +100,4 @@ public sealed class WindowScopeServiceTests
         public WindowBounds GetWindowBounds(nint handle) => throw new NotSupportedException();
     }
 
-    private sealed class FakeWindowScopeService(IReadOnlyList<nint> handles) : IWindowScopeService
-    {
-        public IReadOnlyList<nint> ResolveWindowHandles(string matchPattern, string excludePattern = "") => handles;
-    }
 }

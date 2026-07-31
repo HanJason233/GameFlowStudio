@@ -289,67 +289,6 @@ public sealed class BackgroundModeExecutionTests
         }
     }
 
-    [Fact]
-    public async Task BackgroundScriptWindowScopeDoesNotActivateItsSelectedWindow()
-    {
-        var windows = new RecordingWindowAutomationService();
-        var executor = new WindowScopeNodeExecutor(
-            new FixedWindowScopeService([(nint)101]),
-            windows);
-        var node = Node(
-            NodeTypes.WindowScope,
-            ("titlePattern", "^Game$"),
-            ("outputVariable", "windowHandles"),
-            ("singleWindow", true),
-            ("activateWindow", true));
-        var context = Context([], ScriptInteractionMode.Background);
-
-        var result = await executor.ExecuteAsync(node, context, CancellationToken.None);
-
-        Assert.True(result.Success);
-        Assert.Equal([(nint)101], context.WindowHandles);
-        Assert.Empty(windows.Activations);
-    }
-
-    [Fact]
-    public async Task BackgroundWindowScopeKeepsTheCurrentParallelTrackWindow()
-    {
-        var windows = new RecordingWindowAutomationService();
-        var scopes = new FixedWindowScopeService([(nint)101, (nint)202]);
-        var executor = new WindowScopeNodeExecutor(scopes, windows);
-        var node = Node(
-            NodeTypes.WindowScope,
-            ("titlePattern", "^Game$"),
-            ("outputVariable", "targets"),
-            ("activateWindow", true));
-        var context = Context([(nint)202], ScriptInteractionMode.Background);
-
-        var result = await executor.ExecuteAsync(node, context, CancellationToken.None);
-
-        Assert.True(result.Success);
-        Assert.Equal("^Game$", scopes.LastPattern);
-        Assert.Equal([(nint)202], context.WindowHandles);
-        Assert.Equal(new long[] { 202 }, Assert.IsType<long[]>(context.Variables["targets"]));
-        Assert.Empty(windows.Activations);
-    }
-
-    [Fact]
-    public async Task BackgroundWindowScopeCannotRetargetTheCurrentParallelTrack()
-    {
-        var executor = new WindowScopeNodeExecutor(
-            new FixedWindowScopeService([(nint)101, (nint)202]));
-        var node = Node(
-            NodeTypes.WindowScope,
-            ("titlePattern", "^Game$"));
-
-        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => executor.ExecuteAsync(
-            node,
-            Context([(nint)303], ScriptInteractionMode.Background),
-            CancellationToken.None));
-
-        Assert.Equal("窗口作用域不包含当前操作窗口。", error.Message);
-    }
-
     private static INodeExecutor CreateInputExecutor(
         string nodeType,
         IInputAutomationService foreground,

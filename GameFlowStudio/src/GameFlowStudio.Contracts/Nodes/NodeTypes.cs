@@ -4,7 +4,6 @@ namespace GameFlowStudio.Contracts.Nodes;
 public static class NodeTypes
 {
     public const string Start = "start";
-    public const string WindowScope = "windowScope";
     public const string MouseClick = "mouseClick";
     public const string MouseMove = "mouseMove";
     public const string MouseDrag = "mouseDrag";
@@ -25,7 +24,7 @@ public static class NodeTypes
 
     public static readonly IReadOnlySet<string> All = new HashSet<string>(StringComparer.Ordinal)
     {
-        Start, WindowScope, MouseClick, MouseMove, MouseDrag, MouseScroll, KeyPress, TextInput, Wait,
+        Start, MouseClick, MouseMove, MouseDrag, MouseScroll, KeyPress, TextInput, Wait,
         ColorCondition, ImageCondition, OcrCondition, Jump, RunProgram, CloseProgram, MinimizeWindow, ArrangeWindows, SetWindowResolution, End
     };
 

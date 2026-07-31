@@ -47,7 +47,6 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<CursorPositionService>();
         services.AddSingleton<INodeExecutor, StartNodeExecutor>();
         services.AddSingleton<INodeExecutor, EndNodeExecutor>();
-        services.AddSingleton<INodeExecutor, WindowScopeNodeExecutor>();
         services.AddSingleton<INodeExecutor, WaitNodeExecutor>();
         services.AddSingleton<INodeExecutor, MouseMoveNodeExecutor>();
         services.AddSingleton<INodeExecutor, MouseDragNodeExecutor>();

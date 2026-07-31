@@ -479,7 +479,7 @@ public sealed class WorkflowRunner : IWorkflowRunner
         ScriptInteractionMode scriptInteractionMode)
     {
         if (UsesIndependentWindowTarget(node.Type)
-            || node.Type is NodeTypes.Start or NodeTypes.End or NodeTypes.Wait or NodeTypes.Jump or NodeTypes.WindowScope)
+            || node.Type is NodeTypes.Start or NodeTypes.End or NodeTypes.Wait or NodeTypes.Jump)
             return false;
 
         return scriptInteractionMode != ScriptInteractionMode.Background
