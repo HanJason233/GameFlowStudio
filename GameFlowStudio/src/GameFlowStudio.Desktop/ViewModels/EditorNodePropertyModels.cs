@@ -36,7 +36,6 @@ public sealed class NodeParameterItem(string name, string value, JsonValueKind k
         ["height"] = "高度",
         ["targetColor"] = "目标颜色（#RRGGBB）",
         ["targetText"] = "匹配文本",
-        ["expectedText"] = "OCR 目标文本（兼容字段）",
         ["textSearchMode"] = "文本匹配范围：固定坐标或当前屏幕/窗口",
         ["ocrEngine"] = "文本识别引擎",
         ["tolerance"] = "检测容差",
@@ -80,12 +79,7 @@ public sealed class SelectedNodeViewModel : ObservableObject
             "recordingSessionId",
             "recordingBoundary",
             "singleWindow",
-            "activateWindow",
-            // 旧项目的节点级前后台参数仅用于兼容读取，运行方式由脚本属性统一决定。
-            "clickMode",
-            "inputMode",
-            "captureMode",
-            "windowActionMode"
+            "activateWindow"
         };
     private string _displayName = string.Empty;
     private Action? _changed;

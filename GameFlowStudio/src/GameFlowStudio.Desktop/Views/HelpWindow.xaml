@@ -367,7 +367,7 @@
                         <Border Style="{StaticResource HelpCardStyle}" BorderBrush="#A16207">
                             <StackPanel>
                                 <TextBlock Style="{StaticResource CardTitleStyle}" Foreground="#FDE68A" Text="前台与后台模式"/>
-                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 在脚本属性中统一选择前台或后台；脚本内的操作卡片不再单独设置。旧项目仅在全部相关卡片都已设为后台时迁移为后台，其他情况按前台处理。"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 在脚本属性中统一选择前台或后台；脚本内的操作卡片不再单独设置。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 前台输入会激活目标窗口并发送真实系统输入；前台读取会激活窗口后读取桌面上的可见像素。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 后台方式下，点击、移动、拖动、滚轮、按键和文本输入不移动真实鼠标或激活窗口，而是向唯一目标窗口或焦点控件投递传统 Win32 消息。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 后台方式下，色判断、图判断和文本判断不激活窗口，通过 PrintWindow 请求唯一目标窗口自行绘制，再从结果中读取指定区域。"/>
@@ -429,14 +429,6 @@
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 使用窗口标题正则表达式查找可见、有标题的顶级窗口，匹配不区分大小写。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 找不到窗口时运行失败；脚本使用前台方式时，输入和读取会自动激活当前目标窗口；使用后台方式时不会激活。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 匹配到多个窗口时，按下面选择的“前台串行方式”运行。"/>
-                            </StackPanel>
-                        </Border>
-
-                        <Border Style="{StaticResource HelpCardStyle}">
-                            <StackPanel>
-                                <TextBlock Style="{StaticResource CardTitleStyle}" Text="只操作第一个窗口"/>
-                                <TextBlock Style="{StaticResource BodyTextStyle}"
-                                           Text="只取系统枚举结果中的第一个匹配窗口，并完整执行一次流程。适合明确只需要操作一个窗口的场景。"/>
                             </StackPanel>
                         </Border>
 

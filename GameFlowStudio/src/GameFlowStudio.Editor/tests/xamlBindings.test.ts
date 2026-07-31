@@ -43,3 +43,22 @@ test('前后台模式只在脚本属性中提供且不显示提示', () => {
   )
   assert.doesNotMatch(mainWindow, /InteractionModeHint/)
 })
+
+test('脚本属性只提供窗口优先和动作优先', () => {
+  const desktopDirectory = resolve('..', 'GameFlowStudio.Desktop')
+  const mainWindow = readFileSync(resolve(desktopDirectory, 'Views', 'MainWindow.xaml'), 'utf8')
+  const helpWindow = readFileSync(resolve(desktopDirectory, 'Views', 'HelpWindow.xaml'), 'utf8')
+  const mainViewModel = readFileSync(resolve(desktopDirectory, 'ViewModels', 'MainViewModel.cs'), 'utf8')
+  const windowModeUi = `${mainWindow}\n${helpWindow}\n${mainViewModel}`
+
+  assert.doesNotMatch(windowModeUi, /WindowExecutionMode\.FirstOnly|只操作第一个窗口/)
+  assert.match(mainViewModel, /_scriptWindowExecutionMode = WindowExecutionMode\.WindowPriority/)
+  assert.equal(
+    [...mainViewModel.matchAll(/new\(WindowExecutionMode\.(?:WindowPriority|ActionPriority),/g)].length,
+    2,
+  )
+  assert.equal(
+    [...mainWindow.matchAll(/ItemsSource="\{Binding WindowExecutionModes\}"/g)].length,
+    1,
+  )
+})

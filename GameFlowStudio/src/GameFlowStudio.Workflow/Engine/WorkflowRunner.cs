@@ -161,8 +161,7 @@ public sealed class WorkflowRunner : IWorkflowRunner
                 await ExecuteGraphByActionPriorityAsync(workflow, plan, handles, budget, token).ConfigureAwait(false);
                 return;
             default:
-                await ExecuteGraphForWindowAsync(workflow, plan, [handles[0]], budget, token).ConfigureAwait(false);
-                return;
+                throw new InvalidOperationException($"不支持的窗口执行方式：{initialScript.WindowScope.ExecutionMode}。");
         }
     }
 

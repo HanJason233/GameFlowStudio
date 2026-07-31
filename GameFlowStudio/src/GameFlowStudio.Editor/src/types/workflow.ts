@@ -37,7 +37,7 @@ export interface ProjectMetadata {
 }
 
 export interface WorkflowDocument {
-  schemaVersion: '1.5'
+  schemaVersion: '1.6'
   project: ProjectMetadata
   variables: Record<string, { type: 'string' | 'number' | 'boolean'; value: unknown }>
   nodes: Array<{ id: string; type: NodeType; position: { x: number; y: number }; data: PersistedNodeData }>
@@ -77,28 +77,7 @@ export const defaultParameters: Record<NodeType, Record<string, unknown>> = {
 }
 
 function normalizedParameters(node: WorkflowDocument['nodes'][number]): Record<string, unknown> {
-  const windowProgramNodes: NodeType[] = ['closeProgram', 'minimizeWindow', 'arrangeWindows', 'setWindowResolution']
-  const parameters = { ...defaultParameters[node.type], ...node.data.parameters }
-  delete parameters.clickMode
-  delete parameters.inputMode
-  delete parameters.captureMode
-  delete parameters.windowActionMode
-  if (windowProgramNodes.includes(node.type)) {
-    delete parameters.windowHandleVariable
-    delete parameters.windowHandleIndex
-    if (node.type === 'arrangeWindows') {
-      delete parameters.width
-      delete parameters.height
-      delete parameters.columns
-      delete parameters.gapX
-      delete parameters.gapY
-    }
-    return parameters
-  }
-  if (parameters.coordinateMode === 'screen') parameters.coordinateMode = 'absolute'
-  if (parameters.coordinateMode === 'windowRelative') parameters.coordinateMode = 'relative'
-  if (node.type === 'mouseClick') delete parameters.windowHandleIndex
-  return parameters
+  return { ...defaultParameters[node.type], ...node.data.parameters }
 }
 
 export interface WorkflowGraph {
@@ -114,7 +93,7 @@ export function fromDocument(document: WorkflowDocument): WorkflowGraph {
       position: { ...node.position },
       data: {
         nodeType: node.type,
-        displayName: node.data.displayName === 'Gemini OCR判断' ? nodeLabels[node.type] : node.data.displayName,
+        displayName: node.data.displayName,
         parameters: normalizedParameters(node),
       },
     })),

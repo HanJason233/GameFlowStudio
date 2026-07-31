@@ -9,8 +9,8 @@ public static class CoordinateModeReader
     public static CoordinateMode Read(string value) => value.Trim().ToLowerInvariant() switch
     {
         "followscript" => CoordinateMode.FollowScript,
-        "absolute" or "screen" => CoordinateMode.Absolute,
-        "relative" or "windowrelative" => CoordinateMode.Relative,
+        "absolute" => CoordinateMode.Absolute,
+        "relative" => CoordinateMode.Relative,
         _ => throw new InvalidOperationException($"不支持的坐标模式：{value}。")
     };
 

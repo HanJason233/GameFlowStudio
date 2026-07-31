@@ -18,6 +18,12 @@ public sealed class AutomationProjectTests
     }
 
     [Fact]
+    public void NewScriptUsesWindowPriorityExecutionMode()
+    {
+        Assert.Equal(WindowExecutionMode.WindowPriority, new AutomationScript().WindowScope.ExecutionMode);
+    }
+
+    [Fact]
     public void SetActiveScriptKeepsRuntimeViewConsistent()
     {
         var project = new AutomationProject();

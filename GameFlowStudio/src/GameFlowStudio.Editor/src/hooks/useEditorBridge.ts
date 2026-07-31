@@ -73,12 +73,6 @@ function routeMessage(message: BridgeMessage, handlers: EditorBridgeHandlers): v
     case 'mark_node_success': routeExecutionStatus(message, handlers, 'success'); break
     case 'mark_node_error': routeExecutionStatus(message, handlers, 'error'); break
     case 'clear_execution_state': handlers.clearExecutionState(); break
-    case 'set_editor_readonly': {
-      const payload = readRecord(message.payload)
-      if (!payload || typeof payload.readOnly !== 'boolean') return reject(message.type, 'invalid read-only state')
-      handlers.setReadOnly(payload.readOnly)
-      break
-    }
     case 'request_set_editor_readonly': {
       if (!message.requestId) return reject(message.type, 'missing request id')
       const payload = readRecord(message.payload)

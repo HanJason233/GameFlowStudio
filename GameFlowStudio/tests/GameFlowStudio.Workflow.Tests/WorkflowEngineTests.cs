@@ -205,7 +205,6 @@ public sealed class WorkflowEngineTests
         var targetAction = Node(
             "target-action",
             NodeTypes.TextInput,
-            ("inputMode", "foreground"),
             ("text", "test"));
         var targetEnd = Node("target-end", NodeTypes.End);
         target.Nodes = [targetStart, targetAction, targetEnd];
@@ -275,9 +274,9 @@ public sealed class WorkflowEngineTests
     public async Task WorkflowWindowScopeInitializesContextBeforeNodes()
     {
         var executor = new WindowScopeTrackingExecutor();
-        var runner = Runner(executor, new FixedWindowScopeService([(nint)101, (nint)202]));
+        var runner = Runner(executor, new FixedWindowScopeService([(nint)101]));
         var project = Chain(Action("one"), Action("two"));
-        project.WindowScope = new() { Enabled = true, TitlePattern = "^Game", ExecutionMode = WindowExecutionMode.FirstOnly };
+        project.WindowScope = new() { Enabled = true, TitlePattern = "^Game", ExecutionMode = WindowExecutionMode.WindowPriority };
 
         await runner.RunAsync(project, CancellationToken.None);
 
@@ -292,6 +291,21 @@ public sealed class WorkflowEngineTests
         var runner = Runner(executor, new FixedWindowScopeService([(nint)101, (nint)202]));
         var project = Chain(Action("one"), Action("two"));
         project.WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.WindowPriority };
+
+        await runner.RunAsync(project, CancellationToken.None);
+
+        Assert.Equal(
+            ["one:101", "two:101", "one:202", "two:202"],
+            executor.Executions);
+    }
+
+    [Fact]
+    public async Task DefaultWindowExecutionModeRunsCompleteGraphPerWindow()
+    {
+        var executor = new WindowExecutionTrackingExecutor();
+        var runner = Runner(executor, new FixedWindowScopeService([(nint)101, (nint)202]));
+        var project = Chain(Action("one"), Action("two"));
+        project.WindowScope = new() { Enabled = true };
 
         await runner.RunAsync(project, CancellationToken.None);
 
@@ -337,7 +351,7 @@ public sealed class WorkflowEngineTests
         var executor = new ActivationAwareActionExecutor(windows);
         var runner = Runner(executor, new FixedWindowScopeService([(nint)101]), windows: windows);
         var project = Chain(Action("one"), Action("two"));
-        project.WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.FirstOnly };
+        project.WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.WindowPriority };
 
         await runner.RunAsync(project, CancellationToken.None);
 
@@ -358,13 +372,12 @@ public sealed class WorkflowEngineTests
         var click = Node(
             "background-click",
             NodeTypes.MouseClick,
-            ("clickMode", "foreground"),
             ("coordinateMode", "relative"),
             ("x", 10),
             ("y", 20));
         var project = Chain(click);
         project.InteractionMode = ScriptInteractionMode.Background;
-        project.WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.FirstOnly };
+        project.WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.WindowPriority };
 
         await runner.RunAsync(project, CancellationToken.None);
 
@@ -379,10 +392,10 @@ public sealed class WorkflowEngineTests
         var windows = new RecordingWindowAutomationService();
         var executor = new ActivationAwareActionExecutor(windows);
         var runner = Runner(executor, new FixedWindowScopeService([(nint)101]), windows: windows);
-        var input = Node("background-input", NodeTypes.TextInput, ("inputMode", "foreground"), ("text", "test"));
+        var input = Node("background-input", NodeTypes.TextInput, ("text", "test"));
         var project = Chain(input);
         project.InteractionMode = ScriptInteractionMode.Background;
-        project.WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.FirstOnly };
+        project.WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.WindowPriority };
 
         await runner.RunAsync(project, CancellationToken.None);
 
@@ -401,7 +414,6 @@ public sealed class WorkflowEngineTests
         var condition = Node(
             "background-color",
             NodeTypes.ColorCondition,
-            ("captureMode", "foreground"),
             ("targetColor", "#FFFFFF"));
         var trueEnd = Node("true-end", NodeTypes.End);
         var falseEnd = Node("false-end", NodeTypes.End);
@@ -413,7 +425,7 @@ public sealed class WorkflowEngineTests
             Edge(condition, "false", falseEnd)
         ];
         project.InteractionMode = ScriptInteractionMode.Background;
-        project.WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.FirstOnly };
+        project.WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.WindowPriority };
 
         await runner.RunAsync(project, CancellationToken.None);
 
@@ -429,9 +441,9 @@ public sealed class WorkflowEngineTests
             new TrackingActionExecutor(),
             new FixedWindowScopeService([(nint)101]),
             windows: windows);
-        var click = Node("foreground-click", NodeTypes.MouseClick, ("clickMode", "background"), ("x", 10), ("y", 20));
+        var click = Node("foreground-click", NodeTypes.MouseClick, ("x", 10), ("y", 20));
         var project = Chain(click);
-        project.WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.FirstOnly };
+        project.WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.WindowPriority };
 
         await runner.RunAsync(project, CancellationToken.None);
 

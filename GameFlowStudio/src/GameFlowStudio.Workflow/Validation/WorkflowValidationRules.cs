@@ -17,13 +17,19 @@ internal sealed class ProjectStructureRule(NodeParameterValidator parameterValid
     {
         var workflow = context.Workflow;
         var scriptInteractionMode = ResolveScriptInteractionMode(workflow);
-        if (workflow.SchemaVersion is not "1.5") result.Add("schema", $"不支持的架构版本：{workflow.SchemaVersion}。");
+        if (workflow.SchemaVersion is not "1.6") result.Add("schema", $"不支持的架构版本：{workflow.SchemaVersion}。");
         foreach (var group in workflow.Scripts.GroupBy(script => script.Id).Where(group => string.IsNullOrWhiteSpace(group.Key) || group.Count() > 1))
             result.Add("script_id", "脚本 ID 不能为空且必须唯一。");
         foreach (var script in workflow.Scripts.Where(script => string.IsNullOrWhiteSpace(script.Name)))
             result.Add("script_name", $"脚本 {script.Id} 的名称不能为空。");
         foreach (var script in workflow.Scripts.Where(script => !Enum.IsDefined(script.InteractionMode)))
             result.Add("interaction_mode", $"脚本 {script.Id} 的运行方式无效。");
+        foreach (var script in workflow.Scripts.Where(script => !Enum.IsDefined(script.WindowScope.ExecutionMode)))
+            result.Add("window_execution_mode", $"脚本 {script.Id} 的多窗口执行方式无效。");
+        if (workflow.WindowScope is { } runtimeWindowScope
+            && !workflow.Scripts.Any(script => ReferenceEquals(script.WindowScope, runtimeWindowScope))
+            && !Enum.IsDefined(runtimeWindowScope.ExecutionMode))
+            result.Add("window_execution_mode", "当前脚本的多窗口执行方式无效。");
         if (workflow.ActiveScriptId is not null && !context.ContainsScript(workflow.ActiveScriptId))
             result.Add("active_script", "活动脚本不存在。");
         foreach (var group in workflow.Nodes.GroupBy(node => node.Id).Where(group => string.IsNullOrWhiteSpace(group.Key) || group.Count() > 1))
@@ -320,14 +326,10 @@ internal sealed class StateConfigurationRule : IWorkflowValidationRule
     }
 
     private static string OcrTargetText(DetectorDefinition detector) =>
-        detector.Parameters.ContainsKey("targetText")
-            ? DetectorParameterReader.String(detector, "targetText", string.Empty)
-            : DetectorParameterReader.String(detector, "expectedText", string.Empty);
+        DetectorParameterReader.String(detector, "targetText", string.Empty);
 
     private static double OcrThreshold(DetectorDefinition detector) =>
-        detector.Parameters.ContainsKey("matchThreshold")
-            ? DetectorParameterReader.Double(detector, "matchThreshold", 0.8)
-            : DetectorParameterReader.Double(detector, "confidenceThreshold", 0.8);
+        DetectorParameterReader.Double(detector, "matchThreshold", 0.8);
 
     private static void ValidateColor(string value)
     {

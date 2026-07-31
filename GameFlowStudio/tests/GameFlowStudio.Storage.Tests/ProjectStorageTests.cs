@@ -19,13 +19,15 @@ public sealed class ProjectStorageTests : IDisposable
         Assert.Equal(project.Scripts[0].Nodes.Count, loaded.Scripts[0].Nodes.Count); Assert.Equal(project.Scripts[0].Edges.Count, loaded.Scripts[0].Edges.Count); Assert.Equal(123.5, loaded.Scripts[0].Nodes[0].Position.X); Assert.Equal("start", loaded.Scripts[0].Edges[0].Source);
     }
 
-    [Fact]
-    public async Task SaveAndLoadPreservesScriptProperties()
+    [Theory]
+    [InlineData(WindowExecutionMode.WindowPriority)]
+    [InlineData(WindowExecutionMode.ActionPriority)]
+    public async Task SaveAndLoadPreservesScriptProperties(WindowExecutionMode executionMode)
     {
         var path = Path.Combine(_directory, "script-properties.gflow");
         var project = Project();
         project.Scripts[0].Name = "异常恢复脚本";
-        project.Scripts[0].WindowScope = new() { Enabled = true, TitlePattern = "^Game", ExecutionMode = WindowExecutionMode.WindowPriority };
+        project.Scripts[0].WindowScope = new() { Enabled = true, TitlePattern = "^Game", ExecutionMode = executionMode };
         project.Scripts[0].InteractionMode = ScriptInteractionMode.Background;
         project.Scripts[0].DefaultNodeDelayMs = 75;
 
@@ -35,101 +37,9 @@ public sealed class ProjectStorageTests : IDisposable
         Assert.Equal("异常恢复脚本", loaded.Scripts[0].Name);
         Assert.True(loaded.Scripts[0].WindowScope.Enabled);
         Assert.Equal("^Game", loaded.Scripts[0].WindowScope.TitlePattern);
-        Assert.Equal(WindowExecutionMode.WindowPriority, loaded.Scripts[0].WindowScope.ExecutionMode);
+        Assert.Equal(executionMode, loaded.Scripts[0].WindowScope.ExecutionMode);
         Assert.Equal(ScriptInteractionMode.Background, loaded.Scripts[0].InteractionMode);
         Assert.Equal(75, loaded.Scripts[0].DefaultNodeDelayMs);
-    }
-
-    [Fact]
-    public async Task LegacyScriptWithoutInteractionModeDefaultsToForeground()
-    {
-        Directory.CreateDirectory(_directory);
-        var path = Path.Combine(_directory, "legacy-interaction-mode.gflow");
-        const string json = """
-        {
-          "schemaVersion": "1.4",
-          "project": {
-            "id": "legacy",
-            "name": "旧项目",
-            "createdAt": "2026-01-01T00:00:00+00:00",
-            "updatedAt": "2026-01-01T00:00:00+00:00"
-          },
-          "scripts": [
-            {
-              "id": "1",
-              "name": "旧脚本",
-              "windowScope": { "enabled": false, "titlePattern": ".*", "executionMode": "firstOnly" },
-              "defaultNodeDelayMs": 2000,
-              "variables": {},
-              "nodes": [],
-              "edges": []
-            }
-          ]
-        }
-        """;
-        await File.WriteAllTextAsync(path, json);
-
-        var loaded = await _storage.LoadAsync(path, CancellationToken.None);
-
-        Assert.Equal("1.5", loaded.SchemaVersion);
-        Assert.Equal(ScriptInteractionMode.Foreground, loaded.Scripts[0].InteractionMode);
-    }
-
-    [Fact]
-    public async Task LegacyScriptWithOnlyBackgroundNodesMigratesToBackground()
-    {
-        Directory.CreateDirectory(_directory);
-        var path = Path.Combine(_directory, "legacy-background-mode.gflow");
-        const string json = """
-        {
-          "schemaVersion": "1.4",
-          "project": { "id": "legacy", "name": "旧项目", "createdAt": "2026-01-01T00:00:00+00:00", "updatedAt": "2026-01-01T00:00:00+00:00" },
-          "scripts": [{
-            "id": "1", "name": "旧后台脚本",
-            "windowScope": { "enabled": true, "titlePattern": ".*", "executionMode": "firstOnly" },
-            "defaultNodeDelayMs": 2000, "variables": {},
-            "nodes": [
-              { "id": "click", "type": "mouseClick", "position": { "x": 0, "y": 0 }, "data": { "displayName": "点击", "parameters": { "clickMode": "background", "x": 1, "y": 1 } } },
-              { "id": "key", "type": "keyPress", "position": { "x": 1, "y": 0 }, "data": { "displayName": "按键", "parameters": { "inputMode": "background", "key": "A" } } }
-            ],
-            "edges": []
-          }]
-        }
-        """;
-        await File.WriteAllTextAsync(path, json);
-
-        var loaded = await _storage.LoadAsync(path, CancellationToken.None);
-
-        Assert.Equal("1.5", loaded.SchemaVersion);
-        Assert.Equal(ScriptInteractionMode.Background, loaded.Scripts[0].InteractionMode);
-    }
-
-    [Fact]
-    public async Task LegacyScriptWithMixedNodeModesMigratesToForeground()
-    {
-        Directory.CreateDirectory(_directory);
-        var path = Path.Combine(_directory, "legacy-mixed-mode.gflow");
-        const string json = """
-        {
-          "schemaVersion": "1.4",
-          "project": { "id": "legacy", "name": "旧项目", "createdAt": "2026-01-01T00:00:00+00:00", "updatedAt": "2026-01-01T00:00:00+00:00" },
-          "scripts": [{
-            "id": "1", "name": "旧混合脚本",
-            "windowScope": { "enabled": true, "titlePattern": ".*", "executionMode": "firstOnly" },
-            "defaultNodeDelayMs": 2000, "variables": {},
-            "nodes": [
-              { "id": "click", "type": "mouseClick", "position": { "x": 0, "y": 0 }, "data": { "displayName": "后台点击", "parameters": { "clickMode": "background", "x": 1, "y": 1 } } },
-              { "id": "key", "type": "keyPress", "position": { "x": 1, "y": 0 }, "data": { "displayName": "前台按键", "parameters": { "inputMode": "foreground", "key": "A" } } }
-            ],
-            "edges": []
-          }]
-        }
-        """;
-        await File.WriteAllTextAsync(path, json);
-
-        var loaded = await _storage.LoadAsync(path, CancellationToken.None);
-
-        Assert.Equal(ScriptInteractionMode.Foreground, loaded.Scripts[0].InteractionMode);
     }
 
     [Fact]
@@ -159,12 +69,18 @@ public sealed class ProjectStorageTests : IDisposable
 
     [Theory]
     [InlineData("""{"project":{},"scripts":[]}""", "schemaVersion")]
-    [InlineData("""{"schemaVersion":"1.6","project":{},"scripts":[]}""", "1.6")]
-    [InlineData("""{"schemaVersion":"1.5","project":{}}""", "scripts")]
-    [InlineData("""{"schemaVersion":"1.5","project":{},"scripts":null}""", "scripts")]
-    [InlineData("""{"schemaVersion":"1.5","project":{},"scripts":[{"windowScope":{},"variables":{},"edges":[]}]}""", "nodes")]
-    [InlineData("""{"schemaVersion":"1.5","project":{},"scripts":[{"windowScope":{},"variables":{},"nodes":[{"position":{}}],"edges":[]}]}""", "data")]
-    [InlineData("""{"schemaVersion":"1.5","project":{},"scripts":[{"id":null,"windowScope":{},"variables":{},"nodes":[],"edges":[]}]}""", "id")]
+    [InlineData("""{"schemaVersion":"1.4","project":{},"scripts":[]}""", "1.4")]
+    [InlineData("""{"schemaVersion":"1.5","project":{},"scripts":[]}""", "1.5")]
+    [InlineData("""{"schemaVersion":"1.7","project":{},"scripts":[]}""", "1.7")]
+    [InlineData("""{"schemaVersion":"1.6","project":{}}""", "scripts")]
+    [InlineData("""{"schemaVersion":"1.6","project":{},"scripts":null}""", "scripts")]
+    [InlineData("""{"schemaVersion":"1.6","project":{},"scripts":[{"interactionMode":"foreground","windowScope":{},"variables":{},"nodes":[],"edges":[]}]}""", "executionMode")]
+    [InlineData("""{"schemaVersion":"1.6","project":{},"scripts":[{"windowScope":{"executionMode":"windowPriority"},"variables":{},"nodes":[],"edges":[]}]}""", "interactionMode")]
+    [InlineData("""{"schemaVersion":"1.6","project":{},"scripts":[{"interactionMode":"foreground","windowScope":{"executionMode":0},"variables":{},"nodes":[],"edges":[]}]}""", "executionMode")]
+    [InlineData("""{"schemaVersion":"1.6","project":{},"scripts":[{"interactionMode":0,"windowScope":{"executionMode":"windowPriority"},"variables":{},"nodes":[],"edges":[]}]}""", "interactionMode")]
+    [InlineData("""{"schemaVersion":"1.6","project":{},"scripts":[{"interactionMode":"foreground","windowScope":{"executionMode":"windowPriority"},"variables":{},"edges":[]}]}""", "nodes")]
+    [InlineData("""{"schemaVersion":"1.6","project":{},"scripts":[{"interactionMode":"foreground","windowScope":{"executionMode":"windowPriority"},"variables":{},"nodes":[{"position":{}}],"edges":[]}]}""", "data")]
+    [InlineData("""{"schemaVersion":"1.6","project":{},"scripts":[{"id":null,"interactionMode":"foreground","windowScope":{"executionMode":"windowPriority"},"variables":{},"nodes":[],"edges":[]}]}""", "id")]
     public async Task UnsupportedOrIncompleteDocumentsAreRejected(string json, string expectedMessage)
     {
         Directory.CreateDirectory(_directory);
@@ -175,6 +91,72 @@ public sealed class ProjectStorageTests : IDisposable
             () => _storage.LoadAsync(path, CancellationToken.None));
 
         Assert.Contains(expectedMessage, error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task RemovedFirstOnlyWindowExecutionModeIsRejected()
+    {
+        Directory.CreateDirectory(_directory);
+        var path = Path.Combine(_directory, "removed-first-only.gflow");
+        const string json = """
+        {
+          "schemaVersion": "1.6",
+          "project": {},
+          "scripts": [{
+            "interactionMode": "foreground",
+            "windowScope": { "executionMode": "firstOnly" },
+            "variables": {},
+            "nodes": [],
+            "edges": []
+          }]
+        }
+        """;
+        await File.WriteAllTextAsync(path, json);
+
+        var error = await Assert.ThrowsAsync<InvalidDataException>(
+            () => _storage.LoadAsync(path, CancellationToken.None));
+
+        Assert.IsType<System.Text.Json.JsonException>(error.InnerException);
+    }
+
+    [Fact]
+    public async Task NumericEnumValuesAreRejected()
+    {
+        Directory.CreateDirectory(_directory);
+        var path = Path.Combine(_directory, "numeric-enum.gflow");
+        const string json = """
+        {
+          "schemaVersion": "1.6",
+          "project": {},
+          "scripts": [{
+            "interactionMode": "foreground",
+            "windowScope": { "executionMode": "windowPriority" },
+            "variables": { "count": { "type": 0, "value": 1 } },
+            "nodes": [],
+            "edges": []
+          }]
+        }
+        """;
+        await File.WriteAllTextAsync(path, json);
+
+        var error = await Assert.ThrowsAsync<InvalidDataException>(
+            () => _storage.LoadAsync(path, CancellationToken.None));
+
+        Assert.IsType<System.Text.Json.JsonException>(error.InnerException);
+    }
+
+    [Fact]
+    public async Task InvalidWindowExecutionModeCannotBeSaved()
+    {
+        var path = Path.Combine(_directory, "invalid-window-execution-mode.gflow");
+        var project = Project();
+        project.Scripts[0].WindowScope.ExecutionMode = (WindowExecutionMode)999;
+
+        var error = await Assert.ThrowsAsync<InvalidDataException>(
+            () => _storage.SaveAsync(project, path, CancellationToken.None));
+
+        Assert.Contains("executionMode", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.False(File.Exists(path));
     }
 
     [Fact]

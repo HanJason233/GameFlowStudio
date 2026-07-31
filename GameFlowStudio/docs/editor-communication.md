@@ -27,7 +27,6 @@
 - `add_node`：按 nodeType 在视口中心创建节点。
 - `update_node_data`：按 nodeId 合并名称、enabled 和 parameters。
 - `highlight_node`、`mark_node_success`、`mark_node_error`、`clear_execution_state`：执行状态。
-- `set_editor_readonly`：兼容用的单向只读切换。
 - `request_set_editor_readonly`：切换结构和属性数据的只读状态并等待 `editor_readonly_set` 确认；仍允许选择、缩放和平移。
 
 C# 使用 `CoreWebView2.PostWebMessageAsJson` 与 `CoreWebView2.WebMessageReceived`；React 使用 `window.chrome.webview.postMessage` 和 message 事件。协议不使用 `ExecuteScriptAsync`，也不拼接不可信脚本。

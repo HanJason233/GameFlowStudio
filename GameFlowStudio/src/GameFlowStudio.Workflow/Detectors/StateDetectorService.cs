@@ -268,14 +268,10 @@ public sealed class OcrStateDetector(IOcrService geminiOcr, ILocalOcrService? lo
     }
 
     private static string ReadText(DetectorDefinition detector) =>
-        detector.Parameters.ContainsKey("targetText")
-            ? DetectorParameterReader.String(detector, "targetText")
-            : DetectorParameterReader.String(detector, "expectedText");
+        DetectorParameterReader.String(detector, "targetText");
 
     private static double ReadThreshold(DetectorDefinition detector) =>
-        detector.Parameters.ContainsKey("matchThreshold")
-            ? DetectorParameterReader.Double(detector, "matchThreshold", 0.8)
-            : DetectorParameterReader.Double(detector, "confidenceThreshold", 0.8);
+        DetectorParameterReader.Double(detector, "matchThreshold", 0.8);
 }
 
 internal static class DetectorLogFormatting

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.5",
+  "schemaVersion": "1.6",
   "project": {
     "id": "project-basic-example",
     "name": "GameFlow Basic Example",
@@ -11,7 +11,7 @@
       "id": "script-basic-example",
       "name": "Main",
       "interactionMode": "foreground",
-      "windowScope": { "enabled": false, "titlePattern": ".*", "executionMode": "firstOnly" },
+      "windowScope": { "enabled": false, "titlePattern": ".*", "executionMode": "windowPriority" },
       "defaultNodeDelayMs": 2000,
       "variables": {},
       "nodes": [

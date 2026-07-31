@@ -7,7 +7,7 @@ namespace GameFlowStudio.Contracts.Workflows;
 /// <summary>一个可保存和执行的 GameFlow 项目。</summary>
 public sealed class AutomationProject
 {
-    public string SchemaVersion { get; set; } = "1.5";
+    public string SchemaVersion { get; set; } = "1.6";
     public ProjectMetadata Project { get; set; } = new();
     public List<AutomationScript> Scripts { get; set; } = [];
 
@@ -60,13 +60,13 @@ public sealed class ScriptWindowScope
 {
     public bool Enabled { get; set; }
     public string TitlePattern { get; set; } = ".*";
-    public WindowExecutionMode ExecutionMode { get; set; } = WindowExecutionMode.FirstOnly;
+    public WindowExecutionMode ExecutionMode { get; set; } = WindowExecutionMode.WindowPriority;
 }
 
 /// <summary>当前脚本与 React 编辑器之间传输的平面工作流快照。</summary>
 public sealed class WorkflowDocument
 {
-    public string SchemaVersion { get; set; } = "1.5";
+    public string SchemaVersion { get; set; } = "1.6";
     public ProjectMetadata Project { get; set; } = new();
     public Dictionary<string, ProjectVariable> Variables { get; set; } = new(StringComparer.Ordinal);
     public List<WorkflowNode> Nodes { get; set; } = [];
@@ -83,7 +83,6 @@ public sealed class ProjectMetadata
 
 public sealed class ProjectVariable
 {
-    [JsonConverter(typeof(JsonStringEnumConverter<VariableType>))]
     public VariableType Type { get; set; }
     public JsonElement Value { get; set; }
 }
@@ -125,7 +124,7 @@ public static class ProjectJson
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         PropertyNameCaseInsensitive = true,
         WriteIndented = true,
-        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
+        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, allowIntegerValues: false) }
     };
 
     public static JsonElement Element<T>(T value) => JsonSerializer.SerializeToElement(value, Options);

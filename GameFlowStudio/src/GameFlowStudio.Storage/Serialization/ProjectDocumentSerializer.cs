@@ -1,6 +1,5 @@
 using System.Text.Json;
 using GameFlowStudio.Contracts.Enums;
-using GameFlowStudio.Contracts.Nodes;
 using GameFlowStudio.Contracts.Workflows;
 
 namespace GameFlowStudio.Storage.Serialization;
@@ -11,8 +10,7 @@ namespace GameFlowStudio.Storage.Serialization;
 /// </summary>
 internal static class ProjectDocumentSerializer
 {
-    internal const string CurrentSchemaVersion = "1.5";
-    private const string LegacySchemaVersion = "1.4";
+    internal const string CurrentSchemaVersion = "1.6";
 
     private static readonly JsonSerializerOptions StorageOptions = new(ProjectJson.Options);
 
@@ -30,11 +28,10 @@ internal static class ProjectDocumentSerializer
         CancellationToken cancellationToken)
     {
         using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
-        var sourceVersion = ValidateEnvelope(document.RootElement);
+        ValidateEnvelope(document.RootElement);
 
         var project = document.RootElement.Deserialize<AutomationProject>(StorageOptions)
             ?? throw new InvalidDataException("项目文件内容为空。");
-        MigrateLegacyProject(project, document.RootElement, sourceVersion);
         Validate(project);
         return project;
     }
@@ -55,7 +52,7 @@ internal static class ProjectDocumentSerializer
         return snapshot;
     }
 
-    private static string ValidateEnvelope(JsonElement root)
+    private static void ValidateEnvelope(JsonElement root)
     {
         if (root.ValueKind != JsonValueKind.Object)
             throw new InvalidDataException("项目文件根节点必须是 JSON 对象。");
@@ -66,10 +63,9 @@ internal static class ProjectDocumentSerializer
             throw new InvalidDataException("项目文件缺少必需的 schemaVersion。");
 
         var version = versionElement.GetString();
-        if (!string.Equals(version, CurrentSchemaVersion, StringComparison.Ordinal)
-            && !string.Equals(version, LegacySchemaVersion, StringComparison.Ordinal))
+        if (!string.Equals(version, CurrentSchemaVersion, StringComparison.Ordinal))
             throw new InvalidDataException(
-                $"不支持的项目架构版本：{version}。当前版本支持 {CurrentSchemaVersion}，并可升级 {LegacySchemaVersion}；文件未被打开以避免保存时丢失数据。");
+                $"不支持的项目架构版本：{version}。当前版本仅支持 {CurrentSchemaVersion}；文件未被打开以避免保存时丢失数据。");
 
         _ = RequireProperty(root, "project", JsonValueKind.Object, "项目文件");
         var scripts = RequireProperty(root, "scripts", JsonValueKind.Array, "项目文件");
@@ -78,7 +74,9 @@ internal static class ProjectDocumentSerializer
         {
             var scriptPath = $"scripts[{scriptIndex}]";
             RequireObject(script, scriptPath);
-            _ = RequireProperty(script, "windowScope", JsonValueKind.Object, scriptPath);
+            var windowScope = RequireProperty(script, "windowScope", JsonValueKind.Object, scriptPath);
+            _ = RequireProperty(windowScope, "executionMode", JsonValueKind.String, $"{scriptPath}.windowScope");
+            _ = RequireProperty(script, "interactionMode", JsonValueKind.String, scriptPath);
             _ = RequireProperty(script, "variables", JsonValueKind.Object, scriptPath);
             var nodes = RequireProperty(script, "nodes", JsonValueKind.Array, scriptPath);
             var edges = RequireProperty(script, "edges", JsonValueKind.Array, scriptPath);
@@ -103,68 +101,7 @@ internal static class ProjectDocumentSerializer
 
             scriptIndex++;
         }
-
-        return version!;
     }
-
-    private static void MigrateLegacyProject(
-        AutomationProject project,
-        JsonElement root,
-        string sourceVersion)
-    {
-        if (!string.Equals(sourceVersion, LegacySchemaVersion, StringComparison.Ordinal)) return;
-
-        var scriptElements = root.GetProperty("scripts").EnumerateArray().ToArray();
-        for (var index = 0; index < project.Scripts.Count && index < scriptElements.Length; index++)
-        {
-            var scriptElement = scriptElements[index];
-            if (!scriptElement.TryGetProperty("interactionMode", out _))
-                project.Scripts[index].InteractionMode = InferLegacyInteractionMode(scriptElement);
-        }
-
-        project.SchemaVersion = CurrentSchemaVersion;
-    }
-
-    private static ScriptInteractionMode InferLegacyInteractionMode(JsonElement scriptElement)
-    {
-        if (!scriptElement.TryGetProperty("nodes", out var nodes)
-            || nodes.ValueKind != JsonValueKind.Array)
-            return ScriptInteractionMode.Foreground;
-
-        var supportedNodeCount = 0;
-        var backgroundNodeCount = 0;
-        foreach (var node in nodes.EnumerateArray())
-        {
-            if (!node.TryGetProperty("type", out var typeElement)
-                || typeElement.ValueKind != JsonValueKind.String
-                || LegacyModeParameterName(typeElement.GetString()) is not { } parameterName)
-                continue;
-
-            supportedNodeCount++;
-            if (node.TryGetProperty("data", out var data)
-                && data.ValueKind == JsonValueKind.Object
-                && data.TryGetProperty("parameters", out var parameters)
-                && parameters.ValueKind == JsonValueKind.Object
-                && parameters.TryGetProperty(parameterName, out var mode)
-                && mode.ValueKind == JsonValueKind.String
-                && string.Equals(mode.GetString(), "background", StringComparison.OrdinalIgnoreCase))
-                backgroundNodeCount++;
-        }
-
-        return supportedNodeCount > 0 && backgroundNodeCount == supportedNodeCount
-            ? ScriptInteractionMode.Background
-            : ScriptInteractionMode.Foreground;
-    }
-
-    private static string? LegacyModeParameterName(string? nodeType) => nodeType switch
-    {
-        NodeTypes.MouseClick => "clickMode",
-        NodeTypes.MouseMove or NodeTypes.MouseDrag or NodeTypes.MouseScroll
-            or NodeTypes.KeyPress or NodeTypes.TextInput => "inputMode",
-        NodeTypes.ColorCondition or NodeTypes.ImageCondition or NodeTypes.OcrCondition => "captureMode",
-        NodeTypes.CloseProgram or NodeTypes.MinimizeWindow or NodeTypes.SetWindowResolution => "windowActionMode",
-        _ => null
-    };
 
     private static JsonElement RequireProperty(
         JsonElement owner,
@@ -213,6 +150,8 @@ internal static class ProjectDocumentSerializer
                 throw new InvalidDataException($"脚本 {scriptIndex + 1} 的 windowScope 不能为空。");
             if (script.WindowScope.TitlePattern is null)
                 throw new InvalidDataException($"脚本 {scriptIndex + 1} 的 windowScope.titlePattern 不能为空。");
+            if (!Enum.IsDefined(script.WindowScope.ExecutionMode))
+                throw new InvalidDataException($"脚本 {scriptIndex + 1} 的 windowScope.executionMode 无效。");
             if (!Enum.IsDefined(script.InteractionMode))
                 throw new InvalidDataException($"脚本 {scriptIndex + 1} 的 interactionMode 无效。");
             if (script.Variables is null)

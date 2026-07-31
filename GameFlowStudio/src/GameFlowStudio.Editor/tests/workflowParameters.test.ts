@@ -3,14 +3,13 @@ import test from 'node:test'
 import {
   defaultParameters,
   fromDocument,
-  toDocument,
   type NodeType,
   type WorkflowDocument,
 } from '../src/types/workflow.ts'
 
 function nodeDocument(type: NodeType, parameters: Record<string, unknown>): WorkflowDocument {
   return {
-    schemaVersion: '1.5',
+    schemaVersion: '1.6',
     project: {
       id: 'test',
       name: 'test',
@@ -28,40 +27,7 @@ function nodeDocument(type: NodeType, parameters: Record<string, unknown>): Work
   }
 }
 
-test('节点默认参数不再包含前后台模式', () => {
-  const legacyModeNames = ['clickMode', 'inputMode', 'captureMode', 'windowActionMode']
-
-  for (const [type, parameters] of Object.entries(defaultParameters)) {
-    for (const modeName of legacyModeNames)
-      assert.equal(modeName in parameters, false, `${type}.${modeName}`)
-  }
-})
-
-test('导入旧节点时移除节点级前后台参数', async t => {
-  const cases: Array<[NodeType, string]> = [
-    ['mouseClick', 'clickMode'],
-    ['mouseDrag', 'inputMode'],
-    ['imageCondition', 'captureMode'],
-    ['minimizeWindow', 'windowActionMode'],
-  ]
-
-  for (const [type, modeName] of cases) {
-    await t.test(type, () => {
-      const source = nodeDocument(type, {
-        [modeName]: 'background',
-        customParameter: '保留',
-      })
-      const graph = fromDocument(source)
-      const saved = toDocument(source, graph.nodes, graph.edges)
-
-      assert.equal(modeName in graph.nodes[0].data.parameters, false)
-      assert.equal(modeName in saved.nodes[0].data.parameters, false)
-      assert.equal(saved.nodes[0].data.parameters.customParameter, '保留')
-    })
-  }
-})
-
-test('旧图加载时为所有节点合并默认参数且已有值优先', () => {
+test('节点加载时合并默认参数且已有值优先', () => {
   for (const type of Object.keys(defaultParameters) as NodeType[]) {
     const defaults = defaultParameters[type]
     const overriddenName = Object.keys(defaults)[0]

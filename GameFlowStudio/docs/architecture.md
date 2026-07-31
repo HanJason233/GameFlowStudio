@@ -26,7 +26,7 @@ Desktop 负责窗口生命周期、文件对话框、运行命令和可视状态
 
 - Automation、Workflow 和项目参数中的屏幕坐标统一使用虚拟桌面物理像素；`CursorPositionService`、`CaptureRegion`、`CapturedFrame` 和鼠标输入必须保持同一坐标系，并允许多显示器负坐标。
 - 拾取遮罩 HWND 使用 PMv2 `SetWindowPos` 按物理虚拟桌面边界放置，并在 DPI/显示配置变化后重新应用；WPF Canvas 仍使用 DIP，只能在绘制边界通过 `PointFromScreen` 把物理屏幕像素转换为窗口本地 DIP，不能直接用物理坐标减 `Window.Left`。
-- 窗口相对坐标继续以 `GetWindowRect` 的窗口外框左上角为原点，以兼容已有项目；取点和执行必须使用同一原点语义。
+- 窗口相对坐标以 `GetWindowRect` 的窗口外框左上角为原点；取点和执行必须使用同一原点语义。
 - 前后台方式属于脚本执行上下文，脚本内的输入、检测和支持后台处理的窗口动作统一跟随 `AutomationScript.InteractionMode`，节点参数不得单独覆盖。跨脚本跳转时执行上下文同步切换到目标脚本的方式。
 - 前台键鼠通过 `SendInput` 操作真实输入设备；后台键鼠沿用相同的物理屏幕坐标解析结果，转换到唯一目标窗口或其子控件的客户区，再投递 `WM_MOUSE*`、`WM_KEY*`、`WM_CHAR` 消息。后台路径不得调用激活窗口或移动光标的 API，并必须拒绝客户区以外的鼠标坐标。
 - 检测节点的前台读取继续通过桌面 `BitBlt` 捕获可见像素；后台读取通过 `PrintWindow` 请求唯一目标窗口绘制整窗，再按物理屏幕坐标裁剪。窗口拒绝绘制、区域越界或抓图失败时必须明确失败，不能静默回退桌面截图。
@@ -57,5 +57,5 @@ Desktop 负责窗口生命周期、文件对话框、运行命令和可视状态
 - 后台输入后端：替换 `IBackgroundInputAutomationService`；工作流只负责提供唯一目标句柄、输入参数和已解析的屏幕坐标。
 - 后台读取后端：替换 `IWindowCaptureService`；检测器继续消费统一的 `CapturedFrame`。
 - 新录制后端：替换 `IInputRecordingService`；录制快照与工作流转换不依赖 WPF 或原生钩子。
-- 项目文件使用 1.5 结构，并在读取时兼容升级 1.4；每个脚本独立保存检测器和节点图，逻辑判断只在当前脚本内执行，编辑器通过活动脚本视图与 React 编辑器通信。
+- 项目文件使用 1.6 结构；每个脚本独立保存检测器和节点图，逻辑判断只在当前脚本内执行，编辑器通过活动脚本视图与 React 编辑器通信。
 - 日志后端：增加 ILoggerProvider，不改变执行器。

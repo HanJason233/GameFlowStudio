@@ -154,7 +154,7 @@ public sealed class BackgroundModeExecutionTests
     }
 
     [Fact]
-    public async Task DetectorUsesScriptModeAndIgnoresLegacyCaptureMode()
+    public async Task DetectorUsesScriptMode()
     {
         var desktop = new RecordingDesktopCaptureService();
         var window = new RecordingWindowCaptureService();
@@ -169,7 +169,6 @@ public sealed class BackgroundModeExecutionTests
             Type = DetectorType.Color,
             Parameters = new Dictionary<string, System.Text.Json.JsonElement>(StringComparer.Ordinal)
             {
-                ["captureMode"] = ProjectJson.Element("foreground"),
                 ["coordinateMode"] = ProjectJson.Element("absolute"),
                 ["x"] = ProjectJson.Element(10),
                 ["y"] = ProjectJson.Element(20),
@@ -198,7 +197,7 @@ public sealed class BackgroundModeExecutionTests
     [InlineData("minimizeWindow", false)]
     [InlineData("setWindowResolution", true)]
     [InlineData("setWindowResolution", false)]
-    public async Task ScriptModeControlsWindowActionActivationAndIgnoresLegacyNodeMode(
+    public async Task ScriptModeControlsWindowActionActivation(
         string nodeType,
         bool backgroundMode)
     {
@@ -208,7 +207,6 @@ public sealed class BackgroundModeExecutionTests
         var executor = CreateWindowActionExecutor(nodeType, windows, scopes);
         var node = Node(
             nodeType,
-            ("windowActionMode", backgroundMode ? "foreground" : "background"),
             ("titlePattern", "^Game$"),
             ("width", 1280),
             ("height", 720));
@@ -305,7 +303,6 @@ public sealed class BackgroundModeExecutionTests
     private static WorkflowNode InputNode(string nodeType) =>
         Node(
             nodeType,
-            ("inputMode", "foreground"),
             ("coordinateMode", "absolute"),
             ("x", nodeType == NodeTypes.MouseScroll ? 13 : 11),
             ("y", nodeType == NodeTypes.MouseScroll ? 14 : 12),

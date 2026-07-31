@@ -92,7 +92,7 @@ public sealed class MainViewModel : ObservableObject
     private bool _isScriptPropertiesVisible;
     private bool _scriptWindowScopeEnabled;
     private string _scriptWindowTitlePattern = ".*";
-    private WindowExecutionMode _scriptWindowExecutionMode = WindowExecutionMode.FirstOnly;
+    private WindowExecutionMode _scriptWindowExecutionMode = WindowExecutionMode.WindowPriority;
     private ScriptInteractionModeValue _scriptInteractionMode = ScriptInteractionModeValue.Foreground;
     private string _activeScriptName = string.Empty;
     private int _scriptDefaultNodeDelayMs = AutomationScript.DefaultNodeDelayMilliseconds;
@@ -120,7 +120,6 @@ public sealed class MainViewModel : ObservableObject
     public ObservableCollection<ScriptListItem> Scripts { get; } = [];
     public IReadOnlyList<WindowExecutionModeOption> WindowExecutionModes { get; } =
     [
-        new(WindowExecutionMode.FirstOnly, "只操作第一个窗口", "匹配多个窗口时，只激活并操作第一个窗口。"),
         new(WindowExecutionMode.WindowPriority, "窗口优先", "先完整执行窗口 1 的流程，再完整执行窗口 2 的流程。"),
         new(WindowExecutionMode.ActionPriority, "动作优先", "每一轮让所有窗口各执行一个当前动作，再进入下一轮。")
     ];
@@ -404,7 +403,7 @@ public sealed class MainViewModel : ObservableObject
                 var displayValue = DisplayValue(property.Value);
                 var value = property.Name switch
                 {
-                    "coordinateMode" => NormalizeCoordinateMode(displayValue),
+                    "coordinateMode" => displayValue,
                     _ => displayValue
                 };
                 selected.Parameters.Add(new(property.Name, value, property.Value.ValueKind, OnSelectedNodeEditorChanged));
@@ -429,13 +428,6 @@ public sealed class MainViewModel : ObservableObject
         }
         SelectedNode = selected;
     }
-
-    private static string NormalizeCoordinateMode(string value) => value.ToLowerInvariant() switch
-    {
-        "screen" => "absolute",
-        "windowrelative" => "relative",
-        _ => value
-    };
 
     private void OnSelectedNodeEditorChanged()
     {

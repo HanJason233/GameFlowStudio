@@ -12,7 +12,7 @@ import {
 } from '../types/workflow'
 
 const createEmptyDocument = (): WorkflowDocument => ({
-  schemaVersion: '1.5',
+  schemaVersion: '1.6',
   project: { id: `project-${crypto.randomUUID()}`, name: '未命名项目', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
   variables: {}, nodes: [], edges: [],
 })

@@ -113,7 +113,6 @@ public sealed class MouseClickExecutionTests
         var node = WorkflowEngineTests.Node(
             "click",
             Contracts.Nodes.NodeTypes.MouseClick,
-            ("clickMode", "foreground"),
             ("coordinateMode", "relative"),
             ("x", 25),
             ("y", 35),
@@ -145,7 +144,6 @@ public sealed class MouseClickExecutionTests
         var node = WorkflowEngineTests.Node(
             "click",
             Contracts.Nodes.NodeTypes.MouseClick,
-            ("clickMode", "foreground"),
             ("x", 25),
             ("y", 35));
         var context = Context(ScriptInteractionMode.Background);
@@ -155,28 +153,6 @@ public sealed class MouseClickExecutionTests
             () => executor.ExecuteAsync(node, context, CancellationToken.None));
 
         Assert.Contains("唯一的目标窗口", error.Message);
-    }
-
-    [Theory]
-    [InlineData("unknown")]
-    [InlineData("1")]
-    [InlineData("999")]
-    public async Task LegacyClickModeIsIgnored(string mode)
-    {
-        var executor = new MouseClickNodeExecutor(
-            new RecordingInputAutomationService(),
-            new NullCoordinateResolver(),
-            new RecordingBackgroundMouseClickService());
-        var node = WorkflowEngineTests.Node(
-            "click",
-            Contracts.Nodes.NodeTypes.MouseClick,
-            ("clickMode", mode),
-            ("x", 25),
-            ("y", 35));
-
-        var result = await executor.ExecuteAsync(node, Context(), CancellationToken.None);
-
-        Assert.True(result.Success);
     }
 
     private static WorkflowExecutionContext Context(
