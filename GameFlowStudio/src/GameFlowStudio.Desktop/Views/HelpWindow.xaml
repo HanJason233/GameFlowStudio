@@ -221,7 +221,7 @@
                                 <TextBlock Style="{StaticResource CardTitleStyle}" Text="脚本管理"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 左键单击脚本卡片进行切换；点击脚本列表右侧“+”创建新脚本。项目至少保留一个脚本。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 右键脚本可打开“复制、属性、删除”。脚本名称会在当前项目内自动保持唯一。"/>
-                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• “属性”可设置脚本名称、窗口范围、运行方式、操作流程和默认节点等待时间。"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• “属性”可设置脚本名称、匹配模式、运行方式、操作流程和默认节点等待时间。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 默认节点等待时间是普通节点之间的统一间隔；“等待”节点仍使用自己的等待时长。设为 0 可关闭默认间隔。"/>
                             </StackPanel>
                         </Border>
@@ -279,7 +279,7 @@
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 窗口整理使用卡片标题正则处理整组窗口；后台关闭、最小化和分辨率在有唯一脚本窗口上下文时只处理当前窗口，否则才按卡片标题正则处理匹配窗口。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 关闭、最小化和设置分辨率跟随脚本的运行方式；后台方式不激活匹配窗口。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• “窗口整理”本身不会激活窗口：把第一个窗口放到设置的 x、y，后续匹配窗口按垂直偏移量依次排列。"/>
-                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 节点自己的窗口正则与“脚本窗口范围”是两套设置，互不替代。"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 节点自己的窗口正则只能在脚本匹配结果内进一步限定；已有唯一窗口轨道时不能改到其他窗口，也不能重新加入被脚本排除的目标。"/>
                             </StackPanel>
                         </Border>
                     </StackPanel>
@@ -342,7 +342,7 @@
                     <StackPanel Margin="20">
                         <TextBlock Style="{StaticResource PageTitleStyle}" Text="坐标与检测"/>
                         <TextBlock Style="{StaticResource PageIntroStyle}"
-                                   Text="“拾取方式”“坐标基准”和“脚本窗口范围”是三个不同概念，请分别设置。"/>
+                                   Text="“拾取方式”“坐标基准”和“脚本匹配模式”是三个不同概念，请分别设置。"/>
 
                         <Border Style="{StaticResource HelpCardStyle}">
                             <StackPanel>
@@ -372,7 +372,7 @@
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 前台模式可选择“伪并行”或“串行”。伪并行依次切换窗口执行当前操作，使各窗口的进度尽量一致；串行会完整执行一个窗口后再处理下一个。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 后台方式下，点击、移动、拖动、滚轮、按键和文本输入不移动真实鼠标或激活窗口，而是向唯一目标窗口或焦点控件投递传统 Win32 消息。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 后台方式下，色判断、图判断和文本判断不激活窗口，通过 PrintWindow 请求唯一目标窗口自行绘制，再从结果中读取指定区域。"/>
-                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 后台模式固定使用“并行”：脚本窗口范围匹配到多个窗口时，每个窗口同时运行一套独立流程；单套流程内的后台输入和读取仍只面向自己的唯一目标窗口。"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 后台模式固定使用“并行”：脚本匹配模式筛选出多个窗口时，每个窗口同时运行一套独立流程；单套流程内的后台输入和读取仍只面向自己的唯一目标窗口。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 后台输入和后台读取必须有目标窗口；选择整个屏幕且没有建立窗口上下文时不能使用。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 游戏、Raw Input、DirectInput、高权限或受保护程序可能忽略后台输入；硬件加速、受保护或最小化窗口可能拒绝后台绘制或返回黑图。后台读取单次最多等待 5 秒；消息投递成功不代表业务操作成功。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 后台鼠标只支持客户区坐标，不用于标题栏、边框或窗口外部；单个后台点击节点最多点击 100 次。后台关闭、最小化和分辨率操作有唯一脚本窗口上下文时只处理当前窗口；没有唯一上下文时才按卡片标题正则处理匹配窗口。"/>
@@ -412,9 +412,9 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto"
                               HorizontalScrollBarVisibility="Disabled">
                     <StackPanel Margin="20">
-                        <TextBlock Style="{StaticResource PageTitleStyle}" Text="窗口范围与操作流程"/>
+                        <TextBlock Style="{StaticResource PageTitleStyle}" Text="匹配模式与操作流程"/>
                         <TextBlock Style="{StaticResource PageIntroStyle}"
-                                   Text="在脚本卡片上右键打开“属性”，可设置整个脚本的窗口上下文、运行方式和操作流程。"/>
+                                   Text="在脚本卡片上右键打开“属性”，可设置整个脚本的匹配模式、运行方式和操作流程。"/>
 
                         <Border Style="{StaticResource HelpCardStyle}">
                             <StackPanel>
@@ -428,10 +428,11 @@
                         <Border Style="{StaticResource HelpCardStyle}">
                             <StackPanel>
                                 <TextBlock Style="{StaticResource CardTitleStyle}" Text="正则匹配窗口"/>
-                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 使用窗口标题正则表达式查找可见、有标题的顶级窗口，匹配不区分大小写。"/>
-                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 找不到窗口时运行失败；脚本使用前台方式时，输入和读取会自动激活当前目标窗口；使用后台方式时不会激活。"/>
-                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 匹配到多个窗口时，按脚本属性中的“操作流程”运行。前台可选伪并行或串行，后台固定并行。"/>
-                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 跨脚本跳转会继承当前轨道；两个脚本的前后台方式、操作流程、窗口范围开关和窗口标题规则必须一致，且当前窗口仍需匹配目标脚本。"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 先使用“正则匹配”从可见、有标题的顶级窗口中规定要操作的窗口，标题匹配不区分大小写。"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 再使用“排除正则匹配”从正则匹配结果中移除不需要的窗口；留空表示不排除。排除规则不会扩大最初的匹配结果。"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 正则匹配没有找到窗口，或者匹配结果全部被排除时运行失败。"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 筛选出多个窗口时，按脚本属性中的“操作流程”运行。前台可选伪并行或串行，后台固定并行；前台输入和读取会激活当前窗口，后台方式不会激活。"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 跨脚本跳转会继承当前轨道；两个脚本的前后台方式、操作流程、匹配模式开关以及包含与排除规则都须一致，且当前窗口仍须通过目标脚本的包含与排除筛选。"/>
                             </StackPanel>
                         </Border>
 

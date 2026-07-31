@@ -10,7 +10,7 @@ namespace GameFlowStudio.Storage.Serialization;
 /// </summary>
 internal static class ProjectDocumentSerializer
 {
-    internal const string CurrentSchemaVersion = "1.7";
+    internal const string CurrentSchemaVersion = "1.8";
 
     private static readonly JsonSerializerOptions StorageOptions = new(ProjectJson.Options);
 
@@ -75,6 +75,9 @@ internal static class ProjectDocumentSerializer
             var scriptPath = $"scripts[{scriptIndex}]";
             RequireObject(script, scriptPath);
             var windowScope = RequireProperty(script, "windowScope", JsonValueKind.Object, scriptPath);
+            _ = RequireProperty(windowScope, "enabled", JsonValueKind.True, $"{scriptPath}.windowScope", JsonValueKind.False);
+            _ = RequireProperty(windowScope, "matchPattern", JsonValueKind.String, $"{scriptPath}.windowScope");
+            _ = RequireProperty(windowScope, "excludePattern", JsonValueKind.String, $"{scriptPath}.windowScope");
             _ = RequireProperty(windowScope, "executionMode", JsonValueKind.String, $"{scriptPath}.windowScope");
             _ = RequireProperty(script, "interactionMode", JsonValueKind.String, scriptPath);
             _ = RequireProperty(script, "variables", JsonValueKind.Object, scriptPath);
@@ -107,11 +110,12 @@ internal static class ProjectDocumentSerializer
         JsonElement owner,
         string propertyName,
         JsonValueKind expectedKind,
-        string ownerPath)
+        string ownerPath,
+        params JsonValueKind[] alternateKinds)
     {
         if (!owner.TryGetProperty(propertyName, out var value))
             throw new InvalidDataException($"{ownerPath} 缺少必需的 {propertyName}。");
-        if (value.ValueKind != expectedKind)
+        if (value.ValueKind != expectedKind && !alternateKinds.Contains(value.ValueKind))
             throw new InvalidDataException($"{ownerPath}.{propertyName} 必须是 {Describe(expectedKind)}。");
         return value;
     }
@@ -122,8 +126,14 @@ internal static class ProjectDocumentSerializer
             throw new InvalidDataException($"{path} 必须是 JSON 对象。");
     }
 
-    private static string Describe(JsonValueKind kind) =>
-        kind == JsonValueKind.Array ? "JSON 数组" : "JSON 对象";
+    private static string Describe(JsonValueKind kind) => kind switch
+    {
+        JsonValueKind.Array => "JSON 数组",
+        JsonValueKind.Object => "JSON 对象",
+        JsonValueKind.String => "字符串",
+        JsonValueKind.True or JsonValueKind.False => "布尔值",
+        _ => kind.ToString()
+    };
 
     private static void ValidateShape(AutomationProject project)
     {
@@ -148,8 +158,10 @@ internal static class ProjectDocumentSerializer
                 throw new InvalidDataException($"脚本 {scriptIndex + 1} 的 name 不能为空。");
             if (script.WindowScope is null)
                 throw new InvalidDataException($"脚本 {scriptIndex + 1} 的 windowScope 不能为空。");
-            if (script.WindowScope.TitlePattern is null)
-                throw new InvalidDataException($"脚本 {scriptIndex + 1} 的 windowScope.titlePattern 不能为空。");
+            if (script.WindowScope.MatchPattern is null)
+                throw new InvalidDataException($"脚本 {scriptIndex + 1} 的 windowScope.matchPattern 不能为空。");
+            if (script.WindowScope.ExcludePattern is null)
+                throw new InvalidDataException($"脚本 {scriptIndex + 1} 的 windowScope.excludePattern 不能为空。");
             if (!Enum.IsDefined(script.WindowScope.ExecutionMode))
                 throw new InvalidDataException($"脚本 {scriptIndex + 1} 的 windowScope.executionMode 无效。");
             if (!Enum.IsDefined(script.InteractionMode))

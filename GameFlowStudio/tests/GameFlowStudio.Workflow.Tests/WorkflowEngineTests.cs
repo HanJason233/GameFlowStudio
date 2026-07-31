@@ -295,13 +295,13 @@ public sealed class WorkflowEngineTests
     }
 
     [Fact]
-    public async Task CrossScriptJumpRejectsDifferentWindowTitlePattern()
+    public async Task CrossScriptJumpRejectsDifferentWindowMatchPattern()
     {
         var project = CrossScriptProject(
             ScriptInteractionMode.Background,
-            new() { Enabled = true, TitlePattern = "^Source$", ExecutionMode = WindowExecutionMode.Parallel },
+            new() { Enabled = true, MatchPattern = "^Source$", ExecutionMode = WindowExecutionMode.Parallel },
             ScriptInteractionMode.Background,
-            new() { Enabled = true, TitlePattern = "^Target$", ExecutionMode = WindowExecutionMode.Parallel });
+            new() { Enabled = true, MatchPattern = "^Target$", ExecutionMode = WindowExecutionMode.Parallel });
         var executor = new TrackingActionExecutor();
         var runner = Runner(
             executor,
@@ -311,8 +311,67 @@ public sealed class WorkflowEngineTests
         var error = await Assert.ThrowsAsync<InvalidOperationException>(
             () => runner.RunAsync(project, CancellationToken.None));
 
-        Assert.Contains("窗口标题规则不同", error.Message);
+        Assert.Contains("窗口匹配正则不同", error.Message);
         Assert.Empty(executor.Executed);
+    }
+
+    [Fact]
+    public async Task CrossScriptJumpRejectsDifferentWindowExcludePattern()
+    {
+        var project = CrossScriptProject(
+            ScriptInteractionMode.Background,
+            new()
+            {
+                Enabled = true,
+                MatchPattern = "^Game",
+                ExcludePattern = "测试服$",
+                ExecutionMode = WindowExecutionMode.Parallel
+            },
+            ScriptInteractionMode.Background,
+            new()
+            {
+                Enabled = true,
+                MatchPattern = "^Game",
+                ExcludePattern = "开发服$",
+                ExecutionMode = WindowExecutionMode.Parallel
+            });
+        var runner = Runner(
+            new TrackingActionExecutor(),
+            new FixedWindowScopeService([(nint)101]),
+            validator: new AcceptingWorkflowValidator());
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => runner.RunAsync(project, CancellationToken.None));
+
+        Assert.Contains("窗口排除正则不同", error.Message);
+    }
+
+    [Fact]
+    public async Task CrossScriptJumpIgnoresHiddenPatternsWhenBothScopesAreDisabled()
+    {
+        var project = CrossScriptProject(
+            ScriptInteractionMode.Foreground,
+            new()
+            {
+                Enabled = false,
+                MatchPattern = "^Source$",
+                ExcludePattern = "排除来源",
+                ExecutionMode = WindowExecutionMode.Serial
+            },
+            ScriptInteractionMode.Foreground,
+            new()
+            {
+                Enabled = false,
+                MatchPattern = "^Target$",
+                ExcludePattern = "排除目标",
+                ExecutionMode = WindowExecutionMode.Serial
+            });
+        var executor = new TrackingActionExecutor();
+        var runner = Runner(executor, validator: new AcceptingWorkflowValidator());
+
+        await runner.RunAsync(project, CancellationToken.None);
+
+        Assert.Equal(["target-action"], executor.Executed);
     }
 
     [Fact]
@@ -358,18 +417,34 @@ public sealed class WorkflowEngineTests
     {
         var project = CrossScriptProject(
             ScriptInteractionMode.Background,
-            new() { Enabled = true, TitlePattern = "^Game$", ExecutionMode = WindowExecutionMode.Parallel },
+            new()
+            {
+                Enabled = true,
+                MatchPattern = "^Game$",
+                ExcludePattern = "测试服$",
+                ExecutionMode = WindowExecutionMode.Parallel
+            },
             ScriptInteractionMode.Background,
-            new() { Enabled = true, TitlePattern = "^Game$", ExecutionMode = WindowExecutionMode.Parallel });
+            new()
+            {
+                Enabled = true,
+                MatchPattern = "^Game$",
+                ExcludePattern = "测试服$",
+                ExecutionMode = WindowExecutionMode.Parallel
+            });
+        var scopes = new ChangingWindowScopeService([(nint)101], [(nint)202]);
         var runner = Runner(
             new TrackingActionExecutor(),
-            new ChangingWindowScopeService([(nint)101], [(nint)202]),
+            scopes,
             validator: new AcceptingWorkflowValidator());
 
         var error = await Assert.ThrowsAsync<InvalidOperationException>(
             () => runner.RunAsync(project, CancellationToken.None));
 
-        Assert.Contains("当前目标窗口已不再匹配", error.Message);
+        Assert.Contains("当前目标窗口已不再符合", error.Message);
+        Assert.Equal(
+            [("^Game$", "测试服$"), ("^Game$", "测试服$")],
+            scopes.Calls);
     }
 
     [Fact]
@@ -423,14 +498,22 @@ public sealed class WorkflowEngineTests
     public async Task WorkflowWindowScopeInitializesContextBeforeNodes()
     {
         var executor = new WindowScopeTrackingExecutor();
-        var runner = Runner(executor, new FixedWindowScopeService([(nint)101]));
+        var scopes = new FixedWindowScopeService([(nint)101]);
+        var runner = Runner(executor, scopes);
         var project = Chain(Action("one"), Action("two"));
-        project.WindowScope = new() { Enabled = true, TitlePattern = "^Game", ExecutionMode = WindowExecutionMode.Serial };
+        project.WindowScope = new()
+        {
+            Enabled = true,
+            MatchPattern = "^Game",
+            ExcludePattern = "测试服$",
+            ExecutionMode = WindowExecutionMode.Serial
+        };
 
         await runner.RunAsync(project, CancellationToken.None);
 
         Assert.Equal(new nint[] { 101 }, executor.Handles);
         Assert.Equal(new long[] { 101 }, Assert.IsType<long[]>(executor.OutputValue));
+        Assert.Equal(("^Game", "测试服$"), Assert.Single(scopes.Calls));
     }
 
     [Fact]
@@ -1088,7 +1171,13 @@ public sealed class WorkflowEngineTests
 
     private sealed class FixedWindowScopeService(IReadOnlyList<nint> handles) : IWindowScopeService
     {
-        public IReadOnlyList<nint> ResolveWindowHandles(string titlePattern) => handles;
+        public List<(string MatchPattern, string ExcludePattern)> Calls { get; } = [];
+
+        public IReadOnlyList<nint> ResolveWindowHandles(string matchPattern, string excludePattern = "")
+        {
+            Calls.Add((matchPattern, excludePattern));
+            return handles;
+        }
     }
 
     private sealed class ChangingWindowScopeService(
@@ -1096,9 +1185,13 @@ public sealed class WorkflowEngineTests
         IReadOnlyList<nint> laterHandles) : IWindowScopeService
     {
         private int _calls;
+        public List<(string MatchPattern, string ExcludePattern)> Calls { get; } = [];
 
-        public IReadOnlyList<nint> ResolveWindowHandles(string titlePattern) =>
-            Interlocked.Increment(ref _calls) == 1 ? initialHandles : laterHandles;
+        public IReadOnlyList<nint> ResolveWindowHandles(string matchPattern, string excludePattern = "")
+        {
+            Calls.Add((matchPattern, excludePattern));
+            return Interlocked.Increment(ref _calls) == 1 ? initialHandles : laterHandles;
+        }
     }
 
     private sealed class AcceptingWorkflowValidator : IWorkflowValidator

@@ -112,7 +112,7 @@ public sealed class DetectorEvaluationContext
         if (background)
         {
             if (WindowHandles.Count != 1)
-                throw new InvalidOperationException("后台读取需要唯一的目标窗口。请在脚本属性中设置窗口范围，或先使用只返回一个窗口的窗口作用域节点。");
+                throw new InvalidOperationException("后台读取需要唯一的目标窗口。请在脚本属性中启用“正则匹配窗口”，或先使用只返回一个窗口的窗口作用域节点。");
             if (WindowCapture is null)
                 throw new InvalidOperationException("后台窗口读取服务未注册，当前运行环境不支持后台读取。");
             windowHandle = WindowHandles[0];

@@ -347,7 +347,7 @@ public sealed class BackgroundModeExecutionTests
             Context([(nint)303], ScriptInteractionMode.Background),
             CancellationToken.None));
 
-        Assert.Equal("窗口作用域不包含当前后台操作窗口。", error.Message);
+        Assert.Equal("窗口作用域不包含当前操作窗口。", error.Message);
     }
 
     private static INodeExecutor CreateInputExecutor(
@@ -643,9 +643,9 @@ public sealed class BackgroundModeExecutionTests
     {
         public string? LastPattern { get; private set; }
 
-        public IReadOnlyList<nint> ResolveWindowHandles(string titlePattern)
+        public IReadOnlyList<nint> ResolveWindowHandles(string matchPattern, string excludePattern = "")
         {
-            LastPattern = titlePattern;
+            LastPattern = matchPattern;
             return handles;
         }
     }

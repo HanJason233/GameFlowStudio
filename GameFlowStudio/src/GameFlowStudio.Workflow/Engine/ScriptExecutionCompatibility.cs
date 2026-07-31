@@ -21,6 +21,12 @@ internal static class ScriptExecutionCompatibility
         AutomationScript target,
         out string error)
     {
+        if (source.WindowScope is null || target.WindowScope is null)
+        {
+            error = "来源脚本或目标脚本的窗口作用域为空。";
+            return false;
+        }
+
         if (source.InteractionMode != target.InteractionMode)
         {
             error = "来源脚本与目标脚本的前台/后台模式不同。";
@@ -39,12 +45,27 @@ internal static class ScriptExecutionCompatibility
             return false;
         }
 
+        if (!source.WindowScope.Enabled)
+        {
+            error = string.Empty;
+            return true;
+        }
+
         if (!string.Equals(
-                NormalizeTitlePattern(source.WindowScope.TitlePattern),
-                NormalizeTitlePattern(target.WindowScope.TitlePattern),
+                NormalizeMatchPattern(source.WindowScope.MatchPattern),
+                NormalizeMatchPattern(target.WindowScope.MatchPattern),
                 StringComparison.Ordinal))
         {
-            error = "来源脚本与目标脚本的窗口标题规则不同。";
+            error = "来源脚本与目标脚本的窗口匹配正则不同。";
+            return false;
+        }
+
+        if (!string.Equals(
+                NormalizeExcludePattern(source.WindowScope.ExcludePattern),
+                NormalizeExcludePattern(target.WindowScope.ExcludePattern),
+                StringComparison.Ordinal))
+        {
+            error = "来源脚本与目标脚本的窗口排除正则不同。";
             return false;
         }
 
@@ -52,6 +73,9 @@ internal static class ScriptExecutionCompatibility
         return true;
     }
 
-    public static string NormalizeTitlePattern(string? titlePattern) =>
-        string.IsNullOrWhiteSpace(titlePattern) ? ".*" : titlePattern;
+    public static string NormalizeMatchPattern(string? matchPattern) =>
+        string.IsNullOrWhiteSpace(matchPattern) ? ".*" : matchPattern;
+
+    public static string NormalizeExcludePattern(string? excludePattern) =>
+        string.IsNullOrWhiteSpace(excludePattern) ? string.Empty : excludePattern;
 }

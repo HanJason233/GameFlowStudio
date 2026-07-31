@@ -186,10 +186,10 @@ public interface IProgramAutomationService
     Task StartAsync(string filePath, string arguments, CancellationToken cancellationToken);
 }
 
-/// <summary>通过窗口标题规则解析自动化操作的目标窗口作用域。</summary>
+/// <summary>通过窗口标题包含与排除规则解析自动化操作的目标窗口作用域。</summary>
 public interface IWindowScopeService
 {
-    IReadOnlyList<nint> ResolveWindowHandles(string titlePattern);
+    IReadOnlyList<nint> ResolveWindowHandles(string matchPattern, string excludePattern = "");
 }
 
 public interface IProjectStorageService

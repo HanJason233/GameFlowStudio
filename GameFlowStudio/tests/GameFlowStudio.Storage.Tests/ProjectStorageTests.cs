@@ -30,7 +30,13 @@ public sealed class ProjectStorageTests : IDisposable
         var path = Path.Combine(_directory, "script-properties.gflow");
         var project = Project();
         project.Scripts[0].Name = "异常恢复脚本";
-        project.Scripts[0].WindowScope = new() { Enabled = true, TitlePattern = "^Game", ExecutionMode = executionMode };
+        project.Scripts[0].WindowScope = new()
+        {
+            Enabled = true,
+            MatchPattern = "^Game",
+            ExcludePattern = "测试|维护",
+            ExecutionMode = executionMode
+        };
         project.Scripts[0].InteractionMode = interactionMode;
         project.Scripts[0].DefaultNodeDelayMs = 75;
 
@@ -39,7 +45,8 @@ public sealed class ProjectStorageTests : IDisposable
 
         Assert.Equal("异常恢复脚本", loaded.Scripts[0].Name);
         Assert.True(loaded.Scripts[0].WindowScope.Enabled);
-        Assert.Equal("^Game", loaded.Scripts[0].WindowScope.TitlePattern);
+        Assert.Equal("^Game", loaded.Scripts[0].WindowScope.MatchPattern);
+        Assert.Equal("测试|维护", loaded.Scripts[0].WindowScope.ExcludePattern);
         Assert.Equal(executionMode, loaded.Scripts[0].WindowScope.ExecutionMode);
         Assert.Equal(interactionMode, loaded.Scripts[0].InteractionMode);
         Assert.Equal(75, loaded.Scripts[0].DefaultNodeDelayMs);
@@ -73,16 +80,24 @@ public sealed class ProjectStorageTests : IDisposable
     [Theory]
     [InlineData("""{"project":{},"scripts":[]}""", "schemaVersion")]
     [InlineData("""{"schemaVersion":"1.6","project":{},"scripts":[]}""", "1.6")]
-    [InlineData("""{"schemaVersion":"1.8","project":{},"scripts":[]}""", "1.8")]
-    [InlineData("""{"schemaVersion":"1.7","project":{}}""", "scripts")]
-    [InlineData("""{"schemaVersion":"1.7","project":{},"scripts":null}""", "scripts")]
-    [InlineData("""{"schemaVersion":"1.7","project":{},"scripts":[{"interactionMode":"foreground","windowScope":{},"variables":{},"nodes":[],"edges":[]}]}""", "executionMode")]
-    [InlineData("""{"schemaVersion":"1.7","project":{},"scripts":[{"windowScope":{"executionMode":"serial"},"variables":{},"nodes":[],"edges":[]}]}""", "interactionMode")]
-    [InlineData("""{"schemaVersion":"1.7","project":{},"scripts":[{"interactionMode":"foreground","windowScope":{"executionMode":0},"variables":{},"nodes":[],"edges":[]}]}""", "executionMode")]
-    [InlineData("""{"schemaVersion":"1.7","project":{},"scripts":[{"interactionMode":0,"windowScope":{"executionMode":"serial"},"variables":{},"nodes":[],"edges":[]}]}""", "interactionMode")]
-    [InlineData("""{"schemaVersion":"1.7","project":{},"scripts":[{"interactionMode":"foreground","windowScope":{"executionMode":"serial"},"variables":{},"edges":[]}]}""", "nodes")]
-    [InlineData("""{"schemaVersion":"1.7","project":{},"scripts":[{"interactionMode":"foreground","windowScope":{"executionMode":"serial"},"variables":{},"nodes":[{"position":{}}],"edges":[]}]}""", "data")]
-    [InlineData("""{"schemaVersion":"1.7","project":{},"scripts":[{"id":null,"interactionMode":"foreground","windowScope":{"executionMode":"serial"},"variables":{},"nodes":[],"edges":[]}]}""", "id")]
+    [InlineData("""{"schemaVersion":"1.7","project":{},"scripts":[]}""", "1.7")]
+    [InlineData("""{"schemaVersion":"1.9","project":{},"scripts":[]}""", "1.9")]
+    [InlineData("""{"schemaVersion":"1.8","project":{}}""", "scripts")]
+    [InlineData("""{"schemaVersion":"1.8","project":{},"scripts":null}""", "scripts")]
+    [InlineData("""{"schemaVersion":"1.8","project":{},"scripts":[{"interactionMode":"foreground","windowScope":{},"variables":{},"nodes":[],"edges":[]}]}""", "enabled")]
+    [InlineData("""{"schemaVersion":"1.8","project":{},"scripts":[{"interactionMode":"foreground","windowScope":{"enabled":"false","matchPattern":".*","excludePattern":"","executionMode":"serial"},"variables":{},"nodes":[],"edges":[]}]}""", "enabled")]
+    [InlineData("""{"schemaVersion":"1.8","project":{},"scripts":[{"interactionMode":"foreground","windowScope":{"enabled":false,"excludePattern":"","executionMode":"serial"},"variables":{},"nodes":[],"edges":[]}]}""", "matchPattern")]
+    [InlineData("""{"schemaVersion":"1.8","project":{},"scripts":[{"interactionMode":"foreground","windowScope":{"enabled":false,"matchPattern":null,"excludePattern":"","executionMode":"serial"},"variables":{},"nodes":[],"edges":[]}]}""", "matchPattern")]
+    [InlineData("""{"schemaVersion":"1.8","project":{},"scripts":[{"interactionMode":"foreground","windowScope":{"enabled":false,"titlePattern":".*","excludePattern":"","executionMode":"serial"},"variables":{},"nodes":[],"edges":[]}]}""", "matchPattern")]
+    [InlineData("""{"schemaVersion":"1.8","project":{},"scripts":[{"interactionMode":"foreground","windowScope":{"enabled":false,"matchPattern":".*","executionMode":"serial"},"variables":{},"nodes":[],"edges":[]}]}""", "excludePattern")]
+    [InlineData("""{"schemaVersion":"1.8","project":{},"scripts":[{"interactionMode":"foreground","windowScope":{"enabled":false,"matchPattern":".*","excludePattern":null,"executionMode":"serial"},"variables":{},"nodes":[],"edges":[]}]}""", "excludePattern")]
+    [InlineData("""{"schemaVersion":"1.8","project":{},"scripts":[{"interactionMode":"foreground","windowScope":{"enabled":false,"matchPattern":".*","excludePattern":""},"variables":{},"nodes":[],"edges":[]}]}""", "executionMode")]
+    [InlineData("""{"schemaVersion":"1.8","project":{},"scripts":[{"windowScope":{"enabled":false,"matchPattern":".*","excludePattern":"","executionMode":"serial"},"variables":{},"nodes":[],"edges":[]}]}""", "interactionMode")]
+    [InlineData("""{"schemaVersion":"1.8","project":{},"scripts":[{"interactionMode":"foreground","windowScope":{"enabled":false,"matchPattern":".*","excludePattern":"","executionMode":0},"variables":{},"nodes":[],"edges":[]}]}""", "executionMode")]
+    [InlineData("""{"schemaVersion":"1.8","project":{},"scripts":[{"interactionMode":0,"windowScope":{"enabled":false,"matchPattern":".*","excludePattern":"","executionMode":"serial"},"variables":{},"nodes":[],"edges":[]}]}""", "interactionMode")]
+    [InlineData("""{"schemaVersion":"1.8","project":{},"scripts":[{"interactionMode":"foreground","windowScope":{"enabled":false,"matchPattern":".*","excludePattern":"","executionMode":"serial"},"variables":{},"edges":[]}]}""", "nodes")]
+    [InlineData("""{"schemaVersion":"1.8","project":{},"scripts":[{"interactionMode":"foreground","windowScope":{"enabled":false,"matchPattern":".*","excludePattern":"","executionMode":"serial"},"variables":{},"nodes":[{"position":{}}],"edges":[]}]}""", "data")]
+    [InlineData("""{"schemaVersion":"1.8","project":{},"scripts":[{"id":null,"interactionMode":"foreground","windowScope":{"enabled":false,"matchPattern":".*","excludePattern":"","executionMode":"serial"},"variables":{},"nodes":[],"edges":[]}]}""", "id")]
     public async Task UnsupportedOrIncompleteDocumentsAreRejected(string json, string expectedMessage)
     {
         Directory.CreateDirectory(_directory);
@@ -102,11 +117,11 @@ public sealed class ProjectStorageTests : IDisposable
         var path = Path.Combine(_directory, "unknown-window-execution-mode.gflow");
         const string json = """
         {
-          "schemaVersion": "1.7",
+          "schemaVersion": "1.8",
           "project": {},
           "scripts": [{
             "interactionMode": "foreground",
-            "windowScope": { "executionMode": "unsupported" },
+            "windowScope": { "enabled": false, "matchPattern": ".*", "excludePattern": "", "executionMode": "unsupported" },
             "variables": {},
             "nodes": [],
             "edges": []
@@ -128,11 +143,11 @@ public sealed class ProjectStorageTests : IDisposable
         var path = Path.Combine(_directory, "numeric-enum.gflow");
         const string json = """
         {
-          "schemaVersion": "1.7",
+          "schemaVersion": "1.8",
           "project": {},
           "scripts": [{
             "interactionMode": "foreground",
-            "windowScope": { "executionMode": "serial" },
+            "windowScope": { "enabled": false, "matchPattern": ".*", "excludePattern": "", "executionMode": "serial" },
             "variables": { "count": { "type": 0, "value": 1 } },
             "nodes": [],
             "edges": []
@@ -158,6 +173,23 @@ public sealed class ProjectStorageTests : IDisposable
             () => _storage.SaveAsync(project, path, CancellationToken.None));
 
         Assert.Contains("executionMode", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.False(File.Exists(path));
+    }
+
+    [Theory]
+    [InlineData("matchPattern")]
+    [InlineData("excludePattern")]
+    public async Task NullWindowMatchPatternsCannotBeSaved(string propertyName)
+    {
+        var path = Path.Combine(_directory, $"null-{propertyName}.gflow");
+        var project = Project();
+        if (propertyName == "matchPattern") project.Scripts[0].WindowScope.MatchPattern = null!;
+        else project.Scripts[0].WindowScope.ExcludePattern = null!;
+
+        var error = await Assert.ThrowsAsync<InvalidDataException>(
+            () => _storage.SaveAsync(project, path, CancellationToken.None));
+
+        Assert.Contains(propertyName, error.Message, StringComparison.OrdinalIgnoreCase);
         Assert.False(File.Exists(path));
     }
 
@@ -193,11 +225,11 @@ public sealed class ProjectStorageTests : IDisposable
         var path = Path.Combine(_directory, "invalid-mode-combination.gflow");
         var json = $$"""
         {
-          "schemaVersion": "1.7",
+          "schemaVersion": "1.8",
           "project": {},
           "scripts": [{
             "interactionMode": "{{interactionMode}}",
-            "windowScope": { "executionMode": "{{executionMode}}" },
+            "windowScope": { "enabled": false, "matchPattern": ".*", "excludePattern": "", "executionMode": "{{executionMode}}" },
             "variables": {},
             "nodes": [],
             "edges": []

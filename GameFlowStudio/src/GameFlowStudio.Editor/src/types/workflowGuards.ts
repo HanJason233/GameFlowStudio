@@ -8,7 +8,7 @@ export function isNodeType(value: unknown): value is NodeType {
 
 export function isWorkflowDocument(value: unknown): value is WorkflowDocument {
   if (!isRecord(value)
-    || value.schemaVersion !== '1.7'
+    || value.schemaVersion !== '1.8'
     || !isProjectMetadata(value.project)
     || !isVariables(value.variables)
     || !Array.isArray(value.nodes)

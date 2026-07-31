@@ -181,7 +181,8 @@ public sealed class RecordedScriptFactoryTests
         source.WindowScope = new()
         {
             Enabled = true,
-            TitlePattern = "^原窗口$",
+            MatchPattern = "^原窗口$",
+            ExcludePattern = "测试窗口$",
             ExecutionMode = WindowExecutionMode.Parallel
         };
         source.Variables["保留"] = new()
@@ -215,7 +216,8 @@ public sealed class RecordedScriptFactoryTests
         Assert.Equal(1350, appended.DefaultNodeDelayMs);
         Assert.Equal(ScriptInteractionMode.Background, appended.InteractionMode);
         Assert.True(appended.WindowScope.Enabled);
-        Assert.Equal("^原窗口$", appended.WindowScope.TitlePattern);
+        Assert.Equal("^原窗口$", appended.WindowScope.MatchPattern);
+        Assert.Equal("测试窗口$", appended.WindowScope.ExcludePattern);
         Assert.Equal(WindowExecutionMode.Parallel, appended.WindowScope.ExecutionMode);
         Assert.Equal(7, appended.Variables["保留"].Value.GetInt32());
         Assert.Equal([NodeTypes.Start, NodeTypes.End], source.Nodes.Select(node => node.Type));

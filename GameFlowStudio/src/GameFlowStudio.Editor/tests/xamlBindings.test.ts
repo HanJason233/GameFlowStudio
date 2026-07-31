@@ -77,3 +77,37 @@ test('脚本属性按前后台模式提供对应的操作流程', () => {
   assert.match(helpWindow, /伪并行（前台）/)
   assert.match(helpWindow, /并行（后台）/)
 })
+
+test('脚本匹配模式先包含窗口再排除不需要的目标', () => {
+  const desktopDirectory = resolve('..', 'GameFlowStudio.Desktop')
+  const mainWindow = readFileSync(resolve(desktopDirectory, 'Views', 'MainWindow.xaml'), 'utf8')
+  const helpWindow = readFileSync(resolve(desktopDirectory, 'Views', 'HelpWindow.xaml'), 'utf8')
+  const mainViewModel = readFileSync(resolve(desktopDirectory, 'ViewModels', 'MainViewModel.cs'), 'utf8')
+  const scriptMatchingUi = `${mainWindow}\n${mainViewModel}`
+
+  assert.match(mainWindow, /Text="匹配模式"/)
+  assert.match(mainWindow, /Content="整个屏幕"/)
+  assert.match(mainWindow, /Content="正则匹配窗口"/)
+  assert.match(
+    mainWindow,
+    /Visibility="\{Binding ScriptWindowScopeEnabled, Converter=\{StaticResource BoolVisibility\}\}"/,
+  )
+  assert.equal(
+    [...mainWindow.matchAll(/Text="\{Binding ScriptWindowMatchPattern, UpdateSourceTrigger=PropertyChanged\}"/g)].length,
+    1,
+  )
+  assert.equal(
+    [...mainWindow.matchAll(/Text="\{Binding ScriptWindowExcludePattern, UpdateSourceTrigger=PropertyChanged\}"/g)].length,
+    1,
+  )
+  assert.match(mainWindow, /Text="规定要操作哪些窗口"/)
+  assert.match(mainWindow, /Text="从正则匹配结果中排除不需要的匹配目标，留空表示不排除"/)
+  assert.match(mainViewModel, /ActiveScript\.WindowScope\.MatchPattern = value/)
+  assert.match(mainViewModel, /ActiveScript\.WindowScope\.ExcludePattern = value/)
+  assert.doesNotMatch(scriptMatchingUi, /ScriptWindowTitlePattern|Text="窗口范围"|窗口标题正则（正则匹配窗口）/)
+  assert.match(helpWindow, /先使用“正则匹配”/)
+  assert.match(helpWindow, /再使用“排除正则匹配”/)
+  assert.match(helpWindow, /全部被排除时运行失败/)
+  assert.match(helpWindow, /包含与排除规则都须一致/)
+  assert.match(helpWindow, /不能重新加入被脚本排除的目标/)
+})

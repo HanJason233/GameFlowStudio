@@ -32,13 +32,12 @@ public sealed class WindowScopeNodeExecutor(
     {
         cancellationToken.ThrowIfCancellationRequested();
         IReadOnlyList<nint> handles = scopes.ResolveWindowHandles(NodeParameterReader.String(node, "titlePattern"));
-        // 窗口作用域节点可以缩小匹配范围，但不能破坏后台并行轨道的唯一窗口归属。
-        if (context.ScriptInteractionMode == ScriptInteractionMode.Background
-            && context.WindowHandles.Count == 1)
+        // 已绑定到单个窗口的执行轨道只能继续缩小到该窗口，不能重新引入脚本匹配模式已排除的目标。
+        if (context.WindowHandles.Count == 1)
         {
             var currentWindow = context.WindowHandles[0];
             if (!handles.Contains(currentWindow))
-                throw new InvalidOperationException("窗口作用域不包含当前后台操作窗口。");
+                throw new InvalidOperationException("窗口作用域不包含当前操作窗口。");
             handles = [currentWindow];
         }
         if (NodeParameterReader.Bool(node, "singleWindow", false) && handles.Count > 1)
@@ -170,7 +169,7 @@ internal static class BackgroundInputExecution
         string operation)
     {
         if (context.WindowHandles.Count != 1)
-            throw new InvalidOperationException($"后台{operation}需要唯一的目标窗口。请在脚本属性中设置窗口范围，或先使用只返回一个窗口的窗口作用域节点。");
+            throw new InvalidOperationException($"后台{operation}需要唯一的目标窗口。请在脚本属性中启用“正则匹配窗口”，或先使用只返回一个窗口的窗口作用域节点。");
         if (backgroundInput is null)
             throw new InvalidOperationException($"后台{operation}服务未注册，当前运行环境不支持该操作。");
         return context.WindowHandles[0];
@@ -188,7 +187,7 @@ public sealed class MouseClickNodeExecutor(
         if (context.ScriptInteractionMode == ScriptInteractionMode.Background)
         {
             if (context.WindowHandles.Count != 1)
-                throw new InvalidOperationException("后台点击需要唯一的目标窗口。请在脚本属性中设置窗口范围，或先使用只返回一个窗口的窗口作用域节点。");
+                throw new InvalidOperationException("后台点击需要唯一的目标窗口。请在脚本属性中启用“正则匹配窗口”，或先使用只返回一个窗口的窗口作用域节点。");
             if (backgroundClicks is null)
                 throw new InvalidOperationException("后台点击服务未注册，当前运行环境不支持后台点击。");
 

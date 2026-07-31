@@ -93,7 +93,8 @@ public sealed class MainViewModel : ObservableObject
     private bool _isHorizontalStepLayout;
     private bool _isScriptPropertiesVisible;
     private bool _scriptWindowScopeEnabled;
-    private string _scriptWindowTitlePattern = ".*";
+    private string _scriptWindowMatchPattern = ".*";
+    private string _scriptWindowExcludePattern = string.Empty;
     private WindowExecutionMode _scriptOperationFlow = WindowExecutionMode.Serial;
     private ScriptInteractionModeValue _scriptInteractionMode = ScriptInteractionModeValue.Foreground;
     private string _activeScriptName = string.Empty;
@@ -221,10 +222,15 @@ public sealed class MainViewModel : ObservableObject
             else ScriptWindowScopeEnabled = true;
         }
     }
-    public string ScriptWindowTitlePattern
+    public string ScriptWindowMatchPattern
     {
-        get => _scriptWindowTitlePattern;
-        set { if (Set(ref _scriptWindowTitlePattern, value)) { ActiveScript.WindowScope.TitlePattern = value; MarkScriptSettingsChanged(); } }
+        get => _scriptWindowMatchPattern;
+        set { if (Set(ref _scriptWindowMatchPattern, value)) { ActiveScript.WindowScope.MatchPattern = value; MarkScriptSettingsChanged(); } }
+    }
+    public string ScriptWindowExcludePattern
+    {
+        get => _scriptWindowExcludePattern;
+        set { if (Set(ref _scriptWindowExcludePattern, value)) { ActiveScript.WindowScope.ExcludePattern = value; MarkScriptSettingsChanged(); } }
     }
     public WindowExecutionMode ScriptOperationFlow
     {
@@ -1140,7 +1146,8 @@ public sealed class MainViewModel : ObservableObject
         script.WindowScope ??= new();
         _activeScriptName = script.Name;
         _scriptWindowScopeEnabled = script.WindowScope.Enabled;
-        _scriptWindowTitlePattern = script.WindowScope.TitlePattern;
+        _scriptWindowMatchPattern = script.WindowScope.MatchPattern;
+        _scriptWindowExcludePattern = script.WindowScope.ExcludePattern;
         _scriptInteractionMode = script.InteractionMode;
         _scriptOperationFlow = NormalizeOperationFlow(_scriptInteractionMode, script.WindowScope.ExecutionMode);
         script.WindowScope.ExecutionMode = _scriptOperationFlow;
@@ -1149,7 +1156,8 @@ public sealed class MainViewModel : ObservableObject
         Raise(nameof(ActiveScriptId));
         Raise(nameof(UseWholeScreen));
         Raise(nameof(ScriptWindowScopeEnabled));
-        Raise(nameof(ScriptWindowTitlePattern));
+        Raise(nameof(ScriptWindowMatchPattern));
+        Raise(nameof(ScriptWindowExcludePattern));
         Raise(nameof(ScriptInteractionMode));
         Raise(nameof(OperationFlowModes));
         Raise(nameof(ScriptOperationFlow));

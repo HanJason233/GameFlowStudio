@@ -18,22 +18,35 @@ internal sealed class ProjectStructureRule(NodeParameterValidator parameterValid
     {
         var workflow = context.Workflow;
         var scriptInteractionMode = ResolveScriptInteractionMode(workflow);
-        if (workflow.SchemaVersion is not "1.7") result.Add("schema", $"不支持的架构版本：{workflow.SchemaVersion}。");
+        if (workflow.SchemaVersion is not "1.8") result.Add("schema", $"不支持的架构版本：{workflow.SchemaVersion}。");
         foreach (var group in workflow.Scripts.GroupBy(script => script.Id).Where(group => string.IsNullOrWhiteSpace(group.Key) || group.Count() > 1))
             result.Add("script_id", "脚本 ID 不能为空且必须唯一。");
         foreach (var script in workflow.Scripts.Where(script => string.IsNullOrWhiteSpace(script.Name)))
             result.Add("script_name", $"脚本 {script.Id} 的名称不能为空。");
         foreach (var script in workflow.Scripts.Where(script => !Enum.IsDefined(script.InteractionMode)))
             result.Add("interaction_mode", $"脚本 {script.Id} 的运行方式无效。");
-        foreach (var script in workflow.Scripts.Where(script => !Enum.IsDefined(script.WindowScope.ExecutionMode)))
+        foreach (var script in workflow.Scripts.Where(script => script.WindowScope is null))
+            result.Add("window_scope", $"脚本 {script.Id} 的窗口作用域不能为空。");
+        foreach (var script in workflow.Scripts.Where(script => script.WindowScope is { MatchPattern: null }))
+            result.Add("window_scope_pattern", $"脚本 {script.Id} 的窗口匹配正则不能为空。");
+        foreach (var script in workflow.Scripts.Where(script => script.WindowScope is { ExcludePattern: null }))
+            result.Add("window_scope_pattern", $"脚本 {script.Id} 的窗口排除正则不能为 null。");
+        foreach (var script in workflow.Scripts.Where(script => script.WindowScope is not null && !Enum.IsDefined(script.WindowScope.ExecutionMode)))
             result.Add("window_execution_mode", $"脚本 {script.Id} 的多窗口执行方式无效。");
         foreach (var script in workflow.Scripts.Where(script =>
-                     Enum.IsDefined(script.InteractionMode)
+                     script.WindowScope is not null
+                     && Enum.IsDefined(script.InteractionMode)
                      && Enum.IsDefined(script.WindowScope.ExecutionMode)
                      && !ScriptExecutionCompatibility.IsOperationFlowValid(
                          script.InteractionMode,
                          script.WindowScope.ExecutionMode)))
             result.Add("operation_flow", $"脚本 {script.Id} 的运行方式与操作流程不匹配。");
+        if (workflow.WindowScope is { MatchPattern: null } runtimeMatchScope
+            && !workflow.Scripts.Any(script => ReferenceEquals(script.WindowScope, runtimeMatchScope)))
+            result.Add("window_scope_pattern", "当前脚本的窗口匹配正则不能为空。");
+        if (workflow.WindowScope is { ExcludePattern: null } runtimeExcludeScope
+            && !workflow.Scripts.Any(script => ReferenceEquals(script.WindowScope, runtimeExcludeScope)))
+            result.Add("window_scope_pattern", "当前脚本的窗口排除正则不能为 null。");
         if (workflow.WindowScope is { } runtimeWindowScope
             && !workflow.Scripts.Any(script => ReferenceEquals(script.WindowScope, runtimeWindowScope))
             && !Enum.IsDefined(runtimeWindowScope.ExecutionMode))

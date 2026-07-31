@@ -3,39 +3,75 @@ using GameFlowStudio.Contracts.Services;
 
 namespace GameFlowStudio.Automation.Windows;
 
-/// <summary>使用标题正则表达式解析可见顶级窗口的句柄集合。</summary>
+/// <summary>使用包含与排除标题正则表达式解析可见顶级窗口的句柄集合。</summary>
 public sealed class WindowScopeService(IWindowAutomationService windows) : IWindowScopeService
 {
     private static readonly TimeSpan MatchTimeout = TimeSpan.FromMilliseconds(250);
 
-    public IReadOnlyList<nint> ResolveWindowHandles(string titlePattern)
+    public IReadOnlyList<nint> ResolveWindowHandles(string matchPattern, string excludePattern = "")
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(titlePattern);
+        if (string.IsNullOrWhiteSpace(matchPattern))
+            throw new ArgumentException("窗口匹配正则表达式不能为空。", nameof(matchPattern));
 
-        Regex titleRegex;
+        Regex matchRegex;
         try
         {
-            titleRegex = new Regex(
-                titlePattern,
+            matchRegex = new Regex(
+                matchPattern,
                 RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
                 MatchTimeout);
         }
         catch (ArgumentException exception)
         {
-            throw new ArgumentException("窗口标题正则表达式无效。", nameof(titlePattern), exception);
+            throw new ArgumentException("窗口匹配正则表达式无效。", nameof(matchPattern), exception);
         }
 
-        try
+        Regex? excludeRegex = null;
+        if (!string.IsNullOrWhiteSpace(excludePattern))
         {
-            return windows.GetOpenWindows()
-                .Where(window => titleRegex.IsMatch(window.Title))
-                .Select(window => window.Handle)
-                .Distinct()
-                .ToArray();
+            try
+            {
+                excludeRegex = new Regex(
+                    excludePattern,
+                    RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
+                    MatchTimeout);
+            }
+            catch (ArgumentException exception)
+            {
+                throw new ArgumentException("窗口排除正则表达式无效。", nameof(excludePattern), exception);
+            }
         }
-        catch (RegexMatchTimeoutException exception)
+
+        var handles = new List<nint>();
+        var seenHandles = new HashSet<nint>();
+        foreach (var window in windows.GetOpenWindows())
         {
-            throw new InvalidOperationException("窗口标题正则匹配超时。", exception);
+            bool included;
+            try
+            {
+                included = matchRegex.IsMatch(window.Title);
+            }
+            catch (RegexMatchTimeoutException exception)
+            {
+                throw new InvalidOperationException("窗口匹配正则表达式执行超时。", exception);
+            }
+
+            if (!included) continue;
+
+            bool excluded;
+            try
+            {
+                excluded = excludeRegex?.IsMatch(window.Title) == true;
+            }
+            catch (RegexMatchTimeoutException exception)
+            {
+                throw new InvalidOperationException("窗口排除正则表达式执行超时。", exception);
+            }
+
+            if (!excluded && seenHandles.Add(window.Handle))
+                handles.Add(window.Handle);
         }
+
+        return handles;
     }
 }

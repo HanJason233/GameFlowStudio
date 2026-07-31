@@ -1,4 +1,5 @@
 using GameFlowStudio.Automation.Windows;
+using GameFlowStudio.Contracts.Enums;
 using GameFlowStudio.Contracts.Results;
 using GameFlowStudio.Contracts.Services;
 using GameFlowStudio.Contracts.Workflows;
@@ -23,6 +24,41 @@ public sealed class WindowScopeServiceTests
         var handles = scope.ResolveWindowHandles("^game client - (alpha|beta)$");
 
         Assert.Equal(new nint[] { 101, 202 }, handles);
+        Assert.Equal(1, windows.GetOpenWindowsCallCount);
+    }
+
+    [Fact]
+    public void ResolveWindowHandlesIncludesFirstThenExcludesMatchingTargets()
+    {
+        var windows = new FakeWindowAutomationService(
+        [
+            new((nint)101, "Game Client - Alpha"),
+            new((nint)202, "Game Client - Beta 测试服"),
+            new((nint)303, "Notepad 测试服"),
+            new((nint)404, "Game Client - Release")
+        ]);
+        var scope = new WindowScopeService(windows);
+
+        var handles = scope.ResolveWindowHandles("^Game Client", "测试服$");
+
+        Assert.Equal(new nint[] { 101, 404 }, handles);
+        Assert.Equal(1, windows.GetOpenWindowsCallCount);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void ResolveWindowHandlesDoesNotExcludeWhenExcludePatternIsBlank(string excludePattern)
+    {
+        var scope = new WindowScopeService(new FakeWindowAutomationService(
+        [
+            new((nint)101, "Game Alpha"),
+            new((nint)202, "Game Beta")
+        ]));
+
+        var handles = scope.ResolveWindowHandles("^Game", excludePattern);
+
+        Assert.Equal(new nint[] { 101, 202 }, handles);
     }
 
     [Theory]
@@ -33,7 +69,22 @@ public sealed class WindowScopeServiceTests
     {
         var scope = new WindowScopeService(new FakeWindowAutomationService([]));
 
-        Assert.Throws<ArgumentException>(() => scope.ResolveWindowHandles(pattern));
+        var error = Assert.Throws<ArgumentException>(() => scope.ResolveWindowHandles(pattern));
+
+        Assert.Equal("matchPattern", error.ParamName);
+        Assert.Contains("窗口匹配正则表达式", error.Message);
+    }
+
+    [Fact]
+    public void ResolveWindowHandlesRejectsInvalidExcludePatternClearly()
+    {
+        var scope = new WindowScopeService(new FakeWindowAutomationService([]));
+
+        var error = Assert.Throws<ArgumentException>(
+            () => scope.ResolveWindowHandles(".*", "["));
+
+        Assert.Equal("excludePattern", error.ParamName);
+        Assert.Contains("窗口排除正则表达式无效", error.Message);
     }
 
     [Fact]
@@ -82,10 +133,69 @@ public sealed class WindowScopeServiceTests
         Assert.Equal((nint)101, windows.ActivatedHandle);
     }
 
+    [Fact]
+    public async Task ForegroundWindowScopeKeepsTheCurrentScriptTrackWindow()
+    {
+        var windows = new FakeWindowAutomationService([]);
+        var executor = new WindowScopeNodeExecutor(
+            new FakeWindowScopeService([(nint)101, (nint)202]),
+            windows);
+        var node = WorkflowEngineTests.Node(
+            "scope",
+            Contracts.Nodes.NodeTypes.WindowScope,
+            ("titlePattern", "^Game$"),
+            ("outputVariable", "targets"),
+            ("activateWindow", true));
+        var context = new Contracts.Results.WorkflowExecutionContext
+        {
+            Workflow = new AutomationProject(),
+            ScriptInteractionMode = ScriptInteractionMode.Foreground,
+            WindowHandles = [(nint)202],
+            WaitIfPausedAsync = _ => Task.CompletedTask,
+            Log = _ => { }
+        };
+
+        var result = await executor.ExecuteAsync(node, context, CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.Equal([(nint)202], context.WindowHandles);
+        Assert.Equal(new long[] { 202 }, Assert.IsType<long[]>(context.Variables["targets"]));
+        Assert.Equal((nint)202, windows.ActivatedHandle);
+    }
+
+    [Fact]
+    public async Task ForegroundWindowScopeCannotRetargetTheCurrentScriptTrack()
+    {
+        var executor = new WindowScopeNodeExecutor(new FakeWindowScopeService([(nint)101]));
+        var node = WorkflowEngineTests.Node(
+            "scope",
+            Contracts.Nodes.NodeTypes.WindowScope,
+            ("titlePattern", "^Other$"));
+        var context = new Contracts.Results.WorkflowExecutionContext
+        {
+            Workflow = new AutomationProject(),
+            ScriptInteractionMode = ScriptInteractionMode.Foreground,
+            WindowHandles = [(nint)202],
+            WaitIfPausedAsync = _ => Task.CompletedTask,
+            Log = _ => { }
+        };
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => executor.ExecuteAsync(node, context, CancellationToken.None));
+
+        Assert.Equal("窗口作用域不包含当前操作窗口。", error.Message);
+        Assert.Equal([(nint)202], context.WindowHandles);
+    }
+
     private sealed class FakeWindowAutomationService(IReadOnlyList<WindowInfo> windows) : IWindowAutomationService
     {
+        public int GetOpenWindowsCallCount { get; private set; }
         public nint ActivatedHandle { get; private set; }
-        public IReadOnlyList<WindowInfo> GetOpenWindows() => windows;
+        public IReadOnlyList<WindowInfo> GetOpenWindows()
+        {
+            GetOpenWindowsCallCount++;
+            return windows;
+        }
         public bool ActivateWindow(nint handle)
         {
             ActivatedHandle = handle;
@@ -100,6 +210,6 @@ public sealed class WindowScopeServiceTests
 
     private sealed class FakeWindowScopeService(IReadOnlyList<nint> handles) : IWindowScopeService
     {
-        public IReadOnlyList<nint> ResolveWindowHandles(string titlePattern) => handles;
+        public IReadOnlyList<nint> ResolveWindowHandles(string matchPattern, string excludePattern = "") => handles;
     }
 }

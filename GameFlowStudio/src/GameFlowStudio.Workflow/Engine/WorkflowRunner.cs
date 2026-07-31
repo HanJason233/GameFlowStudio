@@ -323,7 +323,9 @@ public sealed class WorkflowRunner : IWorkflowRunner
     {
         if (scope is not { Enabled: true }) return null;
         if (_windowScopes is null) throw new InvalidOperationException("窗口作用域服务未注册。");
-        var handles = _windowScopes.ResolveWindowHandles(string.IsNullOrWhiteSpace(scope.TitlePattern) ? ".*" : scope.TitlePattern);
+        var handles = _windowScopes.ResolveWindowHandles(
+            ScriptExecutionCompatibility.NormalizeMatchPattern(scope.MatchPattern),
+            ScriptExecutionCompatibility.NormalizeExcludePattern(scope.ExcludePattern));
         if (handles.Count == 0) throw new InvalidOperationException("窗口作用域没有找到匹配的窗口。");
         return handles;
     }
@@ -352,11 +354,12 @@ public sealed class WorkflowRunner : IWorkflowRunner
 
         var currentHandle = track.Context.WindowHandles[0];
         var matchingHandles = _windowScopes.ResolveWindowHandles(
-            ScriptExecutionCompatibility.NormalizeTitlePattern(target.WindowScope.TitlePattern));
+            ScriptExecutionCompatibility.NormalizeMatchPattern(target.WindowScope.MatchPattern),
+            ScriptExecutionCompatibility.NormalizeExcludePattern(target.WindowScope.ExcludePattern));
         if (!matchingHandles.Contains(currentHandle))
             throw new InvalidOperationException(
                 $"不能从脚本 {track.Graph.Script.Id} 跳转到脚本 {target.Id}：" +
-                "当前目标窗口已不再匹配目标脚本的窗口标题规则。");
+                "当前目标窗口已不再符合目标脚本的窗口匹配与排除规则。");
     }
 
     private sealed class WindowExecutionTrack(

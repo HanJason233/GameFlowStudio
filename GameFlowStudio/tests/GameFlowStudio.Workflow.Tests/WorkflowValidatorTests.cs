@@ -28,6 +28,30 @@ public sealed class WorkflowValidatorTests
     [Fact] public void ForegroundMouseScrollAllowsLargeDelta() { var scroll = WorkflowEngineTests.Node("scroll", NodeTypes.MouseScroll, ("x", 10), ("y", 20), ("delta", 40000)); var project = ValidWith(scroll); project.InteractionMode = ScriptInteractionMode.Foreground; Assert.True(_validator.Validate(project).IsValid); }
     [Fact] public void InvalidRuntimeWindowExecutionModeFails() { var project = Valid(); project.WindowScope = new() { ExecutionMode = (WindowExecutionMode)999 }; Assert.Contains(_validator.Validate(project).Errors, error => error.Code == "window_execution_mode"); }
     [Fact] public void InvalidScriptWindowExecutionModeFails() { var project = Valid(); project.Scripts = [new() { Id = "invalid-mode", WindowScope = new() { ExecutionMode = (WindowExecutionMode)999 } }]; Assert.Contains(_validator.Validate(project).Errors, error => error.Code == "window_execution_mode"); }
+    [Fact] public void RemovedSchemaVersionFails() { var project = Valid(); project.SchemaVersion = "1.7"; Assert.Contains(_validator.Validate(project).Errors, error => error.Code == "schema"); }
+    [Fact]
+    public void NullPersistedWindowScopePatternsFail()
+    {
+        var project = Valid();
+        project.Scripts =
+        [
+            new()
+            {
+                Id = "invalid-patterns",
+                WindowScope = new() { MatchPattern = null!, ExcludePattern = null! }
+            }
+        ];
+
+        Assert.Equal(2, _validator.Validate(project).Errors.Count(error => error.Code == "window_scope_pattern"));
+    }
+    [Fact]
+    public void NullRuntimeWindowScopePatternsFail()
+    {
+        var project = Valid();
+        project.WindowScope = new() { MatchPattern = null!, ExcludePattern = null! };
+
+        Assert.Equal(2, _validator.Validate(project).Errors.Count(error => error.Code == "window_scope_pattern"));
+    }
     [Theory]
     [InlineData(ScriptInteractionMode.Foreground, WindowExecutionMode.Parallel)]
     [InlineData(ScriptInteractionMode.Background, WindowExecutionMode.Serial)]
@@ -69,7 +93,8 @@ public sealed class WorkflowValidatorTests
     [InlineData("interaction")]
     [InlineData("flow")]
     [InlineData("enabled")]
-    [InlineData("title")]
+    [InlineData("match")]
+    [InlineData("exclude")]
     public void IncompatibleCrossScriptSchedulingFailsValidation(string mismatch)
     {
         var (project, source, target) = JumpProject();
@@ -85,8 +110,11 @@ public sealed class WorkflowValidatorTests
             case "enabled":
                 target.WindowScope.Enabled = false;
                 break;
-            case "title":
-                target.WindowScope.TitlePattern = "^Other$";
+            case "match":
+                target.WindowScope.MatchPattern = "^Other$";
+                break;
+            case "exclude":
+                target.WindowScope.ExcludePattern = "测试服$";
                 break;
         }
 
@@ -96,11 +124,13 @@ public sealed class WorkflowValidatorTests
     }
 
     [Fact]
-    public void BlankCrossScriptTitlePatternEqualsDefaultPattern()
+    public void BlankCrossScriptPatternsEqualTheirDefaults()
     {
         var (project, source, target) = JumpProject();
-        source.WindowScope.TitlePattern = "   ";
-        target.WindowScope.TitlePattern = ".*";
+        source.WindowScope.MatchPattern = "   ";
+        target.WindowScope.MatchPattern = ".*";
+        source.WindowScope.ExcludePattern = "   ";
+        target.WindowScope.ExcludePattern = string.Empty;
 
         var result = _validator.Validate(project);
 
@@ -125,7 +155,7 @@ public sealed class WorkflowValidatorTests
             WindowScope = new()
             {
                 Enabled = true,
-                TitlePattern = "^Other$",
+                MatchPattern = "^Other$",
                 ExecutionMode = WindowExecutionMode.Serial
             },
             Nodes = [WorkflowEngineTests.Action("third-action")]
@@ -237,7 +267,7 @@ public sealed class WorkflowValidatorTests
             WindowScope = new()
             {
                 Enabled = true,
-                TitlePattern = "^Game$",
+                MatchPattern = "^Game$",
                 ExecutionMode = WindowExecutionMode.Serial
             },
             Nodes = project.Nodes,
@@ -251,7 +281,7 @@ public sealed class WorkflowValidatorTests
             WindowScope = new()
             {
                 Enabled = true,
-                TitlePattern = "^Game$",
+                MatchPattern = "^Game$",
                 ExecutionMode = WindowExecutionMode.Serial
             },
             Nodes = [WorkflowEngineTests.Action("target-action")]

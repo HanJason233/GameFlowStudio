@@ -1,19 +1,19 @@
-# `.gflow` 1.7 协议
+# `.gflow` 1.8 协议
 
 项目是 UTF-8 JSON 文件，扩展名 `.gflow`，根对象如下：
 
-桌面端打开文件时要求显式提供 `schemaVersion`，并且只接受、写入当前支持的 `1.7`；其他版本会被拒绝。`interactionMode` 与 `windowScope.executionMode` 必须显式提供字符串枚举值，枚举不接受数字。字段显式为 `null` 也不会替代必需的对象或集合。
+桌面端打开文件时要求显式提供 `schemaVersion`，并且只接受、写入当前支持的 `1.8`；其他版本会被拒绝。`windowScope.enabled`、`windowScope.matchPattern`、`windowScope.excludePattern`、`interactionMode` 与 `windowScope.executionMode` 必须显式提供；枚举不接受数字。字段显式为 `null` 也不会替代必需的对象或集合。
 
 ```json
 {
-  "schemaVersion": "1.7",
+  "schemaVersion": "1.8",
   "project": { "id": "project-id", "name": "项目名", "createdAt": "ISO-8601", "updatedAt": "ISO-8601" },
   "scripts": [
     {
       "id": "script-id",
       "name": "主流程",
       "interactionMode": "foreground",
-      "windowScope": { "enabled": false, "titlePattern": ".*", "executionMode": "serial" },
+      "windowScope": { "enabled": false, "matchPattern": ".*", "excludePattern": "", "executionMode": "serial" },
       "defaultNodeDelayMs": 0,
       "variables": { "counter": { "type": "number", "value": 0 } },
       "nodes": [],
@@ -27,9 +27,9 @@
 
 `colorCondition`、`imageCondition` 和 `ocrCondition` 直接在节点参数中保存检测内容；每个节点命中直接输出 `true`，未命中直接输出 `false`。色判断使用 `coordinateMode`、`x`、`y`、`width`、`height`、`targetColor`、`tolerance` 和可选 `minMatchRatio`；图判断使用 `coordinateMode`、`templatePath`、可选搜索区域、`tolerance` 与 `matchThreshold`；Gemini OCR 判断使用 `coordinateMode`、`x`、`y`、`width`、`height`、`targetText` 与 `matchThreshold`。桌面端 Gemini OCR 由宿主注入的 `IOcrService` 调用云端 `generateContent` 接口，匹配得分达到阈值时命中；API 密钥优先使用全局设置中保存的值，也可使用 `GEMINI_API_KEY` 环境变量。
 
-一个项目文件可以包含多个脚本，每个脚本独立保存窗口作用域、节点默认等待时间、变量、节点和连接。运行时执行当前脚本的节点图。启用脚本的窗口作用域后，运行开始时会按 `titlePattern` 查找窗口，匹配结果由运行器作为当前窗口上下文使用。`executionMode` 是多窗口操作流程：`serial` 逐窗口完整执行；`pseudoParallel` 依次切换窗口，每轮让每个窗口执行一个当前动作，使操作进度保持一致；`parallel` 为每个窗口同时运行独立流程。前台 `foreground` 仅允许 `serial` 或 `pseudoParallel`，后台 `background` 仅允许 `parallel`，其他组合会在读取、保存或运行验证时被拒绝。匹配到单个窗口时三者的操作结果相同。`defaultNodeDelayMs` 只对当前脚本的普通节点间隔生效，显式等待节点仍使用自身等待时间。节点包含 `id`、稳定的 `type`、React Flow `position` 以及 `data.displayName`、`data.parameters`。边包含 `source`、`sourceHandle`、`target`、`targetHandle`。
+一个项目文件可以包含多个脚本，每个脚本独立保存窗口作用域、节点默认等待时间、变量、节点和连接。运行时执行当前脚本的节点图。启用脚本窗口匹配后，运行器先用 `matchPattern` 规定可操作窗口，再从结果中移除标题命中 `excludePattern` 的窗口；`excludePattern` 为空字符串表示不排除。筛选后的窗口集合才会成为执行上下文，若集合为空则运行失败。`executionMode` 是多窗口操作流程：`serial` 逐窗口完整执行；`pseudoParallel` 依次切换窗口，每轮让每个窗口执行一个当前动作，使操作进度保持一致；`parallel` 为每个窗口同时运行独立流程。前台 `foreground` 仅允许 `serial` 或 `pseudoParallel`，后台 `background` 仅允许 `parallel`，其他组合会在读取、保存或运行验证时被拒绝。匹配到单个窗口时三者的操作结果相同。`defaultNodeDelayMs` 只对当前脚本的普通节点间隔生效，显式等待节点仍使用自身等待时间。节点包含 `id`、稳定的 `type`、React Flow `position` 以及 `data.displayName`、`data.parameters`。边包含 `source`、`sourceHandle`、`target`、`targetHandle`。
 
-跨脚本跳转沿用当前执行轨道。来源与目标脚本的 `interactionMode`、`executionMode`、`windowScope.enabled` 和规范化后的 `windowScope.titlePattern` 必须一致；空白标题规则按 `.*` 处理。窗口作用域启用时，运行器会在跳转前重新解析目标规则，并确认当前唯一窗口仍在匹配结果中，否则在执行目标动作前失败。
+跨脚本跳转沿用当前执行轨道。来源与目标脚本的 `interactionMode`、`executionMode` 和 `windowScope.enabled` 必须一致；窗口匹配启用时，规范化后的 `windowScope.matchPattern` 与 `windowScope.excludePattern` 也必须一致。空白包含规则按 `.*` 处理，空白排除规则按不排除处理。运行器会在跳转前重新执行包含与排除匹配，并确认当前唯一窗口仍在最终结果中，否则在执行目标动作前失败。
 
 ## 类型和参数
 
@@ -55,6 +55,8 @@
 | `end` | 无 | 无 |
 
 `coordinateMode` 默认为 `followScript`（跟随脚本）：脚本使用整个屏幕时按屏幕绝对坐标，脚本使用正则匹配窗口时按当前目标窗口的相对坐标。`absolute`（强制绝对）和 `relative`（强制相对）会覆盖脚本窗口范围。
+
+`windowScope` 节点自身的 `titlePattern` 只能在脚本匹配模式建立的窗口边界内进一步限定目标。执行轨道已经绑定唯一窗口时，该节点只能保留当前窗口或明确失败，不能切换到其他窗口，也不能重新加入已被脚本 `excludePattern` 排除的目标。
 
 脚本的 `interactionMode` 支持 `foreground`（默认）和 `background`。该设置统一作用于脚本内所有可后台执行或读取的节点，操作卡片不能单独覆盖。前台通过 `executionMode` 选择伪并行或串行，后台固定使用并行流程。
 

@@ -37,7 +37,7 @@ export interface ProjectMetadata {
 }
 
 export interface WorkflowDocument {
-  schemaVersion: '1.7'
+  schemaVersion: '1.8'
   project: ProjectMetadata
   variables: Record<string, { type: 'string' | 'number' | 'boolean'; value: unknown }>
   nodes: Array<{ id: string; type: NodeType; position: { x: number; y: number }; data: PersistedNodeData }>

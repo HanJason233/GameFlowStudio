@@ -355,7 +355,8 @@ public static class RecordedScriptFactory
         WindowScope = new ScriptWindowScope
         {
             Enabled = source.WindowScope.Enabled,
-            TitlePattern = source.WindowScope.TitlePattern,
+            MatchPattern = source.WindowScope.MatchPattern,
+            ExcludePattern = source.WindowScope.ExcludePattern,
             ExecutionMode = source.WindowScope.ExecutionMode
         },
         DefaultNodeDelayMs = source.DefaultNodeDelayMs,
