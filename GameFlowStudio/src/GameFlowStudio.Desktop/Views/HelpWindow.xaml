@@ -221,7 +221,7 @@
                                 <TextBlock Style="{StaticResource CardTitleStyle}" Text="脚本管理"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 左键单击脚本卡片进行切换；点击脚本列表右侧“+”创建新脚本。项目至少保留一个脚本。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 右键脚本可打开“复制、属性、删除”。脚本名称会在当前项目内自动保持唯一。"/>
-                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• “属性”可设置脚本名称、匹配模式、运行方式、操作流程和默认节点等待时间。"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• “属性”可设置脚本名称、选择作用域、执行方式、操作流程和默认节点等待时间。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 默认节点等待时间是普通节点之间的统一间隔；“等待”节点仍使用自己的等待时长。设为 0 可关闭默认间隔。"/>
                             </StackPanel>
                         </Border>
@@ -277,7 +277,7 @@
                             <StackPanel>
                                 <TextBlock Style="{StaticResource CardTitleStyle}" Text="窗口操作节点"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 窗口整理使用卡片标题正则处理整组窗口；后台关闭、最小化和分辨率在有唯一脚本窗口上下文时只处理当前窗口，否则才按卡片标题正则处理匹配窗口。"/>
-                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 关闭、最小化和设置分辨率跟随脚本的运行方式；后台方式不激活匹配窗口。"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 关闭、最小化和设置分辨率跟随脚本的执行方式；后台方式不激活匹配窗口。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• “窗口整理”本身不会激活窗口：把第一个窗口放到设置的 x、y，后续匹配窗口按垂直偏移量依次排列。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 节点自己的窗口正则只能在脚本匹配结果内进一步限定；已有唯一窗口轨道时不能改到其他窗口，也不能重新加入被脚本排除的目标。"/>
                             </StackPanel>
@@ -301,7 +301,7 @@
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="2. 点击当前脚本卡片右侧的“录制”，选择“基于屏幕”或“基于窗口”。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="3. 窗口模式需要从列表选择目标应用；随后在目标应用中执行点击、拖动、滚轮和键盘操作。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="4. 按 F7 或点击“停止”结束。录制步骤会插到目标结束节点之前，并加入“录制开始 / 录制结束”标记。"/>
-                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="5. 录制生成的点击、拖动、滚轮和按键跟随当前脚本的运行方式。检查节点和连线后手动保存项目。"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="5. 录制生成的点击、拖动、滚轮和按键跟随当前脚本的执行方式。检查节点和连线后手动保存项目。"/>
                             </StackPanel>
                         </Border>
 
@@ -367,7 +367,7 @@
                         <Border Style="{StaticResource HelpCardStyle}" BorderBrush="#A16207">
                             <StackPanel>
                                 <TextBlock Style="{StaticResource CardTitleStyle}" Foreground="#FDE68A" Text="前台与后台模式"/>
-                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 在脚本属性中统一选择前台或后台；脚本内的操作卡片不再单独设置。不同运行方式提供不同的操作流程。"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 在脚本属性中统一选择前台或后台；脚本内的操作卡片不再单独设置。不同执行方式提供不同的操作流程。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 前台输入会激活目标窗口并发送真实系统输入；前台读取会激活窗口后读取桌面上的可见像素。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 前台模式可选择“伪并行”或“串行”。伪并行依次切换窗口执行当前操作，使各窗口的进度尽量一致；串行会完整执行一个窗口后再处理下一个。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 后台方式下，点击、移动、拖动、滚轮、按键和文本输入不移动真实鼠标或激活窗口，而是向唯一目标窗口或焦点控件投递传统 Win32 消息。"/>
@@ -412,9 +412,9 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto"
                               HorizontalScrollBarVisibility="Disabled">
                     <StackPanel Margin="20">
-                        <TextBlock Style="{StaticResource PageTitleStyle}" Text="匹配模式与操作流程"/>
+                        <TextBlock Style="{StaticResource PageTitleStyle}" Text="选择作用域与操作流程"/>
                         <TextBlock Style="{StaticResource PageIntroStyle}"
-                                   Text="在脚本卡片上右键打开“属性”，可设置整个脚本的匹配模式、运行方式和操作流程。"/>
+                                   Text="在脚本卡片上右键打开“属性”，可设置整个脚本的选择作用域、执行方式和操作流程。"/>
 
                         <Border Style="{StaticResource HelpCardStyle}">
                             <StackPanel>
@@ -487,7 +487,7 @@
                                 <TextBlock Style="{StaticResource CardTitleStyle}" Text="运行"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 先验证并保存项目的最新内容，然后关闭编辑器并启动置顶的轻量运行窗口。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 在停止状态可选择脚本；运行窗口提供开始、暂停、继续、停止，并可切回编辑器。"/>
-                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 两种运行方式使用相同的工作流执行逻辑，窗口、坐标和检测模式的行为一致。"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 两种执行方式使用相同的工作流执行逻辑，窗口、坐标和检测模式的行为一致。"/>
                             </StackPanel>
                         </Border>
 

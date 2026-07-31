@@ -244,18 +244,31 @@
             <Border Grid.Row="0" Grid.Column="4" Background="{StaticResource PanelBackground}" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="1,0,0,0" Visibility="{Binding IsPropertiesPaneVisible, Converter={StaticResource BoolVisibility}}">
                 <DockPanel>
                     <Grid DockPanel.Dock="Top" Height="38" Background="#141D2E" Margin="0,0,0,6">
-                        <controls:SelectableTextBlock Text="属性" FontWeight="SemiBold" FontSize="13" Margin="12,0" VerticalAlignment="Center"/>
+                        <Grid Margin="12,0,4,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <controls:SelectableTextBlock Grid.Column="0" Text="属性" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center"/>
+                            <Grid Grid.Column="1" Margin="8,0,0,0">
+                                <DockPanel Visibility="{Binding IsScriptPropertiesVisible, Converter={StaticResource BoolVisibility}}">
+                                    <controls:SelectableTextBlock DockPanel.Dock="Left" Text="脚本 ID：" Foreground="#94A3B8" VerticalAlignment="Center"/>
+                                    <controls:SelectableTextBlock Text="{Binding ActiveScriptId, Mode=OneWay}" Foreground="#E2E8F0" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                </DockPanel>
+                                <DockPanel Visibility="{Binding HasSelectedNode, Converter={StaticResource BoolVisibility}}">
+                                    <controls:SelectableTextBlock DockPanel.Dock="Left" Text="动作 ID：" Foreground="#94A3B8" VerticalAlignment="Center"/>
+                                    <controls:SelectableTextBlock Text="{Binding SelectedNode.Id, Mode=OneWay}" Foreground="#E2E8F0" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                </DockPanel>
+                            </Grid>
+                        </Grid>
                         <Button Content="—" Style="{StaticResource PaneHeaderButton}" HorizontalAlignment="Right" Command="{Binding TogglePropertiesPaneCommand}" ToolTip="最小化属性面板"/>
                     </Grid>
                     <controls:SelectableTextBlock Text="在画布中选择一个节点，或右键脚本查看脚本属性" Foreground="#64748B" HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="Wrap" Margin="20" Visibility="{Binding HasPropertySelection, Converter={StaticResource InverseBoolVisibility}}"/>
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,0,8,8" IsEnabled="{Binding IsProjectEditingEnabled}" Visibility="{Binding IsScriptPropertiesVisible, Converter={StaticResource BoolVisibility}}">
                         <StackPanel>
-                            <controls:SelectableTextBlock Text="当前脚本属性" FontWeight="SemiBold" Foreground="#F8FAFC" Margin="3,4,3,14"/>
-                            <controls:SelectableTextBlock Text="脚本 ID" Foreground="#94A3B8"/>
-                            <controls:SelectableTextBlock Text="{Binding Path=ActiveScriptId, Mode=OneWay}" Foreground="#E2E8F0" TextWrapping="Wrap" Margin="0,0,0,10"/>
-                            <controls:SelectableTextBlock Text="脚本名称" Foreground="#94A3B8"/>
-                            <TextBox Text="{Binding ActiveScriptName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10" ToolTip="脚本名称在项目内必须唯一"/>
-                            <controls:SelectableTextBlock Text="匹配模式" Foreground="#94A3B8"/>
+                            <controls:SelectableTextBlock Text="脚本名称" Foreground="#94A3B8" Margin="0,0,0,3"/>
+                            <TextBox Text="{Binding ActiveScriptName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,12" ToolTip="脚本名称在项目内必须唯一"/>
+                            <controls:SelectableTextBlock Text="选择作用域" Foreground="#94A3B8"/>
                             <StackPanel Orientation="Horizontal" Margin="4,8,4,4">
                                 <RadioButton GroupName="WindowScopeMode" Content="整个屏幕" IsChecked="{Binding UseWholeScreen, Mode=TwoWay}" Foreground="#E2E8F0" Margin="0,0,18,0"/>
                                 <RadioButton GroupName="WindowScopeMode" Content="正则匹配窗口" IsChecked="{Binding ScriptWindowScopeEnabled, Mode=TwoWay}" Foreground="#E2E8F0"/>
@@ -268,14 +281,16 @@
                                 <TextBox Text="{Binding ScriptWindowExcludePattern, UpdateSourceTrigger=PropertyChanged}"/>
                                 <controls:SelectableTextBlock Text="从正则匹配结果中排除不需要的匹配目标，留空表示不排除" Foreground="#64748B" FontSize="10" TextWrapping="Wrap" Margin="3,5,3,0"/>
                             </StackPanel>
-                            <controls:SelectableTextBlock Text="运行方式" Foreground="#94A3B8" Margin="0,10,0,3"/>
+                            <controls:SelectableTextBlock Text="执行方式" Foreground="#94A3B8" Margin="0,10,0,3"/>
                             <ComboBox ItemsSource="{Binding ScriptInteractionModes}"
                                       DisplayMemberPath="Label"
                                       SelectedValuePath="Value"
                                       SelectedValue="{Binding ScriptInteractionMode, Mode=TwoWay}"/>
-                            <controls:SelectableTextBlock Text="操作流程" Foreground="#94A3B8" Margin="0,10,0,3"/>
-                            <ComboBox ItemsSource="{Binding OperationFlowModes}" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding ScriptOperationFlow, Mode=TwoWay}" IsEnabled="{Binding ScriptWindowScopeEnabled}"/>
-                            <controls:SelectableTextBlock Text="{Binding ScriptOperationFlowDescription, Mode=OneWay}" Foreground="#64748B" FontSize="10" TextWrapping="Wrap" Margin="3,5,3,0"/>
+                            <StackPanel Visibility="{Binding ScriptWindowScopeEnabled, Converter={StaticResource BoolVisibility}}" Margin="0,10,0,0">
+                                <controls:SelectableTextBlock Text="操作流程" Foreground="#94A3B8" Margin="0,0,0,3"/>
+                                <ComboBox ItemsSource="{Binding OperationFlowModes}" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding ScriptOperationFlow, Mode=TwoWay}"/>
+                                <controls:SelectableTextBlock Text="{Binding ScriptOperationFlowDescription, Mode=OneWay}" Foreground="#64748B" FontSize="10" TextWrapping="Wrap" Margin="3,5,3,0"/>
+                            </StackPanel>
                             <controls:SelectableTextBlock Text="节点默认等待时间（毫秒）" Foreground="#94A3B8" Margin="0,16,0,3"/>
                             <TextBox Text="{Binding ScriptDefaultNodeDelayMs, UpdateSourceTrigger=PropertyChanged}"/>
                             <controls:SelectableTextBlock Text="设置为 0 表示关闭；显式等待节点仍使用自身等待时间。以上配置只对当前脚本生效。" Foreground="#64748B" TextWrapping="Wrap" Margin="3,6,3,0"/>
@@ -284,8 +299,8 @@
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,0,8,8" IsEnabled="{Binding IsProjectEditingEnabled}" Visibility="{Binding HasDetectorConditionSelection, Converter={StaticResource BoolVisibility}}">
                         <StackPanel DataContext="{Binding SelectedNode}">
                             <controls:SelectableTextBlock Text="{Binding Path=LogicLabel, Mode=OneWay}" FontWeight="SemiBold" Foreground="#FBBF24" Margin="3,4,3,2"/>
-                            <controls:SelectableTextBlock Text="动作 ID" Foreground="#94A3B8"/>
-                            <controls:SelectableTextBlock Text="{Binding Path=Id, Mode=OneWay}" Foreground="#E2E8F0" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                            <controls:SelectableTextBlock Text="节点名称" Foreground="#94A3B8" Margin="0,4,0,3"/>
+                            <TextBox Text="{Binding DisplayName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10"/>
                             <controls:SelectableTextBlock Text="直接配置本节点的检测内容，命中后从 true 分支继续，否则从 false 分支继续。" Foreground="#94A3B8" FontSize="10" TextWrapping="Wrap" Margin="3,0,3,10"/>
                               <StackPanel Visibility="{Binding HasImageSearchModeParameter, Converter={StaticResource BoolVisibility}}" Margin="0,8,0,2">
                                   <controls:SelectableTextBlock Text="匹配范围" Foreground="#94A3B8" Margin="0,0,0,3" ToolTip="固定坐标模式只在指定区域内搜索；当前屏幕/窗口模式不使用坐标，直接搜索当前操作范围。"/>
@@ -380,10 +395,8 @@
                     </ScrollViewer>
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,0,8,8" IsEnabled="{Binding IsProjectEditingEnabled}" Visibility="{Binding IsRegularNodeSelection, Converter={StaticResource BoolVisibility}}">
                         <StackPanel DataContext="{Binding SelectedNode}">
-                            <controls:SelectableTextBlock Text="动作 ID" Foreground="#94A3B8"/>
-                            <controls:SelectableTextBlock Text="{Binding Path=Id, Mode=OneWay}" Foreground="#E2E8F0" TextWrapping="Wrap" Margin="0,0,0,8"/>
-                            <controls:SelectableTextBlock Text="节点名称" Foreground="#94A3B8"/>
-                            <TextBox Text="{Binding DisplayName, UpdateSourceTrigger=PropertyChanged}"/>
+                            <controls:SelectableTextBlock Text="节点名称" Foreground="#94A3B8" Margin="0,0,0,3"/>
+                            <TextBox Text="{Binding DisplayName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,12"/>
                             <controls:SelectableTextBlock Text="参数配置" Foreground="#94A3B8" Margin="0,12,0,4"/>
                             <StackPanel Visibility="{Binding HasCoordinateParameters, Converter={StaticResource BoolVisibility}}">
                                 <controls:SelectableTextBlock Text="坐标基准" Foreground="#94A3B8" Margin="0,0,0,3"/>

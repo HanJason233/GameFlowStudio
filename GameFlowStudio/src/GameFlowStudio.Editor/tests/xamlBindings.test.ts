@@ -52,6 +52,10 @@ test('脚本属性按前后台模式提供对应的操作流程', () => {
   const operationFlowUi = `${mainWindow}\n${helpWindow}\n${mainViewModel}`
 
   assert.match(mainWindow, /Text="操作流程"/)
+  const operationFlowPanel = mainWindow.match(
+    /<StackPanel Visibility="\{Binding ScriptWindowScopeEnabled, Converter=\{StaticResource BoolVisibility\}\}" Margin="0,10,0,0">[\s\S]*?Text="操作流程"[\s\S]*?<\/StackPanel>/,
+  )?.[0]
+  assert.ok(operationFlowPanel, '选择整个屏幕时应隐藏操作流程设置')
   assert.doesNotMatch(operationFlowUi, /前台串行方式|窗口优先|动作优先/)
   assert.match(mainViewModel, /_scriptOperationFlow = WindowExecutionMode\.Serial/)
   assert.equal(
@@ -64,6 +68,10 @@ test('脚本属性按前后台模式提供对应的操作流程', () => {
   assert.match(
     mainViewModel,
     /ScriptInteractionMode == ScriptInteractionModeValue\.Background\s*\? BackgroundOperationFlowModes\s*:\s*ForegroundOperationFlowModes/,
+  )
+  assert.match(
+    mainViewModel,
+    /if \(interactionMode == ScriptInteractionModeValue\.Background\)\s*\r?\n\s*return WindowExecutionMode\.Parallel/,
   )
   assert.equal(
     [...mainWindow.matchAll(/ItemsSource="\{Binding OperationFlowModes\}"/g)].length,
@@ -78,14 +86,31 @@ test('脚本属性按前后台模式提供对应的操作流程', () => {
   assert.match(helpWindow, /并行（后台）/)
 })
 
-test('脚本匹配模式先包含窗口再排除不需要的目标', () => {
+test('脚本选择作用域先包含窗口再排除不需要的目标', () => {
   const desktopDirectory = resolve('..', 'GameFlowStudio.Desktop')
   const mainWindow = readFileSync(resolve(desktopDirectory, 'Views', 'MainWindow.xaml'), 'utf8')
   const helpWindow = readFileSync(resolve(desktopDirectory, 'Views', 'HelpWindow.xaml'), 'utf8')
   const mainViewModel = readFileSync(resolve(desktopDirectory, 'ViewModels', 'MainViewModel.cs'), 'utf8')
   const scriptMatchingUi = `${mainWindow}\n${mainViewModel}`
 
-  assert.match(mainWindow, /Text="匹配模式"/)
+  assert.match(mainWindow, /Text="属性"/)
+  assert.match(mainWindow, /Text="脚本 ID："/)
+  assert.match(mainWindow, /Text="动作 ID："/)
+  assert.match(mainWindow, /Text="\{Binding ActiveScriptId, Mode=OneWay\}"/)
+  assert.match(mainWindow, /Text="\{Binding SelectedNode\.Id, Mode=OneWay\}"/)
+  assert.equal(
+    [...mainWindow.matchAll(/Text="\{Binding ActiveScriptId, Mode=OneWay\}"/g)].length,
+    1,
+  )
+  assert.equal(
+    [...mainWindow.matchAll(/Text="\{Binding SelectedNode\.Id, Mode=OneWay\}"/g)].length,
+    1,
+  )
+  assert.equal(
+    [...mainWindow.matchAll(/Text="\{Binding (?:ActiveScriptName|DisplayName), UpdateSourceTrigger=PropertyChanged\}"/g)].length,
+    3,
+  )
+  assert.match(mainWindow, /Text="选择作用域"/)
   assert.match(mainWindow, /Content="整个屏幕"/)
   assert.match(mainWindow, /Content="正则匹配窗口"/)
   assert.match(
@@ -104,7 +129,7 @@ test('脚本匹配模式先包含窗口再排除不需要的目标', () => {
   assert.match(mainWindow, /Text="从正则匹配结果中排除不需要的匹配目标，留空表示不排除"/)
   assert.match(mainViewModel, /ActiveScript\.WindowScope\.MatchPattern = value/)
   assert.match(mainViewModel, /ActiveScript\.WindowScope\.ExcludePattern = value/)
-  assert.doesNotMatch(scriptMatchingUi, /ScriptWindowTitlePattern|Text="窗口范围"|窗口标题正则（正则匹配窗口）/)
+  assert.doesNotMatch(scriptMatchingUi, /ScriptWindowTitlePattern|Text="窗口范围"|Text="匹配模式"|Text="运行方式"|窗口标题正则（正则匹配窗口）/)
   assert.match(helpWindow, /先使用“正则匹配”/)
   assert.match(helpWindow, /再使用“排除正则匹配”/)
   assert.match(helpWindow, /全部被排除时运行失败/)
