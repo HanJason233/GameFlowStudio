@@ -214,7 +214,9 @@ public sealed class BackgroundModeExecutionTests
         var result = await executor.ExecuteAsync(
             node,
             Context(
-                [],
+                backgroundMode
+                    ? [(nint)303, (nint)404]
+                    : [(nint)303],
                 backgroundMode
                     ? ScriptInteractionMode.Background
                     : ScriptInteractionMode.Foreground),
@@ -249,6 +251,44 @@ public sealed class BackgroundModeExecutionTests
         }
     }
 
+    [Theory]
+    [InlineData("closeProgram")]
+    [InlineData("minimizeWindow")]
+    [InlineData("setWindowResolution")]
+    public async Task BackgroundWindowActionUsesOnlyTheCurrentParallelTrackWindow(string nodeType)
+    {
+        var currentWindow = (nint)303;
+        var windows = new RecordingWindowAutomationService();
+        var scopes = new FixedWindowScopeService([(nint)101, (nint)202]);
+        var executor = CreateWindowActionExecutor(nodeType, windows, scopes);
+        var node = Node(
+            nodeType,
+            ("titlePattern", "^Game$"),
+            ("width", 1280),
+            ("height", 720));
+
+        var result = await executor.ExecuteAsync(
+            node,
+            Context([currentWindow], ScriptInteractionMode.Background),
+            CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.Null(scopes.LastPattern);
+        Assert.Empty(windows.Activations);
+        switch (nodeType)
+        {
+            case NodeTypes.CloseProgram:
+                Assert.Equal([currentWindow], windows.Closed);
+                break;
+            case NodeTypes.MinimizeWindow:
+                Assert.Equal([currentWindow], windows.Minimized);
+                break;
+            case NodeTypes.SetWindowResolution:
+                Assert.Equal([(currentWindow, 1280, 720)], windows.Resolutions);
+                break;
+        }
+    }
+
     [Fact]
     public async Task BackgroundScriptWindowScopeDoesNotActivateItsSelectedWindow()
     {
@@ -269,6 +309,45 @@ public sealed class BackgroundModeExecutionTests
         Assert.True(result.Success);
         Assert.Equal([(nint)101], context.WindowHandles);
         Assert.Empty(windows.Activations);
+    }
+
+    [Fact]
+    public async Task BackgroundWindowScopeKeepsTheCurrentParallelTrackWindow()
+    {
+        var windows = new RecordingWindowAutomationService();
+        var scopes = new FixedWindowScopeService([(nint)101, (nint)202]);
+        var executor = new WindowScopeNodeExecutor(scopes, windows);
+        var node = Node(
+            NodeTypes.WindowScope,
+            ("titlePattern", "^Game$"),
+            ("outputVariable", "targets"),
+            ("activateWindow", true));
+        var context = Context([(nint)202], ScriptInteractionMode.Background);
+
+        var result = await executor.ExecuteAsync(node, context, CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.Equal("^Game$", scopes.LastPattern);
+        Assert.Equal([(nint)202], context.WindowHandles);
+        Assert.Equal(new long[] { 202 }, Assert.IsType<long[]>(context.Variables["targets"]));
+        Assert.Empty(windows.Activations);
+    }
+
+    [Fact]
+    public async Task BackgroundWindowScopeCannotRetargetTheCurrentParallelTrack()
+    {
+        var executor = new WindowScopeNodeExecutor(
+            new FixedWindowScopeService([(nint)101, (nint)202]));
+        var node = Node(
+            NodeTypes.WindowScope,
+            ("titlePattern", "^Game$"));
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => executor.ExecuteAsync(
+            node,
+            Context([(nint)303], ScriptInteractionMode.Background),
+            CancellationToken.None));
+
+        Assert.Equal("窗口作用域不包含当前后台操作窗口。", error.Message);
     }
 
     private static INodeExecutor CreateInputExecutor(

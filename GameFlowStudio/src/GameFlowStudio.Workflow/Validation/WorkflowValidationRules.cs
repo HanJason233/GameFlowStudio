@@ -8,6 +8,7 @@ using System.Globalization;
 using System.Text.Json;
 using GameFlowStudio.Workflow.Executors;
 using GameFlowStudio.Workflow.Detectors;
+using GameFlowStudio.Workflow.Engine;
 
 namespace GameFlowStudio.Workflow.Validation;
 
@@ -17,7 +18,7 @@ internal sealed class ProjectStructureRule(NodeParameterValidator parameterValid
     {
         var workflow = context.Workflow;
         var scriptInteractionMode = ResolveScriptInteractionMode(workflow);
-        if (workflow.SchemaVersion is not "1.6") result.Add("schema", $"不支持的架构版本：{workflow.SchemaVersion}。");
+        if (workflow.SchemaVersion is not "1.7") result.Add("schema", $"不支持的架构版本：{workflow.SchemaVersion}。");
         foreach (var group in workflow.Scripts.GroupBy(script => script.Id).Where(group => string.IsNullOrWhiteSpace(group.Key) || group.Count() > 1))
             result.Add("script_id", "脚本 ID 不能为空且必须唯一。");
         foreach (var script in workflow.Scripts.Where(script => string.IsNullOrWhiteSpace(script.Name)))
@@ -26,10 +27,25 @@ internal sealed class ProjectStructureRule(NodeParameterValidator parameterValid
             result.Add("interaction_mode", $"脚本 {script.Id} 的运行方式无效。");
         foreach (var script in workflow.Scripts.Where(script => !Enum.IsDefined(script.WindowScope.ExecutionMode)))
             result.Add("window_execution_mode", $"脚本 {script.Id} 的多窗口执行方式无效。");
+        foreach (var script in workflow.Scripts.Where(script =>
+                     Enum.IsDefined(script.InteractionMode)
+                     && Enum.IsDefined(script.WindowScope.ExecutionMode)
+                     && !ScriptExecutionCompatibility.IsOperationFlowValid(
+                         script.InteractionMode,
+                         script.WindowScope.ExecutionMode)))
+            result.Add("operation_flow", $"脚本 {script.Id} 的运行方式与操作流程不匹配。");
         if (workflow.WindowScope is { } runtimeWindowScope
             && !workflow.Scripts.Any(script => ReferenceEquals(script.WindowScope, runtimeWindowScope))
             && !Enum.IsDefined(runtimeWindowScope.ExecutionMode))
             result.Add("window_execution_mode", "当前脚本的多窗口执行方式无效。");
+        if (workflow.WindowScope is { } runtimeScope
+            && !workflow.Scripts.Any(script => ReferenceEquals(script.WindowScope, runtimeScope))
+            && Enum.IsDefined(workflow.InteractionMode)
+            && Enum.IsDefined(runtimeScope.ExecutionMode)
+            && !ScriptExecutionCompatibility.IsOperationFlowValid(
+                workflow.InteractionMode,
+                runtimeScope.ExecutionMode))
+            result.Add("operation_flow", "当前脚本的运行方式与操作流程不匹配。");
         if (workflow.ActiveScriptId is not null && !context.ContainsScript(workflow.ActiveScriptId))
             result.Add("active_script", "活动脚本不存在。");
         foreach (var group in workflow.Nodes.GroupBy(node => node.Id).Where(group => string.IsNullOrWhiteSpace(group.Key) || group.Count() > 1))
@@ -212,9 +228,37 @@ internal sealed class JumpTargetRule : IWorkflowValidationRule
 {
     public void Validate(WorkflowValidationContext context, WorkflowValidationResult result)
     {
-        foreach (var node in context.Workflow.Nodes.Where(node => node.Type == NodeTypes.Jump))
+        var sourceScript = ResolveSourceScript(context);
+        if (sourceScript is null)
         {
-            if (!NodeParameterReader.Has(node, "scriptId") || !NodeParameterReader.Has(node, "actionId")) continue;
+            ValidateNodes(context.Workflow.Nodes, null, context, result, null);
+            return;
+        }
+
+        var visited = new HashSet<string>(StringComparer.Ordinal) { sourceScript.Id };
+        var pending = new Queue<AutomationScript>();
+        pending.Enqueue(sourceScript);
+        while (pending.Count > 0)
+        {
+            var source = pending.Dequeue();
+            ValidateNodes(source.Nodes, source, context, result, target =>
+            {
+                if (visited.Add(target.Id)) pending.Enqueue(target);
+            });
+        }
+    }
+
+    private static void ValidateNodes(
+        IEnumerable<WorkflowNode> nodes,
+        AutomationScript? sourceScript,
+        WorkflowValidationContext context,
+        WorkflowValidationResult result,
+        Action<AutomationScript>? visitTarget)
+    {
+        foreach (var node in nodes.Where(node => node.Type == NodeTypes.Jump))
+        {
+            if (!NodeParameterReader.Has(node, "scriptId") || !NodeParameterReader.Has(node, "actionId"))
+                continue;
 
             var scriptId = NodeParameterReader.String(node, "scriptId");
             var actionId = NodeParameterReader.String(node, "actionId");
@@ -224,9 +268,28 @@ internal sealed class JumpTargetRule : IWorkflowValidationRule
                 continue;
             }
 
+            visitTarget?.Invoke(script);
+
             if (!script.Nodes.Any(target => target.Id == actionId))
                 result.Add("jump_action", $"跳转目标动作不存在：{actionId}。", node.Id);
+
+            if (sourceScript is not null
+                && !ScriptExecutionCompatibility.TryValidateJump(sourceScript, script, out var compatibilityError))
+                result.Add(
+                    "jump_incompatible",
+                    $"不能从脚本 {sourceScript.Id} 跳转到脚本 {script.Id}：{compatibilityError}",
+                    node.Id);
         }
+    }
+
+    private static AutomationScript? ResolveSourceScript(WorkflowValidationContext context)
+    {
+        if (context.Workflow.ActiveScriptId is { } activeScriptId
+            && context.Scripts.TryGetValue(activeScriptId, out var activeScript))
+            return activeScript;
+
+        return context.Workflow.Scripts.FirstOrDefault(
+            script => ReferenceEquals(script.Nodes, context.Workflow.Nodes));
     }
 }
 

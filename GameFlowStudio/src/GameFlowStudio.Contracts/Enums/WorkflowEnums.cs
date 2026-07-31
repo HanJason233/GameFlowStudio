@@ -45,8 +45,9 @@ public enum DetectorType
 /// <summary>脚本匹配多个窗口时的执行顺序。</summary>
 public enum WindowExecutionMode
 {
-    WindowPriority,
-    ActionPriority
+    Serial,
+    PseudoParallel,
+    Parallel
 }
 
 /// <summary>带坐标动作的坐标基准。</summary>

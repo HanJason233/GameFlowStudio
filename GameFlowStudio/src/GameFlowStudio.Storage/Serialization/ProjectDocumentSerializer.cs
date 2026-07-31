@@ -10,7 +10,7 @@ namespace GameFlowStudio.Storage.Serialization;
 /// </summary>
 internal static class ProjectDocumentSerializer
 {
-    internal const string CurrentSchemaVersion = "1.6";
+    internal const string CurrentSchemaVersion = "1.7";
 
     private static readonly JsonSerializerOptions StorageOptions = new(ProjectJson.Options);
 
@@ -154,6 +154,10 @@ internal static class ProjectDocumentSerializer
                 throw new InvalidDataException($"脚本 {scriptIndex + 1} 的 windowScope.executionMode 无效。");
             if (!Enum.IsDefined(script.InteractionMode))
                 throw new InvalidDataException($"脚本 {scriptIndex + 1} 的 interactionMode 无效。");
+            if (!IsValidExecutionMode(script.InteractionMode, script.WindowScope.ExecutionMode))
+                throw new InvalidDataException(
+                    $"脚本 {scriptIndex + 1} 的 interactionMode 与 windowScope.executionMode 组合无效：" +
+                    "前台仅支持 serial 或 pseudoParallel，后台仅支持 parallel。");
             if (script.Variables is null)
                 throw new InvalidDataException($"脚本 {scriptIndex + 1} 的 variables 不能为空。");
             if (script.Nodes is null)
@@ -200,4 +204,14 @@ internal static class ProjectDocumentSerializer
             }
         }
     }
+
+    private static bool IsValidExecutionMode(
+        ScriptInteractionMode interactionMode,
+        WindowExecutionMode executionMode) => interactionMode switch
+        {
+            ScriptInteractionMode.Foreground => executionMode is
+                WindowExecutionMode.Serial or WindowExecutionMode.PseudoParallel,
+            ScriptInteractionMode.Background => executionMode == WindowExecutionMode.Parallel,
+            _ => false
+        };
 }

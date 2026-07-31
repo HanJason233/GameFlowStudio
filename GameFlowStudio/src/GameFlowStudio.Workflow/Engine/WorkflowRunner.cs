@@ -1,4 +1,6 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Runtime.ExceptionServices;
 using System.Text.Json;
 using GameFlowStudio.Contracts.Enums;
 using GameFlowStudio.Contracts.Events;
@@ -137,6 +139,12 @@ public sealed class WorkflowRunner : IWorkflowRunner
     {
         var initialScript = ResolveInitialScript(workflow);
         var plan = new WorkflowExecutionPlan(workflow, initialScript);
+        if (!ScriptExecutionCompatibility.IsOperationFlowValid(
+                initialScript.InteractionMode,
+                initialScript.WindowScope.ExecutionMode))
+            throw new InvalidOperationException(
+                $"入口脚本的运行方式与操作流程不匹配：{initialScript.InteractionMode} / " +
+                $"{initialScript.WindowScope.ExecutionMode}。");
         var handles = ResolveWindowHandles(initialScript.WindowScope);
         var budget = new ExecutionBudget();
         if (handles is null)
@@ -147,7 +155,7 @@ public sealed class WorkflowRunner : IWorkflowRunner
 
         switch (initialScript.WindowScope.ExecutionMode)
         {
-            case WindowExecutionMode.WindowPriority:
+            case WindowExecutionMode.Serial:
                 for (var index = 0; index < handles.Count; index++)
                 {
                     if (index > 0)
@@ -157,8 +165,11 @@ public sealed class WorkflowRunner : IWorkflowRunner
                     await ExecuteGraphForWindowAsync(workflow, plan, [handle], budget, token).ConfigureAwait(false);
                 }
                 return;
-            case WindowExecutionMode.ActionPriority:
-                await ExecuteGraphByActionPriorityAsync(workflow, plan, handles, budget, token).ConfigureAwait(false);
+            case WindowExecutionMode.PseudoParallel:
+                await ExecuteGraphPseudoParallelAsync(workflow, plan, handles, budget, token).ConfigureAwait(false);
+                return;
+            case WindowExecutionMode.Parallel:
+                await ExecuteGraphInParallelAsync(workflow, plan, handles, budget, token).ConfigureAwait(false);
                 return;
             default:
                 throw new InvalidOperationException($"不支持的窗口执行方式：{initialScript.WindowScope.ExecutionMode}。");
@@ -170,13 +181,14 @@ public sealed class WorkflowRunner : IWorkflowRunner
         WorkflowExecutionPlan plan,
         IReadOnlyList<nint>? windowHandles,
         ExecutionBudget budget,
-        CancellationToken token)
+        CancellationToken token,
+        ParallelGlobalNodeCoordinator? globalNodes = null)
     {
-        var track = CreateWindowTrack(workflow, plan.InitialGraph, windowHandles);
+        var track = CreateWindowTrack(workflow, plan.InitialGraph, windowHandles, globalNodes);
         while (!await ExecuteTrackStepAsync(workflow, plan, track, budget, token).ConfigureAwait(false)) { }
     }
 
-    private async Task ExecuteGraphByActionPriorityAsync(
+    private async Task ExecuteGraphPseudoParallelAsync(
         AutomationProject workflow,
         WorkflowExecutionPlan plan,
         IReadOnlyList<nint> handles,
@@ -209,6 +221,55 @@ public sealed class WorkflowRunner : IWorkflowRunner
         }
     }
 
+    private async Task ExecuteGraphInParallelAsync(
+        AutomationProject workflow,
+        WorkflowExecutionPlan plan,
+        IReadOnlyList<nint> handles,
+        ExecutionBudget budget,
+        CancellationToken token)
+    {
+        using var parallelCancellation = CancellationTokenSource.CreateLinkedTokenSource(token);
+        var globalNodes = new ParallelGlobalNodeCoordinator();
+        ExceptionDispatchInfo? firstFailure = null;
+        var tasks = handles
+            .Select(handle => Task.Run(
+                async () =>
+                {
+                    try
+                    {
+                        await ExecuteGraphForWindowAsync(
+                            workflow,
+                            plan,
+                            [handle],
+                            budget,
+                            parallelCancellation.Token,
+                            globalNodes: globalNodes).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException) when (parallelCancellation.IsCancellationRequested)
+                    {
+                        // 外部停止或其他窗口失败时，由并行调度器统一决定最终状态。
+                    }
+                    catch (Exception exception)
+                    {
+                        var captured = ExceptionDispatchInfo.Capture(exception);
+                        if (Interlocked.CompareExchange(ref firstFailure, captured, null) is null)
+                        {
+                            try { parallelCancellation.Cancel(); }
+                            catch (Exception cancellationException)
+                            {
+                                _logger.LogWarning(cancellationException, "取消其他并行窗口任务时发生异常。");
+                            }
+                        }
+                    }
+                },
+                CancellationToken.None))
+            .ToArray();
+
+        await Task.WhenAll(tasks).ConfigureAwait(false);
+        token.ThrowIfCancellationRequested();
+        firstFailure?.Throw();
+    }
+
     private async Task<bool> ExecuteTrackStepAsync(
         AutomationProject workflow,
         WorkflowExecutionPlan plan,
@@ -218,10 +279,16 @@ public sealed class WorkflowRunner : IWorkflowRunner
     {
         token.ThrowIfCancellationRequested();
         await _pauseGate.WaitAsync(token).ConfigureAwait(false);
-        EnsureExecutionLimit(++budget.Executed);
+        EnsureExecutionLimit(budget.Take());
 
         var current = track.Current;
-        var result = await ExecuteNodeAsync(workflow, current, track.Context, token).ConfigureAwait(false);
+        var result = track.GlobalNodes is not null && ParallelGlobalNodeCoordinator.IsCoordinated(current.Type)
+            ? await track.GlobalNodes.ExecuteAsync(
+                track.Graph.Script.Id,
+                current,
+                track.NextGlobalNodeOccurrence(track.Graph.Script.Id, current.Id),
+                () => ExecuteNodeAsync(workflow, current, track.Context, token)).ConfigureAwait(false)
+            : await ExecuteNodeAsync(workflow, current, track.Context, token).ConfigureAwait(false);
         if (current.Type == Contracts.Nodes.NodeTypes.End) return true;
 
         ScriptExecutionGraph nextGraph;
@@ -229,8 +296,9 @@ public sealed class WorkflowRunner : IWorkflowRunner
         if (result.JumpTarget is not null)
         {
             (nextGraph, next) = plan.ResolveJump(result.JumpTarget);
+            EnsureJumpCompatible(track, nextGraph.Script);
             await WaitBetweenNodesAsync(workflow, track.Graph.Script, current, next, track.Context, token).ConfigureAwait(false);
-            ActivateScript(workflow, nextGraph.Script, track.Context, CurrentWindowScope(track.Context));
+            ActivateScript(nextGraph.Script, track.Context, CurrentWindowScope(track.Context));
         }
         else
         {
@@ -247,8 +315,9 @@ public sealed class WorkflowRunner : IWorkflowRunner
     private WindowExecutionTrack CreateWindowTrack(
         AutomationProject workflow,
         ScriptExecutionGraph graph,
-        IReadOnlyList<nint>? windowHandles) =>
-        new(graph, graph.StartNode, CreateContext(workflow, graph.Script, windowHandles));
+        IReadOnlyList<nint>? windowHandles,
+        ParallelGlobalNodeCoordinator? globalNodes = null) =>
+        new(graph, graph.StartNode, CreateContext(workflow, graph.Script, windowHandles), globalNodes);
 
     private IReadOnlyList<nint>? ResolveWindowHandles(ScriptWindowScope? scope)
     {
@@ -259,17 +328,86 @@ public sealed class WorkflowRunner : IWorkflowRunner
         return handles;
     }
 
-    private sealed class WindowExecutionTrack(ScriptExecutionGraph graph, WorkflowNode current, WorkflowExecutionContext context)
+    private void EnsureJumpCompatible(WindowExecutionTrack track, AutomationScript target)
     {
+        if (!ScriptExecutionCompatibility.TryValidateJump(track.Graph.Script, target, out var compatibilityError))
+            throw new InvalidOperationException(
+                $"不能从脚本 {track.Graph.Script.Id} 跳转到脚本 {target.Id}：{compatibilityError}");
+
+        if (!target.WindowScope.Enabled)
+        {
+            if (track.Context.WindowHandles.Count != 0)
+                throw new InvalidOperationException(
+                    $"不能从脚本 {track.Graph.Script.Id} 跳转到脚本 {target.Id}：" +
+                    "当前轨道已绑定窗口，目标整屏脚本会丢失该窗口上下文。");
+            return;
+        }
+
+        if (track.Context.WindowHandles.Count != 1)
+            throw new InvalidOperationException(
+                $"不能从脚本 {track.Graph.Script.Id} 跳转到脚本 {target.Id}：" +
+                "窗口作用域跳转需要唯一的当前目标窗口。");
+        if (_windowScopes is null)
+            throw new InvalidOperationException("窗口作用域服务未注册，无法验证跨脚本跳转目标。");
+
+        var currentHandle = track.Context.WindowHandles[0];
+        var matchingHandles = _windowScopes.ResolveWindowHandles(
+            ScriptExecutionCompatibility.NormalizeTitlePattern(target.WindowScope.TitlePattern));
+        if (!matchingHandles.Contains(currentHandle))
+            throw new InvalidOperationException(
+                $"不能从脚本 {track.Graph.Script.Id} 跳转到脚本 {target.Id}：" +
+                "当前目标窗口已不再匹配目标脚本的窗口标题规则。");
+    }
+
+    private sealed class WindowExecutionTrack(
+        ScriptExecutionGraph graph,
+        WorkflowNode current,
+        WorkflowExecutionContext context,
+        ParallelGlobalNodeCoordinator? globalNodes)
+    {
+        private readonly Dictionary<(string ScriptId, string NodeId), int> _globalNodeOccurrences = [];
+
         public ScriptExecutionGraph Graph { get; set; } = graph;
         public WorkflowNode Current { get; set; } = current;
         public WorkflowExecutionContext Context { get; } = context;
         public nint? WindowHandle { get; } = context.WindowHandles.Count == 1 ? context.WindowHandles[0] : null;
+        public ParallelGlobalNodeCoordinator? GlobalNodes { get; } = globalNodes;
+
+        public int NextGlobalNodeOccurrence(string scriptId, string nodeId)
+        {
+            var key = (scriptId, nodeId);
+            var occurrence = _globalNodeOccurrences.GetValueOrDefault(key) + 1;
+            _globalNodeOccurrences[key] = occurrence;
+            return occurrence;
+        }
+    }
+
+    private sealed class ParallelGlobalNodeCoordinator
+    {
+        private readonly ConcurrentDictionary<(string ScriptId, string NodeId, int Occurrence), Lazy<Task<NodeExecutionResult>>> _executions = new();
+
+        public static bool IsCoordinated(string nodeType) =>
+            nodeType is NodeTypes.RunProgram or NodeTypes.ArrangeWindows;
+
+        public Task<NodeExecutionResult> ExecuteAsync(
+            string scriptId,
+            WorkflowNode node,
+            int occurrence,
+            Func<Task<NodeExecutionResult>> execute)
+        {
+            return _executions.GetOrAdd(
+                (scriptId, node.Id, occurrence),
+                _ => new Lazy<Task<NodeExecutionResult>>(
+                    execute,
+                    LazyThreadSafetyMode.ExecutionAndPublication)).Value;
+        }
     }
 
     private sealed class ExecutionBudget
     {
-        public int Executed { get; set; }
+        private int _executed;
+
+        public int Take() => Interlocked.Increment(ref _executed);
     }
 
     private static AutomationScript ResolveInitialScript(AutomationProject workflow)
@@ -291,9 +429,8 @@ public sealed class WorkflowRunner : IWorkflowRunner
             };
     }
 
-    private void ActivateScript(AutomationProject workflow, AutomationScript script, WorkflowExecutionContext context, IReadOnlyList<nint>? windowHandles = null)
+    private void ActivateScript(AutomationScript script, WorkflowExecutionContext context, IReadOnlyList<nint>? windowHandles = null)
     {
-        workflow.SetActiveScript(script);
         context.Variables.Clear();
         foreach (var variable in script.Variables)
             context.Variables[variable.Key] = ConvertElement(variable.Value.Value);
@@ -478,8 +615,6 @@ public sealed class WorkflowRunner : IWorkflowRunner
             WaitIfPausedAsync = token => _pauseGate.WaitAsync(token),
             Log = WriteLogEntry
         };
-        if (script.Id != "runtime")
-            workflow.SetActiveScript(script);
         foreach (var variable in script.Variables)
             context.Variables[variable.Key] = ConvertElement(variable.Value.Value);
         InitializeWindowScope(script.WindowScope, context, windowHandles);

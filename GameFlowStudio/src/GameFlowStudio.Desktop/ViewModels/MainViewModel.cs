@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Globalization;
@@ -41,6 +42,7 @@ public sealed class MainViewModel : ObservableObject
     private readonly IInputRecordingService _inputRecorder;
     private readonly ILogger<MainViewModel> _logger;
     private readonly object _settingsSaveSync = new();
+    private readonly ConcurrentDictionary<WorkflowNode, byte> _failedExecutionNodes = new();
     private Task _settingsSaveChain = Task.CompletedTask;
     private AutomationProject _project = ProjectFactory.CreateNew();
     private string _activeScriptId = string.Empty;
@@ -92,7 +94,7 @@ public sealed class MainViewModel : ObservableObject
     private bool _isScriptPropertiesVisible;
     private bool _scriptWindowScopeEnabled;
     private string _scriptWindowTitlePattern = ".*";
-    private WindowExecutionMode _scriptWindowExecutionMode = WindowExecutionMode.WindowPriority;
+    private WindowExecutionMode _scriptOperationFlow = WindowExecutionMode.Serial;
     private ScriptInteractionModeValue _scriptInteractionMode = ScriptInteractionModeValue.Foreground;
     private string _activeScriptName = string.Empty;
     private int _scriptDefaultNodeDelayMs = AutomationScript.DefaultNodeDelayMilliseconds;
@@ -118,11 +120,19 @@ public sealed class MainViewModel : ObservableObject
 
     public ObservableCollection<DisplayLogEntry> Logs { get; } = [];
     public ObservableCollection<ScriptListItem> Scripts { get; } = [];
-    public IReadOnlyList<WindowExecutionModeOption> WindowExecutionModes { get; } =
+    private static readonly IReadOnlyList<OperationFlowModeOption> ForegroundOperationFlowModes =
     [
-        new(WindowExecutionMode.WindowPriority, "窗口优先", "先完整执行窗口 1 的流程，再完整执行窗口 2 的流程。"),
-        new(WindowExecutionMode.ActionPriority, "动作优先", "每一轮让所有窗口各执行一个当前动作，再进入下一轮。")
+        new(WindowExecutionMode.PseudoParallel, "伪并行", "每个窗口依次切换进行操作，实现操作进度一致。"),
+        new(WindowExecutionMode.Serial, "串行", "每个窗口完整执行完操作，再进行下一个窗口。")
     ];
+    private static readonly IReadOnlyList<OperationFlowModeOption> BackgroundOperationFlowModes =
+    [
+        new(WindowExecutionMode.Parallel, "并行", "每个窗口同时进行操作。")
+    ];
+    public IReadOnlyList<OperationFlowModeOption> OperationFlowModes =>
+        ScriptInteractionMode == ScriptInteractionModeValue.Background
+            ? BackgroundOperationFlowModes
+            : ForegroundOperationFlowModes;
     public IReadOnlyList<ScriptInteractionModeOption> ScriptInteractionModes { get; } =
     [
         new(ScriptInteractionModeValue.Foreground, "前台"),
@@ -216,19 +226,20 @@ public sealed class MainViewModel : ObservableObject
         get => _scriptWindowTitlePattern;
         set { if (Set(ref _scriptWindowTitlePattern, value)) { ActiveScript.WindowScope.TitlePattern = value; MarkScriptSettingsChanged(); } }
     }
-    public WindowExecutionMode ScriptWindowExecutionMode
+    public WindowExecutionMode ScriptOperationFlow
     {
-        get => _scriptWindowExecutionMode;
+        get => _scriptOperationFlow;
         set
         {
-            if (!Set(ref _scriptWindowExecutionMode, value)) return;
-            ActiveScript.WindowScope.ExecutionMode = value;
-            Raise(nameof(ScriptWindowExecutionModeDescription));
+            var normalized = NormalizeOperationFlow(ScriptInteractionMode, value);
+            if (!Set(ref _scriptOperationFlow, normalized)) return;
+            ActiveScript.WindowScope.ExecutionMode = normalized;
+            Raise(nameof(ScriptOperationFlowDescription));
             MarkScriptSettingsChanged();
         }
     }
-    public string ScriptWindowExecutionModeDescription =>
-        WindowExecutionModes.First(mode => mode.Value == ScriptWindowExecutionMode).Description;
+    public string ScriptOperationFlowDescription =>
+        OperationFlowModes.FirstOrDefault(mode => mode.Value == ScriptOperationFlow)?.Description ?? string.Empty;
     public ScriptInteractionModeValue ScriptInteractionMode
     {
         get => _scriptInteractionMode;
@@ -236,6 +247,15 @@ public sealed class MainViewModel : ObservableObject
         {
             if (!Set(ref _scriptInteractionMode, value)) return;
             ActiveScript.InteractionMode = value;
+            var normalizedFlow = NormalizeOperationFlow(value, _scriptOperationFlow);
+            if (_scriptOperationFlow != normalizedFlow)
+            {
+                _scriptOperationFlow = normalizedFlow;
+                ActiveScript.WindowScope.ExecutionMode = normalizedFlow;
+                Raise(nameof(ScriptOperationFlow));
+            }
+            Raise(nameof(OperationFlowModes));
+            Raise(nameof(ScriptOperationFlowDescription));
             MarkScriptSettingsChanged();
         }
     }
@@ -712,6 +732,7 @@ public sealed class MainViewModel : ObservableObject
         try
         {
             var project = await ExportAsync();
+            _failedExecutionNodes.Clear();
             await _editor.SendAsync("clear_execution_state");
             if (!await ValidateForRunAsync(project)) return;
             await ExecuteWorkflowAsync(project);
@@ -1120,18 +1141,32 @@ public sealed class MainViewModel : ObservableObject
         _activeScriptName = script.Name;
         _scriptWindowScopeEnabled = script.WindowScope.Enabled;
         _scriptWindowTitlePattern = script.WindowScope.TitlePattern;
-        _scriptWindowExecutionMode = script.WindowScope.ExecutionMode;
         _scriptInteractionMode = script.InteractionMode;
+        _scriptOperationFlow = NormalizeOperationFlow(_scriptInteractionMode, script.WindowScope.ExecutionMode);
+        script.WindowScope.ExecutionMode = _scriptOperationFlow;
         _scriptDefaultNodeDelayMs = Math.Clamp(script.DefaultNodeDelayMs, 0, 60000);
         Raise(nameof(ActiveScriptName));
         Raise(nameof(ActiveScriptId));
         Raise(nameof(UseWholeScreen));
         Raise(nameof(ScriptWindowScopeEnabled));
         Raise(nameof(ScriptWindowTitlePattern));
-        Raise(nameof(ScriptWindowExecutionMode));
-        Raise(nameof(ScriptWindowExecutionModeDescription));
         Raise(nameof(ScriptInteractionMode));
+        Raise(nameof(OperationFlowModes));
+        Raise(nameof(ScriptOperationFlow));
+        Raise(nameof(ScriptOperationFlowDescription));
         Raise(nameof(ScriptDefaultNodeDelayMs));
+    }
+
+    private static WindowExecutionMode NormalizeOperationFlow(
+        ScriptInteractionModeValue interactionMode,
+        WindowExecutionMode operationFlow)
+    {
+        if (interactionMode == ScriptInteractionModeValue.Background)
+            return WindowExecutionMode.Parallel;
+
+        return operationFlow is WindowExecutionMode.PseudoParallel or WindowExecutionMode.Serial
+            ? operationFlow
+            : WindowExecutionMode.Serial;
     }
 
     private void MarkScriptSettingsChanged()
@@ -1259,9 +1294,27 @@ public sealed class MainViewModel : ObservableObject
 
     private void OnNodeStarted(NodeExecutionEventArgs e) => Application.Current.Dispatcher.Invoke(() =>
     {
+        // 某个并行轨道失败后，其他已排队轨道的迟到“开始”事件不能把错误状态改回运行中。
+        if (_failedExecutionNodes.ContainsKey(e.Node)) return;
         CurrentNodeText = e.Node.Data.DisplayName;
         ObserveTask(_editor.SendAsync("highlight_node", new { nodeId = e.Node.Id }), "同步节点运行状态失败");
     });
+
+    private void OnNodeCompleted(NodeExecutionEventArgs e) => Application.Current.Dispatcher.Invoke(() =>
+    {
+        // 后台并行时，同一节点可能由多个窗口轨道分别完成或失败。
+        // 一旦任一轨道失败，本轮运行中不再允许其他轨道的成功状态覆盖红色错误状态。
+        if (_failedExecutionNodes.ContainsKey(e.Node)) return;
+        ObserveTask(_editor.SendAsync("mark_node_success", new { nodeId = e.Node.Id }), "同步节点成功状态失败");
+    });
+
+    private void OnNodeFailed(NodeExecutionEventArgs e)
+    {
+        _failedExecutionNodes.TryAdd(e.Node, 0);
+        Application.Current.Dispatcher.Invoke(() =>
+            ObserveTask(_editor.SendAsync("mark_node_error", new { nodeId = e.Node.Id }), "同步节点失败状态失败"));
+    }
+
     private void RaiseCommandStates()
     {
         if (_deferCommandStateNotifications) return;
@@ -1374,8 +1427,8 @@ public sealed class MainViewModel : ObservableObject
     {
         _editor.MessageReceived += OnEditorMessage;
         _runner.NodeStarted += (_, args) => OnNodeStarted(args);
-        _runner.NodeCompleted += (_, args) => ObserveTask(_editor.SendAsync("mark_node_success", new { nodeId = args.Node.Id }), "同步节点成功状态失败");
-        _runner.NodeFailed += (_, args) => ObserveTask(_editor.SendAsync("mark_node_error", new { nodeId = args.Node.Id }), "同步节点失败状态失败");
+        _runner.NodeCompleted += (_, args) => OnNodeCompleted(args);
+        _runner.NodeFailed += (_, args) => OnNodeFailed(args);
         _runner.StateChanged += OnWorkflowStateChanged;
         _inputRecorder.ActionRecorded += OnRecordedAction;
         _inputRecorder.StopRequested += OnRecordingStopRequested;

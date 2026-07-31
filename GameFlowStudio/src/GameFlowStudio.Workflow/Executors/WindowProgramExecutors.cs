@@ -24,7 +24,7 @@ public sealed class CloseProgramNodeExecutor(IWindowAutomationService windows, I
     public override Task<NodeExecutionResult> ExecuteAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var handles = WindowActionParameters.SelectAll(node, scopes);
+        var handles = WindowActionParameters.SelectTargets(node, context, scopes);
         var background = context.ScriptInteractionMode == ScriptInteractionMode.Background;
         var result = WindowActionParameters.ExecuteAll(windows, handles, windows.CloseWindow, "关闭目标窗口失败。", !background);
         if (result.Success) ActionExecutionLogging.Write(context, node, $"{(background ? "后台" : "前台")}关闭 {handles.Count} 个匹配窗口。");
@@ -37,7 +37,7 @@ public sealed class MinimizeWindowNodeExecutor(IWindowAutomationService windows,
     public override Task<NodeExecutionResult> ExecuteAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var handles = WindowActionParameters.SelectAll(node, scopes);
+        var handles = WindowActionParameters.SelectTargets(node, context, scopes);
         var background = context.ScriptInteractionMode == ScriptInteractionMode.Background;
         var result = WindowActionParameters.ExecuteAll(windows, handles, windows.MinimizeWindow, "最小化目标窗口失败。", !background);
         if (result.Success) ActionExecutionLogging.Write(context, node, $"{(background ? "后台" : "前台")}最小化 {handles.Count} 个匹配窗口。");
@@ -64,7 +64,7 @@ public sealed class SetWindowResolutionNodeExecutor(IWindowAutomationService win
     public override Task<NodeExecutionResult> ExecuteAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var handles = WindowActionParameters.SelectAll(node, scopes);
+        var handles = WindowActionParameters.SelectTargets(node, context, scopes);
         var width = NodeParameterReader.Int(node, "width");
         var height = NodeParameterReader.Int(node, "height");
         var background = context.ScriptInteractionMode == ScriptInteractionMode.Background;
@@ -81,6 +81,19 @@ public sealed class SetWindowResolutionNodeExecutor(IWindowAutomationService win
 
 internal static class WindowActionParameters
 {
+    public static IReadOnlyList<nint> SelectTargets(
+        WorkflowNode node,
+        WorkflowExecutionContext context,
+        IWindowScopeService scopes)
+    {
+        // 后台并行的每条执行轨道只负责自己的窗口，不能再次按正则扩成整组窗口。
+        if (context.ScriptInteractionMode == ScriptInteractionMode.Background
+            && context.WindowHandles.Count == 1)
+            return context.WindowHandles;
+
+        return SelectAll(node, scopes);
+    }
+
     public static IReadOnlyList<nint> SelectAll(WorkflowNode node, IWindowScopeService scopes) =>
         WindowHandleSelector.SelectAll(scopes, NodeParameterReader.String(node, "titlePattern", ".*"));
 

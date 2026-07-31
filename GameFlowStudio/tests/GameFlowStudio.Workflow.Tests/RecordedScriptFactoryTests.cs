@@ -182,7 +182,7 @@ public sealed class RecordedScriptFactoryTests
         {
             Enabled = true,
             TitlePattern = "^原窗口$",
-            ExecutionMode = WindowExecutionMode.ActionPriority
+            ExecutionMode = WindowExecutionMode.Parallel
         };
         source.Variables["保留"] = new()
         {
@@ -216,7 +216,7 @@ public sealed class RecordedScriptFactoryTests
         Assert.Equal(ScriptInteractionMode.Background, appended.InteractionMode);
         Assert.True(appended.WindowScope.Enabled);
         Assert.Equal("^原窗口$", appended.WindowScope.TitlePattern);
-        Assert.Equal(WindowExecutionMode.ActionPriority, appended.WindowScope.ExecutionMode);
+        Assert.Equal(WindowExecutionMode.Parallel, appended.WindowScope.ExecutionMode);
         Assert.Equal(7, appended.Variables["保留"].Value.GetInt32());
         Assert.Equal([NodeTypes.Start, NodeTypes.End], source.Nodes.Select(node => node.Type));
         Assert.Equal("end", source.Edges.Single().Target);

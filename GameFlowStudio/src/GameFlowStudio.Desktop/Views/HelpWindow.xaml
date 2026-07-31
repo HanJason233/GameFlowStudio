@@ -221,7 +221,7 @@
                                 <TextBlock Style="{StaticResource CardTitleStyle}" Text="脚本管理"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 左键单击脚本卡片进行切换；点击脚本列表右侧“+”创建新脚本。项目至少保留一个脚本。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 右键脚本可打开“复制、属性、删除”。脚本名称会在当前项目内自动保持唯一。"/>
-                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• “属性”可设置脚本名称、窗口范围、运行方式、前台串行方式和默认节点等待时间。"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• “属性”可设置脚本名称、窗口范围、运行方式、操作流程和默认节点等待时间。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 默认节点等待时间是普通节点之间的统一间隔；“等待”节点仍使用自己的等待时长。设为 0 可关闭默认间隔。"/>
                             </StackPanel>
                         </Border>
@@ -276,7 +276,7 @@
                         <Border Style="{StaticResource HelpCardStyle}">
                             <StackPanel>
                                 <TextBlock Style="{StaticResource CardTitleStyle}" Text="窗口操作节点"/>
-                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 关闭程序、最小化、窗口整理和分辨率节点使用各自填写的窗口标题正则，并处理所有匹配窗口。"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 窗口整理使用卡片标题正则处理整组窗口；后台关闭、最小化和分辨率在有唯一脚本窗口上下文时只处理当前窗口，否则才按卡片标题正则处理匹配窗口。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 关闭、最小化和设置分辨率跟随脚本的运行方式；后台方式不激活匹配窗口。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• “窗口整理”本身不会激活窗口：把第一个窗口放到设置的 x、y，后续匹配窗口按垂直偏移量依次排列。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 节点自己的窗口正则与“脚本窗口范围”是两套设置，互不替代。"/>
@@ -367,13 +367,15 @@
                         <Border Style="{StaticResource HelpCardStyle}" BorderBrush="#A16207">
                             <StackPanel>
                                 <TextBlock Style="{StaticResource CardTitleStyle}" Foreground="#FDE68A" Text="前台与后台模式"/>
-                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 在脚本属性中统一选择前台或后台；脚本内的操作卡片不再单独设置。"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 在脚本属性中统一选择前台或后台；脚本内的操作卡片不再单独设置。不同运行方式提供不同的操作流程。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 前台输入会激活目标窗口并发送真实系统输入；前台读取会激活窗口后读取桌面上的可见像素。"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 前台模式可选择“伪并行”或“串行”。伪并行依次切换窗口执行当前操作，使各窗口的进度尽量一致；串行会完整执行一个窗口后再处理下一个。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 后台方式下，点击、移动、拖动、滚轮、按键和文本输入不移动真实鼠标或激活窗口，而是向唯一目标窗口或焦点控件投递传统 Win32 消息。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 后台方式下，色判断、图判断和文本判断不激活窗口，通过 PrintWindow 请求唯一目标窗口自行绘制，再从结果中读取指定区域。"/>
-                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 后台输入和后台读取都要求脚本窗口范围只得到一个窗口，或前面使用只返回一个窗口的窗口作用域节点；没有窗口目标时不能使用。"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 后台模式固定使用“并行”：脚本窗口范围匹配到多个窗口时，每个窗口同时运行一套独立流程；单套流程内的后台输入和读取仍只面向自己的唯一目标窗口。"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 后台输入和后台读取必须有目标窗口；选择整个屏幕且没有建立窗口上下文时不能使用。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 游戏、Raw Input、DirectInput、高权限或受保护程序可能忽略后台输入；硬件加速、受保护或最小化窗口可能拒绝后台绘制或返回黑图。后台读取单次最多等待 5 秒；消息投递成功不代表业务操作成功。"/>
-                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 后台鼠标只支持客户区坐标，不用于标题栏、边框或窗口外部；单个后台点击节点最多点击 100 次。后台关闭、最小化和分辨率操作会直接处理标题正则匹配到的所有窗口。"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 后台鼠标只支持客户区坐标，不用于标题栏、边框或窗口外部；单个后台点击节点最多点击 100 次。后台关闭、最小化和分辨率操作有唯一脚本窗口上下文时只处理当前窗口；没有唯一上下文时才按卡片标题正则处理匹配窗口。"/>
                             </StackPanel>
                         </Border>
 
@@ -406,19 +408,19 @@
                 </ScrollViewer>
             </TabItem>
 
-            <TabItem Header="窗口模式">
+            <TabItem Header="操作流程">
                 <ScrollViewer VerticalScrollBarVisibility="Auto"
                               HorizontalScrollBarVisibility="Disabled">
                     <StackPanel Margin="20">
-                        <TextBlock Style="{StaticResource PageTitleStyle}" Text="窗口范围与多窗口模式"/>
+                        <TextBlock Style="{StaticResource PageTitleStyle}" Text="窗口范围与操作流程"/>
                         <TextBlock Style="{StaticResource PageIntroStyle}"
-                                   Text="在脚本卡片上右键打开“属性”，可设置整个脚本的窗口上下文和多窗口执行顺序。"/>
+                                   Text="在脚本卡片上右键打开“属性”，可设置整个脚本的窗口上下文、运行方式和操作流程。"/>
 
                         <Border Style="{StaticResource HelpCardStyle}">
                             <StackPanel>
                                 <TextBlock Style="{StaticResource CardTitleStyle}" Text="整个屏幕"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 不按标题寻找窗口，也不自动建立目标窗口；脚本只执行一次。"/>
-                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• “跟随脚本”坐标按屏幕绝对坐标处理，前台串行方式在此范围下不生效。"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• “跟随脚本”坐标按屏幕绝对坐标处理；没有多个目标窗口时，操作流程不会产生多窗口调度效果。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 这里的“整个屏幕”表示不限制目标窗口，不代表每个检测节点都会自动扫描全屏。"/>
                             </StackPanel>
                         </Border>
@@ -428,24 +430,35 @@
                                 <TextBlock Style="{StaticResource CardTitleStyle}" Text="正则匹配窗口"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 使用窗口标题正则表达式查找可见、有标题的顶级窗口，匹配不区分大小写。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 找不到窗口时运行失败；脚本使用前台方式时，输入和读取会自动激活当前目标窗口；使用后台方式时不会激活。"/>
-                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 匹配到多个窗口时，按下面选择的“前台串行方式”运行。"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 匹配到多个窗口时，按脚本属性中的“操作流程”运行。前台可选伪并行或串行，后台固定并行。"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 跨脚本跳转会继承当前轨道；两个脚本的前后台方式、操作流程、窗口范围开关和窗口标题规则必须一致，且当前窗口仍需匹配目标脚本。"/>
                             </StackPanel>
                         </Border>
 
                         <Border Style="{StaticResource HelpCardStyle}">
                             <StackPanel>
-                                <TextBlock Style="{StaticResource CardTitleStyle}" Text="窗口优先"/>
+                                <TextBlock Style="{StaticResource CardTitleStyle}" Text="串行（前台）"/>
                                 <TextBlock Style="{StaticResource BodyTextStyle}"
-                                           Text="先在窗口 1 完整执行整个流程，再到窗口 2 从头完整执行，依次处理所有窗口。适合每个窗口都需要连续完成一整套操作的场景。"/>
+                                           Text="每个窗口完整执行完操作，再进行下一个窗口。适合每个窗口都需要连续完成一整套操作的场景。"/>
                             </StackPanel>
                         </Border>
 
                         <Border Style="{StaticResource HelpCardStyle}">
                             <StackPanel>
-                                <TextBlock Style="{StaticResource CardTitleStyle}" Text="动作优先"/>
-                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 每轮让窗口 1 执行一个节点、窗口 2 执行一个节点，再进入下一轮；开始、等待、判断和结束也计入轮次。"/>
+                                <TextBlock Style="{StaticResource CardTitleStyle}" Text="伪并行（前台）"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 每个窗口依次切换进行操作，实现操作进度一致；开始、等待、判断和结束也计入轮次。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 每个窗口保存独立的执行进度和变量，可以走不同的判断分支，并在不同时间结束。"/>
-                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 窗口较多或节点较多时，频繁切换窗口会比“窗口优先”更慢。"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 它会依次激活各窗口，并不是真正同时操作；窗口或节点较多时，频繁切换会比串行更慢。"/>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource HelpCardStyle}">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource CardTitleStyle}" Text="并行（后台）"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 每个窗口同时进行操作，各窗口拥有独立的执行进度、变量和判断分支。"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 并行流程不会为了调度而依次激活窗口，整体完成时间取决于最晚结束的窗口。"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 启动程序和窗口整理属于全局动作，同一轮由所有窗口流程共享一次执行，不会按窗口重复启动或整理。"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 后台输入和读取仍受目标程序支持程度影响；消息投递成功不代表程序一定响应。"/>
                             </StackPanel>
                         </Border>
                     </StackPanel>

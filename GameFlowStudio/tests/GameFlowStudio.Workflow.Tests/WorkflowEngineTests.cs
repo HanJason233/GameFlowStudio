@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using GameFlowStudio.Contracts.Enums;
 using GameFlowStudio.Contracts.Events;
 using GameFlowStudio.Contracts.Nodes;
@@ -171,11 +172,13 @@ public sealed class WorkflowEngineTests
         await Runner(tracker).RunAsync(project, CancellationToken.None);
 
         Assert.Equal(["target-action"], tracker.Executed);
-        Assert.Equal(target.Id, project.ActiveScriptId);
+        Assert.Equal(source.Id, project.ActiveScriptId);
+        Assert.Same(source.Nodes, project.Nodes);
+        Assert.Same(source.Edges, project.Edges);
     }
 
     [Fact]
-    public async Task CrossScriptJumpUsesTargetScriptInteractionMode()
+    public async Task CrossScriptJumpKeepsCompatibleBackgroundMode()
     {
         var windows = new RecordingWindowAutomationService();
         var tracker = new ModeTrackingActionExecutor();
@@ -183,9 +186,9 @@ public sealed class WorkflowEngineTests
         {
             Id = "source",
             Name = "source",
-            InteractionMode = ScriptInteractionMode.Foreground,
+            InteractionMode = ScriptInteractionMode.Background,
             DefaultNodeDelayMs = 0,
-            WindowScope = new() { Enabled = true }
+            WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.Parallel }
         };
         var sourceStart = Node("source-start", NodeTypes.Start);
         var jump = Node("jump", NodeTypes.Jump, ("scriptId", "target"), ("actionId", "target-action"));
@@ -199,7 +202,7 @@ public sealed class WorkflowEngineTests
             Name = "target",
             InteractionMode = ScriptInteractionMode.Background,
             DefaultNodeDelayMs = 0,
-            WindowScope = new() { Enabled = true }
+            WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.Parallel }
         };
         var targetStart = Node("target-start", NodeTypes.Start);
         var targetAction = Node(
@@ -221,6 +224,152 @@ public sealed class WorkflowEngineTests
 
         Assert.Equal([ScriptInteractionMode.Background], tracker.Modes);
         Assert.Empty(windows.Activations);
+    }
+
+    [Fact]
+    public async Task BackgroundParallelCannotJumpToForegroundScript()
+    {
+        var source = new AutomationScript
+        {
+            Id = "source",
+            Name = "source",
+            InteractionMode = ScriptInteractionMode.Background,
+            DefaultNodeDelayMs = 0,
+            WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.Parallel }
+        };
+        var sourceStart = Node("source-start", NodeTypes.Start);
+        var jump = Node("jump", NodeTypes.Jump, ("scriptId", "target"), ("actionId", "target-action"));
+        var sourceEnd = Node("source-end", NodeTypes.End);
+        source.Nodes = [sourceStart, jump, sourceEnd];
+        source.Edges = [Edge(sourceStart, "output", jump), Edge(jump, "output", sourceEnd)];
+
+        var target = new AutomationScript
+        {
+            Id = "target",
+            Name = "target",
+            InteractionMode = ScriptInteractionMode.Foreground,
+            DefaultNodeDelayMs = 0,
+            WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.Serial }
+        };
+        var targetStart = Node("target-start", NodeTypes.Start);
+        var targetAction = Action("target-action");
+        var targetEnd = Node("target-end", NodeTypes.End);
+        target.Nodes = [targetStart, targetAction, targetEnd];
+        target.Edges = [Edge(targetStart, "output", targetAction), Edge(targetAction, "output", targetEnd)];
+
+        var project = NewProject();
+        project.Scripts = [source, target];
+        project.SetActiveScript(source);
+        var runner = Runner(
+            new TrackingActionExecutor(),
+            new FixedWindowScopeService([(nint)101, (nint)202]),
+            validator: new AcceptingWorkflowValidator());
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => runner.RunAsync(project, CancellationToken.None));
+
+        Assert.Contains("前台/后台模式不同", error.Message);
+        Assert.Equal(source.Id, project.ActiveScriptId);
+    }
+
+    [Theory]
+    [InlineData(ScriptInteractionMode.Foreground, WindowExecutionMode.Parallel)]
+    [InlineData(ScriptInteractionMode.Background, WindowExecutionMode.Serial)]
+    [InlineData(ScriptInteractionMode.Background, WindowExecutionMode.PseudoParallel)]
+    public async Task RunnerRejectsInvalidInteractionModeAndOperationFlowWithoutValidatorHelp(
+        ScriptInteractionMode interactionMode,
+        WindowExecutionMode executionMode)
+    {
+        var project = Chain(Action("one"));
+        project.InteractionMode = interactionMode;
+        project.WindowScope = new() { ExecutionMode = executionMode };
+        var runner = Runner(
+            new TrackingActionExecutor(),
+            validator: new AcceptingWorkflowValidator());
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => runner.RunAsync(project, CancellationToken.None));
+
+        Assert.Contains("入口脚本的运行方式与操作流程不匹配", error.Message);
+        Assert.Equal(WorkflowExecutionState.Failed, runner.State);
+    }
+
+    [Fact]
+    public async Task CrossScriptJumpRejectsDifferentWindowTitlePattern()
+    {
+        var project = CrossScriptProject(
+            ScriptInteractionMode.Background,
+            new() { Enabled = true, TitlePattern = "^Source$", ExecutionMode = WindowExecutionMode.Parallel },
+            ScriptInteractionMode.Background,
+            new() { Enabled = true, TitlePattern = "^Target$", ExecutionMode = WindowExecutionMode.Parallel });
+        var executor = new TrackingActionExecutor();
+        var runner = Runner(
+            executor,
+            new FixedWindowScopeService([(nint)101]),
+            validator: new AcceptingWorkflowValidator());
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => runner.RunAsync(project, CancellationToken.None));
+
+        Assert.Contains("窗口标题规则不同", error.Message);
+        Assert.Empty(executor.Executed);
+    }
+
+    [Fact]
+    public async Task CrossScriptJumpRejectsDisabledTargetWindowScope()
+    {
+        var project = CrossScriptProject(
+            ScriptInteractionMode.Background,
+            new() { Enabled = true, ExecutionMode = WindowExecutionMode.Parallel },
+            ScriptInteractionMode.Background,
+            new() { Enabled = false, ExecutionMode = WindowExecutionMode.Parallel });
+        var runner = Runner(
+            new TrackingActionExecutor(),
+            new FixedWindowScopeService([(nint)101]),
+            validator: new AcceptingWorkflowValidator());
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => runner.RunAsync(project, CancellationToken.None));
+
+        Assert.Contains("窗口作用域启用状态不同", error.Message);
+    }
+
+    [Fact]
+    public async Task CrossScriptJumpRejectsDifferentOperationFlow()
+    {
+        var project = CrossScriptProject(
+            ScriptInteractionMode.Foreground,
+            new() { Enabled = true, ExecutionMode = WindowExecutionMode.Serial },
+            ScriptInteractionMode.Foreground,
+            new() { Enabled = true, ExecutionMode = WindowExecutionMode.PseudoParallel });
+        var runner = Runner(
+            new TrackingActionExecutor(),
+            new FixedWindowScopeService([(nint)101]),
+            validator: new AcceptingWorkflowValidator());
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => runner.RunAsync(project, CancellationToken.None));
+
+        Assert.Contains("操作流程不同", error.Message);
+    }
+
+    [Fact]
+    public async Task CrossScriptJumpRejectsWindowThatNoLongerMatchesCompatibleScope()
+    {
+        var project = CrossScriptProject(
+            ScriptInteractionMode.Background,
+            new() { Enabled = true, TitlePattern = "^Game$", ExecutionMode = WindowExecutionMode.Parallel },
+            ScriptInteractionMode.Background,
+            new() { Enabled = true, TitlePattern = "^Game$", ExecutionMode = WindowExecutionMode.Parallel });
+        var runner = Runner(
+            new TrackingActionExecutor(),
+            new ChangingWindowScopeService([(nint)101], [(nint)202]),
+            validator: new AcceptingWorkflowValidator());
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => runner.RunAsync(project, CancellationToken.None));
+
+        Assert.Contains("当前目标窗口已不再匹配", error.Message);
     }
 
     [Fact]
@@ -276,7 +425,7 @@ public sealed class WorkflowEngineTests
         var executor = new WindowScopeTrackingExecutor();
         var runner = Runner(executor, new FixedWindowScopeService([(nint)101]));
         var project = Chain(Action("one"), Action("two"));
-        project.WindowScope = new() { Enabled = true, TitlePattern = "^Game", ExecutionMode = WindowExecutionMode.WindowPriority };
+        project.WindowScope = new() { Enabled = true, TitlePattern = "^Game", ExecutionMode = WindowExecutionMode.Serial };
 
         await runner.RunAsync(project, CancellationToken.None);
 
@@ -285,12 +434,12 @@ public sealed class WorkflowEngineTests
     }
 
     [Fact]
-    public async Task WindowPriorityRunsCompleteGraphPerWindow()
+    public async Task SerialRunsCompleteGraphPerWindow()
     {
         var executor = new WindowExecutionTrackingExecutor();
         var runner = Runner(executor, new FixedWindowScopeService([(nint)101, (nint)202]));
         var project = Chain(Action("one"), Action("two"));
-        project.WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.WindowPriority };
+        project.WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.Serial };
 
         await runner.RunAsync(project, CancellationToken.None);
 
@@ -315,12 +464,12 @@ public sealed class WorkflowEngineTests
     }
 
     [Fact]
-    public async Task WindowPriorityWaitsBeforeSwitchingToAnotherWindow()
+    public async Task SerialWaitsBeforeSwitchingToAnotherWindow()
     {
         var executor = new WindowExecutionTrackingExecutor();
         var runner = Runner(executor, new FixedWindowScopeService([(nint)101, (nint)202]));
         var project = Chain(Action("one"));
-        project.WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.WindowPriority };
+        project.WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.Serial };
         var timer = System.Diagnostics.Stopwatch.StartNew();
 
         await runner.RunAsync(project, CancellationToken.None);
@@ -330,12 +479,12 @@ public sealed class WorkflowEngineTests
     }
 
     [Fact]
-    public async Task ActionPriorityRunsEachWindowOneActionPerRound()
+    public async Task PseudoParallelRunsEachWindowOneActionPerRound()
     {
         var executor = new WindowExecutionTrackingExecutor();
         var runner = Runner(executor, new FixedWindowScopeService([(nint)101, (nint)202]));
         var project = Chain(Action("one"), Action("two"));
-        project.WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.ActionPriority };
+        project.WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.PseudoParallel };
 
         await runner.RunAsync(project, CancellationToken.None);
 
@@ -345,13 +494,114 @@ public sealed class WorkflowEngineTests
     }
 
     [Fact]
+    public async Task BackgroundParallelRunsAllWindowsConcurrently()
+    {
+        var executor = new ParallelBarrierActionExecutor(2);
+        var runner = Runner(executor, new FixedWindowScopeService([(nint)101, (nint)202]));
+        var project = Chain(Action("one"));
+        project.InteractionMode = ScriptInteractionMode.Background;
+        project.WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.Parallel };
+
+        var run = runner.RunAsync(project, CancellationToken.None);
+        var overlapFailure = await Record.ExceptionAsync(
+            () => executor.AllStarted.Task.WaitAsync(TimeSpan.FromSeconds(2)));
+        executor.Release.TrySetResult();
+        await run.WaitAsync(TimeSpan.FromSeconds(2));
+
+        Assert.Null(overlapFailure);
+        Assert.Equal([(nint)101, (nint)202], executor.Handles.Order());
+        Assert.Equal(WorkflowExecutionState.Completed, runner.State);
+    }
+
+    [Fact]
+    public async Task BackgroundParallelExecutesRunProgramNodeOnlyOnce()
+    {
+        var executor = new CountingGlobalNodeExecutor(NodeTypes.RunProgram);
+        var runner = Runner(executor, new FixedWindowScopeService([(nint)101, (nint)202, (nint)303]));
+        var project = Chain(Node("run-once", NodeTypes.RunProgram, ("path", "test.exe")));
+        project.InteractionMode = ScriptInteractionMode.Background;
+        project.WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.Parallel };
+
+        await runner.RunAsync(project, CancellationToken.None);
+
+        Assert.Equal(1, executor.Count);
+    }
+
+    [Fact]
+    public async Task BackgroundParallelFailureCancelsSiblingAndPreservesFirstError()
+    {
+        var executor = new ParallelFailureActionExecutor();
+        var runner = Runner(executor, new FixedWindowScopeService([(nint)101, (nint)202]));
+        var project = Chain(Action("one"));
+        project.InteractionMode = ScriptInteractionMode.Background;
+        project.WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.Parallel };
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => runner.RunAsync(project, CancellationToken.None));
+
+        Assert.Equal("窗口 101 执行失败。", error.Message);
+        await executor.SiblingCancelled.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        Assert.Equal(WorkflowExecutionState.Failed, runner.State);
+    }
+
+    [Fact]
+    public async Task PauseBlocksEveryParallelTrackBeforeItsNextNode()
+    {
+        var executor = new ParallelPauseActionExecutor(2);
+        var runner = Runner(executor, new FixedWindowScopeService([(nint)101, (nint)202]));
+        var project = Chain(Action("one"), Action("two"));
+        project.InteractionMode = ScriptInteractionMode.Background;
+        project.WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.Parallel };
+        var run = runner.RunAsync(project, CancellationToken.None);
+
+        try
+        {
+            await executor.AllFirstNodesStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        }
+        catch
+        {
+            executor.ReleaseFirstNodes.TrySetResult();
+            await runner.StopAsync();
+            await run.WaitAsync(TimeSpan.FromSeconds(2));
+            throw;
+        }
+
+        await runner.PauseAsync();
+        executor.ReleaseFirstNodes.TrySetResult();
+        await Task.Delay(80);
+        Assert.Equal(0, executor.SecondNodeCount);
+
+        await runner.ResumeAsync();
+        await run.WaitAsync(TimeSpan.FromSeconds(2));
+        Assert.Equal(2, executor.SecondNodeCount);
+    }
+
+    [Fact]
+    public async Task StopCancelsEveryParallelTrack()
+    {
+        var executor = new ParallelBlockingActionExecutor(2);
+        var runner = Runner(executor, new FixedWindowScopeService([(nint)101, (nint)202]));
+        var project = Chain(Action("one"));
+        project.InteractionMode = ScriptInteractionMode.Background;
+        project.WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.Parallel };
+        var run = runner.RunAsync(project, CancellationToken.None);
+
+        await executor.AllStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        await runner.StopAsync();
+        await run.WaitAsync(TimeSpan.FromSeconds(2));
+
+        Assert.Equal(2, executor.CancelledCount);
+        Assert.Equal(WorkflowExecutionState.Idle, runner.State);
+    }
+
+    [Fact]
     public async Task ScopedActionsActivateTheTargetBeforeEachOperation()
     {
         var windows = new RecordingWindowAutomationService();
         var executor = new ActivationAwareActionExecutor(windows);
         var runner = Runner(executor, new FixedWindowScopeService([(nint)101]), windows: windows);
         var project = Chain(Action("one"), Action("two"));
-        project.WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.WindowPriority };
+        project.WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.Serial };
 
         await runner.RunAsync(project, CancellationToken.None);
 
@@ -377,7 +627,7 @@ public sealed class WorkflowEngineTests
             ("y", 20));
         var project = Chain(click);
         project.InteractionMode = ScriptInteractionMode.Background;
-        project.WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.WindowPriority };
+        project.WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.Parallel };
 
         await runner.RunAsync(project, CancellationToken.None);
 
@@ -395,7 +645,7 @@ public sealed class WorkflowEngineTests
         var input = Node("background-input", NodeTypes.TextInput, ("text", "test"));
         var project = Chain(input);
         project.InteractionMode = ScriptInteractionMode.Background;
-        project.WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.WindowPriority };
+        project.WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.Parallel };
 
         await runner.RunAsync(project, CancellationToken.None);
 
@@ -425,7 +675,7 @@ public sealed class WorkflowEngineTests
             Edge(condition, "false", falseEnd)
         ];
         project.InteractionMode = ScriptInteractionMode.Background;
-        project.WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.WindowPriority };
+        project.WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.Parallel };
 
         await runner.RunAsync(project, CancellationToken.None);
 
@@ -443,7 +693,7 @@ public sealed class WorkflowEngineTests
             windows: windows);
         var click = Node("foreground-click", NodeTypes.MouseClick, ("x", 10), ("y", 20));
         var project = Chain(click);
-        project.WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.WindowPriority };
+        project.WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.Serial };
 
         await runner.RunAsync(project, CancellationToken.None);
 
@@ -500,9 +750,10 @@ public sealed class WorkflowEngineTests
         IWindowScopeService? windowScopes = null,
         INodeExecutor? endExecutor = null,
         IWindowAutomationService? windows = null,
-        IBackgroundMouseClickService? backgroundClicks = null) => new(
+        IBackgroundMouseClickService? backgroundClicks = null,
+        IWorkflowValidator? validator = null) => new(
         [new StartNodeExecutor(), endExecutor ?? new EndNodeExecutor(), new WaitNodeExecutor(), new JumpNodeExecutor(), new MouseClickNodeExecutor(new NullInputAutomationService(), new NullCoordinateResolver(), backgroundClicks), actionExecutor],
-        new WorkflowValidator(), NullLogger<WorkflowRunner>.Instance, windowScopes, windows);
+        validator ?? new WorkflowValidator(), NullLogger<WorkflowRunner>.Instance, windowScopes, windows);
 
     private static async Task AssertCompletionBoundaryAsync(bool stop)
     {
@@ -541,6 +792,45 @@ public sealed class WorkflowEngineTests
         return project;
     }
 
+    private static AutomationProject CrossScriptProject(
+        ScriptInteractionMode sourceInteractionMode,
+        ScriptWindowScope sourceWindowScope,
+        ScriptInteractionMode targetInteractionMode,
+        ScriptWindowScope targetWindowScope)
+    {
+        var source = new AutomationScript
+        {
+            Id = "source",
+            Name = "source",
+            InteractionMode = sourceInteractionMode,
+            WindowScope = sourceWindowScope,
+            DefaultNodeDelayMs = 0
+        };
+        var sourceStart = Node("source-start", NodeTypes.Start);
+        var jump = Node("jump", NodeTypes.Jump, ("scriptId", "target"), ("actionId", "target-action"));
+        var sourceEnd = Node("source-end", NodeTypes.End);
+        source.Nodes = [sourceStart, jump, sourceEnd];
+        source.Edges = [Edge(sourceStart, "output", jump), Edge(jump, "output", sourceEnd)];
+
+        var target = new AutomationScript
+        {
+            Id = "target",
+            Name = "target",
+            InteractionMode = targetInteractionMode,
+            WindowScope = targetWindowScope,
+            DefaultNodeDelayMs = 0
+        };
+        var targetAction = Action("target-action");
+        var targetEnd = Node("target-end", NodeTypes.End);
+        target.Nodes = [Node("target-start", NodeTypes.Start), targetAction, targetEnd];
+        target.Edges = [Edge(target.Nodes[0], "output", targetAction), Edge(targetAction, "output", targetEnd)];
+
+        var project = NewProject();
+        project.Scripts = [source, target];
+        project.SetActiveScript(source);
+        return project;
+    }
+
     internal static AutomationProject NewProject() => new() { Project = new() { Id = "test", Name = "test" } };
     internal static WorkflowNode Action(string id) => Node(id, NodeTypes.TextInput, ("text", id));
     internal static WorkflowNode Node(string id, string type, params (string Name, object Value)[] parameters) => new() { Id = id, Type = type, Position = new() { X = 1, Y = 1 }, Data = new() { DisplayName = id, Parameters = parameters.ToDictionary(p => p.Name, p => ProjectJson.Element(p.Value)) } };
@@ -559,6 +849,132 @@ public sealed class WorkflowEngineTests
         public TaskCompletionSource FirstStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously); public TaskCompletionSource ReleaseFirst { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously); public int Count { get; private set; }
         public override async Task<NodeExecutionResult> ExecuteAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken cancellationToken) { Count++; if (Count == 1) { FirstStarted.SetResult(); await ReleaseFirst.Task.WaitAsync(cancellationToken); } return NodeExecutionResult.Ok(); }
     }
+
+    private sealed class ParallelBarrierActionExecutor(int expectedCount) : NodeExecutorBase(NodeTypes.TextInput)
+    {
+        private int _startedCount;
+        private readonly ConcurrentDictionary<nint, byte> _handles = new();
+
+        public TaskCompletionSource AllStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public IEnumerable<nint> Handles => _handles.Keys;
+
+        public override async Task<NodeExecutionResult> ExecuteAsync(
+            WorkflowNode node,
+            WorkflowExecutionContext context,
+            CancellationToken cancellationToken)
+        {
+            _handles.TryAdd(context.WindowHandles.Single(), 0);
+            if (Interlocked.Increment(ref _startedCount) == expectedCount)
+                AllStarted.TrySetResult();
+            await Release.Task.WaitAsync(cancellationToken);
+            return NodeExecutionResult.Ok();
+        }
+    }
+
+    private sealed class CountingGlobalNodeExecutor(string nodeType) : NodeExecutorBase(nodeType)
+    {
+        private int _count;
+        public int Count => Volatile.Read(ref _count);
+
+        public override async Task<NodeExecutionResult> ExecuteAsync(
+            WorkflowNode node,
+            WorkflowExecutionContext context,
+            CancellationToken cancellationToken)
+        {
+            Interlocked.Increment(ref _count);
+            await Task.Delay(50, cancellationToken);
+            return NodeExecutionResult.Ok();
+        }
+    }
+
+    private sealed class ParallelFailureActionExecutor : NodeExecutorBase
+    {
+        public ParallelFailureActionExecutor() : base(NodeTypes.TextInput) { }
+        public TaskCompletionSource SiblingStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource SiblingCancelled { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public override async Task<NodeExecutionResult> ExecuteAsync(
+            WorkflowNode node,
+            WorkflowExecutionContext context,
+            CancellationToken cancellationToken)
+        {
+            if (context.WindowHandles.Single() == (nint)101)
+            {
+                await SiblingStarted.Task.WaitAsync(cancellationToken);
+                throw new InvalidOperationException("窗口 101 执行失败。");
+            }
+
+            SiblingStarted.TrySetResult();
+            try
+            {
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                SiblingCancelled.TrySetResult();
+                throw;
+            }
+            return NodeExecutionResult.Ok();
+        }
+    }
+
+    private sealed class ParallelPauseActionExecutor(int expectedCount) : NodeExecutorBase(NodeTypes.TextInput)
+    {
+        private int _firstNodeCount;
+        private int _secondNodeCount;
+
+        public TaskCompletionSource AllFirstNodesStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource ReleaseFirstNodes { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public int SecondNodeCount => Volatile.Read(ref _secondNodeCount);
+
+        public override async Task<NodeExecutionResult> ExecuteAsync(
+            WorkflowNode node,
+            WorkflowExecutionContext context,
+            CancellationToken cancellationToken)
+        {
+            if (node.Id == "one")
+            {
+                if (Interlocked.Increment(ref _firstNodeCount) == expectedCount)
+                    AllFirstNodesStarted.TrySetResult();
+                await ReleaseFirstNodes.Task.WaitAsync(cancellationToken);
+            }
+            else if (node.Id == "two")
+            {
+                Interlocked.Increment(ref _secondNodeCount);
+            }
+            return NodeExecutionResult.Ok();
+        }
+    }
+
+    private sealed class ParallelBlockingActionExecutor(int expectedCount) : NodeExecutorBase(NodeTypes.TextInput)
+    {
+        private int _startedCount;
+        private int _cancelledCount;
+
+        public TaskCompletionSource AllStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public int CancelledCount => Volatile.Read(ref _cancelledCount);
+
+        public override async Task<NodeExecutionResult> ExecuteAsync(
+            WorkflowNode node,
+            WorkflowExecutionContext context,
+            CancellationToken cancellationToken)
+        {
+            if (Interlocked.Increment(ref _startedCount) == expectedCount)
+                AllStarted.TrySetResult();
+            try
+            {
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                Interlocked.Increment(ref _cancelledCount);
+                throw;
+            }
+            return NodeExecutionResult.Ok();
+        }
+    }
+
     private sealed class BlockingActionExecutor : NodeExecutorBase
     {
         public BlockingActionExecutor() : base(NodeTypes.TextInput) { }
@@ -673,6 +1089,21 @@ public sealed class WorkflowEngineTests
     private sealed class FixedWindowScopeService(IReadOnlyList<nint> handles) : IWindowScopeService
     {
         public IReadOnlyList<nint> ResolveWindowHandles(string titlePattern) => handles;
+    }
+
+    private sealed class ChangingWindowScopeService(
+        IReadOnlyList<nint> initialHandles,
+        IReadOnlyList<nint> laterHandles) : IWindowScopeService
+    {
+        private int _calls;
+
+        public IReadOnlyList<nint> ResolveWindowHandles(string titlePattern) =>
+            Interlocked.Increment(ref _calls) == 1 ? initialHandles : laterHandles;
+    }
+
+    private sealed class AcceptingWorkflowValidator : IWorkflowValidator
+    {
+        public WorkflowValidationResult Validate(AutomationProject workflow) => new();
     }
 
     private sealed class RecordingWindowAutomationService : IWindowAutomationService

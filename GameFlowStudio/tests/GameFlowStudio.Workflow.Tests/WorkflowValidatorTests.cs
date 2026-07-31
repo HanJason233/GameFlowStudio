@@ -29,6 +29,116 @@ public sealed class WorkflowValidatorTests
     [Fact] public void InvalidRuntimeWindowExecutionModeFails() { var project = Valid(); project.WindowScope = new() { ExecutionMode = (WindowExecutionMode)999 }; Assert.Contains(_validator.Validate(project).Errors, error => error.Code == "window_execution_mode"); }
     [Fact] public void InvalidScriptWindowExecutionModeFails() { var project = Valid(); project.Scripts = [new() { Id = "invalid-mode", WindowScope = new() { ExecutionMode = (WindowExecutionMode)999 } }]; Assert.Contains(_validator.Validate(project).Errors, error => error.Code == "window_execution_mode"); }
     [Theory]
+    [InlineData(ScriptInteractionMode.Foreground, WindowExecutionMode.Parallel)]
+    [InlineData(ScriptInteractionMode.Background, WindowExecutionMode.Serial)]
+    [InlineData(ScriptInteractionMode.Background, WindowExecutionMode.PseudoParallel)]
+    public void RuntimeInteractionModeAndOperationFlowMustMatch(
+        ScriptInteractionMode interactionMode,
+        WindowExecutionMode operationFlow)
+    {
+        var project = Valid();
+        project.InteractionMode = interactionMode;
+        project.WindowScope = new() { ExecutionMode = operationFlow };
+
+        Assert.Contains(_validator.Validate(project).Errors, error => error.Code == "operation_flow");
+    }
+
+    [Theory]
+    [InlineData(ScriptInteractionMode.Foreground, WindowExecutionMode.Parallel)]
+    [InlineData(ScriptInteractionMode.Background, WindowExecutionMode.Serial)]
+    [InlineData(ScriptInteractionMode.Background, WindowExecutionMode.PseudoParallel)]
+    public void PersistedScriptInteractionModeAndOperationFlowMustMatch(
+        ScriptInteractionMode interactionMode,
+        WindowExecutionMode operationFlow)
+    {
+        var project = Valid();
+        project.Scripts =
+        [
+            new()
+            {
+                Id = "invalid-flow",
+                InteractionMode = interactionMode,
+                WindowScope = new() { ExecutionMode = operationFlow }
+            }
+        ];
+
+        Assert.Contains(_validator.Validate(project).Errors, error => error.Code == "operation_flow");
+    }
+
+    [Theory]
+    [InlineData("interaction")]
+    [InlineData("flow")]
+    [InlineData("enabled")]
+    [InlineData("title")]
+    public void IncompatibleCrossScriptSchedulingFailsValidation(string mismatch)
+    {
+        var (project, source, target) = JumpProject();
+        switch (mismatch)
+        {
+            case "interaction":
+                target.InteractionMode = ScriptInteractionMode.Background;
+                target.WindowScope.ExecutionMode = WindowExecutionMode.Parallel;
+                break;
+            case "flow":
+                target.WindowScope.ExecutionMode = WindowExecutionMode.PseudoParallel;
+                break;
+            case "enabled":
+                target.WindowScope.Enabled = false;
+                break;
+            case "title":
+                target.WindowScope.TitlePattern = "^Other$";
+                break;
+        }
+
+        var result = _validator.Validate(project);
+
+        Assert.Contains(result.Errors, error => error.Code == "jump_incompatible" && error.NodeId == "jump");
+    }
+
+    [Fact]
+    public void BlankCrossScriptTitlePatternEqualsDefaultPattern()
+    {
+        var (project, source, target) = JumpProject();
+        source.WindowScope.TitlePattern = "   ";
+        target.WindowScope.TitlePattern = ".*";
+
+        var result = _validator.Validate(project);
+
+        Assert.DoesNotContain(result.Errors, error => error.Code == "jump_incompatible");
+    }
+
+    [Fact]
+    public void ReachableTargetScriptJumpCompatibilityIsValidated()
+    {
+        var (project, _, target) = JumpProject();
+        var targetJump = WorkflowEngineTests.Node(
+            "target-jump",
+            NodeTypes.Jump,
+            ("scriptId", "third"),
+            ("actionId", "third-action"));
+        target.Nodes.Add(targetJump);
+        var third = new AutomationScript
+        {
+            Id = "third",
+            Name = "third",
+            InteractionMode = ScriptInteractionMode.Foreground,
+            WindowScope = new()
+            {
+                Enabled = true,
+                TitlePattern = "^Other$",
+                ExecutionMode = WindowExecutionMode.Serial
+            },
+            Nodes = [WorkflowEngineTests.Action("third-action")]
+        };
+        project.Scripts.Add(third);
+
+        var result = _validator.Validate(project);
+
+        Assert.Contains(
+            result.Errors,
+            error => error.Code == "jump_incompatible" && error.NodeId == targetJump.Id);
+    }
+    [Theory]
     [InlineData("screen")]
     [InlineData("windowRelative")]
     public void RemovedCoordinateModeAliasesFail(string coordinateMode)
@@ -58,6 +168,7 @@ public sealed class WorkflowValidatorTests
             Id = "target",
             Name = "目标脚本",
             InteractionMode = ScriptInteractionMode.Background,
+            WindowScope = new() { ExecutionMode = WindowExecutionMode.Parallel },
             Nodes = [targetClick]
         };
         project.Scripts = [source, target];
@@ -109,6 +220,47 @@ public sealed class WorkflowValidatorTests
         Assert.Contains(result.Errors, error => error.Code == "node_id");
     }
     private static Contracts.Workflows.AutomationProject Valid() => ValidWith();
+
+    private static (AutomationProject Project, AutomationScript Source, AutomationScript Target) JumpProject()
+    {
+        var jump = WorkflowEngineTests.Node(
+            "jump",
+            NodeTypes.Jump,
+            ("scriptId", "target"),
+            ("actionId", "target-action"));
+        var project = ValidWith(jump);
+        var source = new AutomationScript
+        {
+            Id = "source",
+            Name = "source",
+            InteractionMode = ScriptInteractionMode.Foreground,
+            WindowScope = new()
+            {
+                Enabled = true,
+                TitlePattern = "^Game$",
+                ExecutionMode = WindowExecutionMode.Serial
+            },
+            Nodes = project.Nodes,
+            Edges = project.Edges
+        };
+        var target = new AutomationScript
+        {
+            Id = "target",
+            Name = "target",
+            InteractionMode = ScriptInteractionMode.Foreground,
+            WindowScope = new()
+            {
+                Enabled = true,
+                TitlePattern = "^Game$",
+                ExecutionMode = WindowExecutionMode.Serial
+            },
+            Nodes = [WorkflowEngineTests.Action("target-action")]
+        };
+        project.Scripts = [source, target];
+        project.SetActiveScript(source);
+        return (project, source, target);
+    }
+
     private static Contracts.Workflows.AutomationProject ValidWith(params Contracts.Workflows.WorkflowNode[] middle)
     {
         var p = WorkflowEngineTests.NewProject(); var start = WorkflowEngineTests.Node("start",NodeTypes.Start); var end = WorkflowEngineTests.Node("end",NodeTypes.End); p.Nodes = [start, .. middle, end];

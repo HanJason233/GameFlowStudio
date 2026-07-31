@@ -32,6 +32,15 @@ public sealed class WindowScopeNodeExecutor(
     {
         cancellationToken.ThrowIfCancellationRequested();
         IReadOnlyList<nint> handles = scopes.ResolveWindowHandles(NodeParameterReader.String(node, "titlePattern"));
+        // 窗口作用域节点可以缩小匹配范围，但不能破坏后台并行轨道的唯一窗口归属。
+        if (context.ScriptInteractionMode == ScriptInteractionMode.Background
+            && context.WindowHandles.Count == 1)
+        {
+            var currentWindow = context.WindowHandles[0];
+            if (!handles.Contains(currentWindow))
+                throw new InvalidOperationException("窗口作用域不包含当前后台操作窗口。");
+            handles = [currentWindow];
+        }
         if (NodeParameterReader.Bool(node, "singleWindow", false) && handles.Count > 1)
             handles = [handles[0]];
         if (context.ScriptInteractionMode == ScriptInteractionMode.Foreground

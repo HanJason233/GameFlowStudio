@@ -44,21 +44,36 @@ test('前后台模式只在脚本属性中提供且不显示提示', () => {
   assert.doesNotMatch(mainWindow, /InteractionModeHint/)
 })
 
-test('脚本属性只提供窗口优先和动作优先', () => {
+test('脚本属性按前后台模式提供对应的操作流程', () => {
   const desktopDirectory = resolve('..', 'GameFlowStudio.Desktop')
   const mainWindow = readFileSync(resolve(desktopDirectory, 'Views', 'MainWindow.xaml'), 'utf8')
   const helpWindow = readFileSync(resolve(desktopDirectory, 'Views', 'HelpWindow.xaml'), 'utf8')
   const mainViewModel = readFileSync(resolve(desktopDirectory, 'ViewModels', 'MainViewModel.cs'), 'utf8')
-  const windowModeUi = `${mainWindow}\n${helpWindow}\n${mainViewModel}`
+  const operationFlowUi = `${mainWindow}\n${helpWindow}\n${mainViewModel}`
 
-  assert.doesNotMatch(windowModeUi, /WindowExecutionMode\.FirstOnly|只操作第一个窗口/)
-  assert.match(mainViewModel, /_scriptWindowExecutionMode = WindowExecutionMode\.WindowPriority/)
+  assert.match(mainWindow, /Text="操作流程"/)
+  assert.doesNotMatch(operationFlowUi, /前台串行方式|窗口优先|动作优先/)
+  assert.match(mainViewModel, /_scriptOperationFlow = WindowExecutionMode\.Serial/)
   assert.equal(
-    [...mainViewModel.matchAll(/new\(WindowExecutionMode\.(?:WindowPriority|ActionPriority),/g)].length,
-    2,
+    [...mainViewModel.matchAll(/new\(WindowExecutionMode\.(?:PseudoParallel|Serial|Parallel),/g)].length,
+    3,
+  )
+  assert.match(mainViewModel, /new\(WindowExecutionMode\.PseudoParallel, "伪并行"/)
+  assert.match(mainViewModel, /new\(WindowExecutionMode\.Serial, "串行"/)
+  assert.match(mainViewModel, /new\(WindowExecutionMode\.Parallel, "并行"/)
+  assert.match(
+    mainViewModel,
+    /ScriptInteractionMode == ScriptInteractionModeValue\.Background\s*\? BackgroundOperationFlowModes\s*:\s*ForegroundOperationFlowModes/,
   )
   assert.equal(
-    [...mainWindow.matchAll(/ItemsSource="\{Binding WindowExecutionModes\}"/g)].length,
+    [...mainWindow.matchAll(/ItemsSource="\{Binding OperationFlowModes\}"/g)].length,
     1,
   )
+  assert.equal(
+    [...mainWindow.matchAll(/SelectedValue="\{Binding ScriptOperationFlow, Mode=TwoWay\}"/g)].length,
+    1,
+  )
+  assert.match(helpWindow, /串行（前台）/)
+  assert.match(helpWindow, /伪并行（前台）/)
+  assert.match(helpWindow, /并行（后台）/)
 })

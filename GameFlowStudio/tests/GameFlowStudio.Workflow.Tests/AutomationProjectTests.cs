@@ -18,9 +18,9 @@ public sealed class AutomationProjectTests
     }
 
     [Fact]
-    public void NewScriptUsesWindowPriorityExecutionMode()
+    public void NewScriptUsesSerialExecutionMode()
     {
-        Assert.Equal(WindowExecutionMode.WindowPriority, new AutomationScript().WindowScope.ExecutionMode);
+        Assert.Equal(WindowExecutionMode.Serial, new AutomationScript().WindowScope.ExecutionMode);
     }
 
     [Fact]
@@ -32,7 +32,7 @@ public sealed class AutomationProjectTests
             Id = "target",
             DefaultNodeDelayMs = 25,
             InteractionMode = ScriptInteractionMode.Background,
-            WindowScope = new() { Enabled = true }
+            WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.Parallel }
         };
 
         project.SetActiveScript(script);

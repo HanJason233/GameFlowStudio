@@ -34,6 +34,7 @@ public sealed class RuntimeViewModel : ObservableObject, IDisposable
     private double _progressValue;
     private bool _initialized;
     private int _completedNodes;
+    private readonly HashSet<WorkflowNode> _completedNodeSet = [];
     private int _totalNodes = 1;
     private Task? _runTask;
     private int _disposed;
@@ -173,14 +174,24 @@ public sealed class RuntimeViewModel : ObservableObject, IDisposable
 
     private void OnNodeCompleted(object? sender, NodeExecutionEventArgs args) => OnUi(() =>
     {
-        _completedNodes++;
-        ProgressValue = Math.Clamp(_completedNodes * 100d / _totalNodes, 0, 100);
-        ProgressText = $"{Math.Min(_completedNodes, _totalNodes)} / {_totalNodes}";
+        // 后台并行会为同一节点发布多条轨道完成事件，进度只按流程节点计数一次。
+        if (!_completedNodeSet.Add(args.Node)) return;
+        _completedNodes = _completedNodeSet.Count;
+        var displayedCompleted = Math.Min(_completedNodes, _totalNodes);
+        if (_runner.State != WorkflowExecutionState.Completed && displayedCompleted >= _totalNodes)
+            displayedCompleted = Math.Max(0, _totalNodes - 1);
+        ProgressValue = Math.Clamp(displayedCompleted * 100d / _totalNodes, 0, 99);
+        ProgressText = $"{displayedCompleted} / {_totalNodes}";
     });
 
     private void OnStateChanged(object? sender, WorkflowStateChangedEventArgs args) => OnUi(() =>
     {
         StateText = StateLabel(args.Current);
+        if (args.Current == WorkflowExecutionState.Completed)
+        {
+            ProgressValue = 100;
+            ProgressText = $"{_totalNodes} / {_totalNodes}";
+        }
         Raise(nameof(IsWorkflowActive));
         Raise(nameof(IsSelectionEnabled));
         Raise(nameof(RunSwitchText));
@@ -189,6 +200,7 @@ public sealed class RuntimeViewModel : ObservableObject, IDisposable
 
     private void ResetProgress()
     {
+        _completedNodeSet.Clear();
         _completedNodes = 0;
         _totalNodes = Math.Max(1, _project.Scripts.Sum(script => script.Nodes.Count));
         ProgressValue = 0;

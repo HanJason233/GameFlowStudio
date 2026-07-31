@@ -9,7 +9,7 @@ import {
 
 function nodeDocument(type: NodeType, parameters: Record<string, unknown>): WorkflowDocument {
   return {
-    schemaVersion: '1.6',
+    schemaVersion: '1.7',
     project: {
       id: 'test',
       name: 'test',
