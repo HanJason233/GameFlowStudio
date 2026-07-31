@@ -2,7 +2,9 @@ using GameFlowStudio.Contracts.Enums;
 using GameFlowStudio.Contracts.Nodes;
 using GameFlowStudio.Contracts.Results;
 using GameFlowStudio.Contracts.Services;
+using GameFlowStudio.Contracts.States;
 using GameFlowStudio.Contracts.Workflows;
+using GameFlowStudio.Workflow.Detectors;
 using GameFlowStudio.Workflow.Executors;
 
 namespace GameFlowStudio.Workflow.Tests;
@@ -151,6 +153,44 @@ public sealed class BackgroundModeExecutionTests
         Assert.Equal(0, window.CaptureCalls);
     }
 
+    [Fact]
+    public async Task DetectorUsesScriptModeAndIgnoresLegacyCaptureMode()
+    {
+        var desktop = new RecordingDesktopCaptureService();
+        var window = new RecordingWindowCaptureService();
+        var evaluator = new DetectorEvaluator(
+            new StateDetectorService([new ColorStateDetector()]),
+            desktop,
+            windowCapture: window);
+        var detector = new DetectorDefinition
+        {
+            Id = "color",
+            Name = "color",
+            Type = DetectorType.Color,
+            Parameters = new Dictionary<string, System.Text.Json.JsonElement>(StringComparer.Ordinal)
+            {
+                ["captureMode"] = ProjectJson.Element("foreground"),
+                ["coordinateMode"] = ProjectJson.Element("absolute"),
+                ["x"] = ProjectJson.Element(10),
+                ["y"] = ProjectJson.Element(20),
+                ["width"] = ProjectJson.Element(1),
+                ["height"] = ProjectJson.Element(1),
+                ["targetColor"] = ProjectJson.Element("#020304")
+            }
+        };
+
+        var result = await evaluator.EvaluateAsync(
+            detector,
+            [TargetWindow],
+            ScriptInteractionMode.Background,
+            CancellationToken.None);
+
+        Assert.True(result.Supported);
+        Assert.True(result.IsOn);
+        Assert.Equal(0, desktop.CaptureCalls);
+        Assert.Equal(1, window.CaptureCalls);
+    }
+
     [Theory]
     [InlineData("closeProgram", true)]
     [InlineData("closeProgram", false)]
@@ -158,7 +198,9 @@ public sealed class BackgroundModeExecutionTests
     [InlineData("minimizeWindow", false)]
     [InlineData("setWindowResolution", true)]
     [InlineData("setWindowResolution", false)]
-    public async Task WindowActionModeControlsActivation(string nodeType, bool backgroundMode)
+    public async Task ScriptModeControlsWindowActionActivationAndIgnoresLegacyNodeMode(
+        string nodeType,
+        bool backgroundMode)
     {
         nint[] handles = [(nint)101, (nint)202];
         var windows = new RecordingWindowAutomationService();
@@ -166,12 +208,19 @@ public sealed class BackgroundModeExecutionTests
         var executor = CreateWindowActionExecutor(nodeType, windows, scopes);
         var node = Node(
             nodeType,
-            ("windowActionMode", backgroundMode ? "background" : "foreground"),
+            ("windowActionMode", backgroundMode ? "foreground" : "background"),
             ("titlePattern", "^Game$"),
             ("width", 1280),
             ("height", 720));
 
-        var result = await executor.ExecuteAsync(node, Context([]), CancellationToken.None);
+        var result = await executor.ExecuteAsync(
+            node,
+            Context(
+                [],
+                backgroundMode
+                    ? ScriptInteractionMode.Background
+                    : ScriptInteractionMode.Foreground),
+            CancellationToken.None);
 
         Assert.True(result.Success);
         Assert.Equal("^Game$", scopes.LastPattern);
@@ -200,6 +249,28 @@ public sealed class BackgroundModeExecutionTests
                 Assert.Empty(windows.Minimized);
                 break;
         }
+    }
+
+    [Fact]
+    public async Task BackgroundScriptWindowScopeDoesNotActivateItsSelectedWindow()
+    {
+        var windows = new RecordingWindowAutomationService();
+        var executor = new WindowScopeNodeExecutor(
+            new FixedWindowScopeService([(nint)101]),
+            windows);
+        var node = Node(
+            NodeTypes.WindowScope,
+            ("titlePattern", "^Game$"),
+            ("outputVariable", "windowHandles"),
+            ("singleWindow", true),
+            ("activateWindow", true));
+        var context = Context([], ScriptInteractionMode.Background);
+
+        var result = await executor.ExecuteAsync(node, context, CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.Equal([(nint)101], context.WindowHandles);
+        Assert.Empty(windows.Activations);
     }
 
     private static INodeExecutor CreateInputExecutor(
@@ -234,7 +305,7 @@ public sealed class BackgroundModeExecutionTests
     private static WorkflowNode InputNode(string nodeType) =>
         Node(
             nodeType,
-            ("inputMode", "background"),
+            ("inputMode", "foreground"),
             ("coordinateMode", "absolute"),
             ("x", nodeType == NodeTypes.MouseScroll ? 13 : 11),
             ("y", nodeType == NodeTypes.MouseScroll ? 14 : 12),
@@ -263,9 +334,12 @@ public sealed class BackgroundModeExecutionTests
         }
     };
 
-    private static WorkflowExecutionContext Context(IReadOnlyList<nint> handles) => new()
+    private static WorkflowExecutionContext Context(
+        IReadOnlyList<nint> handles,
+        ScriptInteractionMode scriptInteractionMode = ScriptInteractionMode.Background) => new()
     {
         Workflow = new AutomationProject(),
+        ScriptInteractionMode = scriptInteractionMode,
         WindowHandles = handles,
         WaitIfPausedAsync = _ => Task.CompletedTask,
         Log = _ => { }

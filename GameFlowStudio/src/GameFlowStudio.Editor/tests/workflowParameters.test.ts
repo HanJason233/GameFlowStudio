@@ -10,7 +10,7 @@ import {
 
 function nodeDocument(type: NodeType, parameters: Record<string, unknown>): WorkflowDocument {
   return {
-    schemaVersion: '1.4',
+    schemaVersion: '1.5',
     project: {
       id: 'test',
       name: 'test',
@@ -28,57 +28,18 @@ function nodeDocument(type: NodeType, parameters: Record<string, unknown>): Work
   }
 }
 
-function clickDocument(parameters: Record<string, unknown>): WorkflowDocument {
-  return nodeDocument('mouseClick', parameters)
-}
+test('节点默认参数不再包含前后台模式', () => {
+  const legacyModeNames = ['clickMode', 'inputMode', 'captureMode', 'windowActionMode']
 
-test('旧点击节点缺少 clickMode 时补为前台点击', () => {
-  const graph = fromDocument(clickDocument({ x: 10, y: 20 }))
-
-  assert.equal(graph.nodes[0].data.parameters.clickMode, 'foreground')
-})
-
-test('后台点击模式在编辑器导入导出后保持不变', () => {
-  const source = clickDocument({
-    clickMode: 'background',
-    coordinateMode: 'relative',
-    x: 10,
-    y: 20,
-  })
-  const graph = fromDocument(source)
-
-  const saved = toDocument(source, graph.nodes, graph.edges)
-
-  assert.equal(saved.nodes[0].data.parameters.clickMode, 'background')
-  assert.equal(saved.nodes[0].data.parameters.coordinateMode, 'relative')
-})
-
-test('旧输入、读取和窗口动作节点缺少模式时统一补为前台', async t => {
-  const cases: Array<[NodeType, string]> = [
-    ['mouseMove', 'inputMode'],
-    ['mouseDrag', 'inputMode'],
-    ['mouseScroll', 'inputMode'],
-    ['keyPress', 'inputMode'],
-    ['textInput', 'inputMode'],
-    ['colorCondition', 'captureMode'],
-    ['imageCondition', 'captureMode'],
-    ['ocrCondition', 'captureMode'],
-    ['closeProgram', 'windowActionMode'],
-    ['minimizeWindow', 'windowActionMode'],
-    ['setWindowResolution', 'windowActionMode'],
-  ]
-
-  for (const [type, modeName] of cases) {
-    await t.test(type, () => {
-      const graph = fromDocument(nodeDocument(type, {}))
-
-      assert.equal(graph.nodes[0].data.parameters[modeName], 'foreground')
-    })
+  for (const [type, parameters] of Object.entries(defaultParameters)) {
+    for (const modeName of legacyModeNames)
+      assert.equal(modeName in parameters, false, `${type}.${modeName}`)
   }
 })
 
-test('后台模式和已有参数在编辑器导入导出后保持不变', async t => {
+test('导入旧节点时移除节点级前后台参数', async t => {
   const cases: Array<[NodeType, string]> = [
+    ['mouseClick', 'clickMode'],
     ['mouseDrag', 'inputMode'],
     ['imageCondition', 'captureMode'],
     ['minimizeWindow', 'windowActionMode'],
@@ -93,7 +54,8 @@ test('后台模式和已有参数在编辑器导入导出后保持不变', async
       const graph = fromDocument(source)
       const saved = toDocument(source, graph.nodes, graph.edges)
 
-      assert.equal(saved.nodes[0].data.parameters[modeName], 'background')
+      assert.equal(modeName in graph.nodes[0].data.parameters, false)
+      assert.equal(modeName in saved.nodes[0].data.parameters, false)
       assert.equal(saved.nodes[0].data.parameters.customParameter, '保留')
     })
   }

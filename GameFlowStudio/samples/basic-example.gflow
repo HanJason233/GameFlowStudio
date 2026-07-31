@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.4",
+  "schemaVersion": "1.5",
   "project": {
     "id": "project-basic-example",
     "name": "GameFlow Basic Example",
@@ -10,15 +10,16 @@
     {
       "id": "script-basic-example",
       "name": "Main",
+      "interactionMode": "foreground",
       "windowScope": { "enabled": false, "titlePattern": ".*", "executionMode": "firstOnly" },
       "defaultNodeDelayMs": 2000,
       "variables": {},
       "nodes": [
         { "id": "start-1", "type": "start", "position": { "x": 48, "y": 120 }, "data": { "displayName": "Start", "parameters": {} } },
         { "id": "wait-1", "type": "wait", "position": { "x": 238, "y": 120 }, "data": { "displayName": "Wait 1 second", "parameters": { "durationMs": 1000 } } },
-        { "id": "move-1", "type": "mouseMove", "position": { "x": 428, "y": 120 }, "data": { "displayName": "Move to 500,300", "parameters": { "inputMode": "foreground", "x": 500, "y": 300, "durationMs": 0 } } },
-        { "id": "click-1", "type": "mouseClick", "position": { "x": 618, "y": 120 }, "data": { "displayName": "Left click", "parameters": { "clickMode": "foreground", "x": 500, "y": 300, "button": "left", "clickCount": 1, "intervalMs": 100 } } },
-        { "id": "key-1", "type": "keyPress", "position": { "x": 808, "y": 120 }, "data": { "displayName": "Press A", "parameters": { "inputMode": "foreground", "key": "A", "durationMs": 50, "repeatCount": 1, "intervalMs": 0 } } },
+        { "id": "move-1", "type": "mouseMove", "position": { "x": 428, "y": 120 }, "data": { "displayName": "Move to 500,300", "parameters": { "x": 500, "y": 300, "durationMs": 0 } } },
+        { "id": "click-1", "type": "mouseClick", "position": { "x": 618, "y": 120 }, "data": { "displayName": "Left click", "parameters": { "x": 500, "y": 300, "button": "left", "clickCount": 1, "intervalMs": 100 } } },
+        { "id": "key-1", "type": "keyPress", "position": { "x": 808, "y": 120 }, "data": { "displayName": "Press A", "parameters": { "key": "A", "durationMs": 50, "repeatCount": 1, "intervalMs": 0 } } },
         { "id": "end-1", "type": "end", "position": { "x": 998, "y": 120 }, "data": { "displayName": "End", "parameters": {} } }
       ],
       "edges": [

@@ -18,6 +18,8 @@ public sealed class ToolboxGroup(string name, IReadOnlyList<ToolboxItem> items) 
 
 public sealed record WindowExecutionModeOption(WindowExecutionMode Value, string Label, string Description);
 
+public sealed record ScriptInteractionModeOption(ScriptInteractionMode Value, string Label);
+
 public sealed class ScriptListItem(string id, string name) : ObservableObject
 {
     private bool _isActive;

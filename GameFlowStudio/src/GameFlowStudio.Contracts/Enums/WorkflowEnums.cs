@@ -14,8 +14,8 @@ public enum WorkflowExecutionState
 /// <summary>鼠标按钮。</summary>
 public enum MouseButtonType { Left, Right, Middle }
 
-/// <summary>鼠标点击的输入投递方式。</summary>
-public enum MouseClickMode
+/// <summary>脚本中受支持的读取与操作所采用的统一投递方式。</summary>
+public enum ScriptInteractionMode
 {
     Foreground,
     Background

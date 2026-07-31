@@ -12,8 +12,7 @@ public sealed record MouseClickParameters(
     MouseButtonType Button,
     int ClickCount,
     int IntervalMs,
-    CoordinateMode CoordinateMode,
-    MouseClickMode ClickMode);
+    CoordinateMode CoordinateMode);
 
 public interface IMouseCoordinateResolver
 {
@@ -42,14 +41,8 @@ internal static class MouseClickParameterReader
             ReadButton(node),
             NodeParameterReader.Int(node, "clickCount", 1),
             NodeParameterReader.Int(node, "intervalMs", 0),
-            CoordinateModeReader.Read(NodeParameterReader.String(node, "coordinateMode", "followScript")),
-            ReadClickMode(node));
+            CoordinateModeReader.Read(NodeParameterReader.String(node, "coordinateMode", "followScript")));
     }
-
-    internal static MouseClickMode ReadClickMode(WorkflowNode node)
-        => InteractionModeParameterReader.IsBackground(node, "clickMode")
-            ? MouseClickMode.Background
-            : MouseClickMode.Foreground;
 
     private static MouseButtonType ReadButton(WorkflowNode node)
     {

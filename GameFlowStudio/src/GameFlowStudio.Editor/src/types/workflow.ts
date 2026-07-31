@@ -37,7 +37,7 @@ export interface ProjectMetadata {
 }
 
 export interface WorkflowDocument {
-  schemaVersion: '1.4'
+  schemaVersion: '1.5'
   project: ProjectMetadata
   variables: Record<string, { type: 'string' | 'number' | 'boolean'; value: unknown }>
   nodes: Array<{ id: string; type: NodeType; position: { x: number; y: number }; data: PersistedNodeData }>
@@ -56,29 +56,33 @@ export const nodeLabels: Record<NodeType, string> = {
 }
 
 export const defaultParameters: Record<NodeType, Record<string, unknown>> = {
-  colorCondition: { captureMode: 'foreground', coordinateMode: 'followScript', x: 0, y: 0, width: 1, height: 1, targetColor: '#FFFFFF', tolerance: 10, minMatchRatio: 1 },
-  imageCondition: { captureMode: 'foreground', imageSearchMode: 'fixed', coordinateMode: 'followScript', imageMatchEngine: 'custom', templatePath: '', x: 0, y: 0, tolerance: 10, matchThreshold: 0.95 },
-  ocrCondition: { captureMode: 'foreground', textSearchMode: 'fixed', coordinateMode: 'followScript', ocrEngine: 'gemini', x: 0, y: 0, width: 1, height: 1, targetText: '', matchThreshold: 0.8 },
+  colorCondition: { coordinateMode: 'followScript', x: 0, y: 0, width: 1, height: 1, targetColor: '#FFFFFF', tolerance: 10, minMatchRatio: 1 },
+  imageCondition: { imageSearchMode: 'fixed', coordinateMode: 'followScript', imageMatchEngine: 'custom', templatePath: '', x: 0, y: 0, tolerance: 10, matchThreshold: 0.95 },
+  ocrCondition: { textSearchMode: 'fixed', coordinateMode: 'followScript', ocrEngine: 'gemini', x: 0, y: 0, width: 1, height: 1, targetText: '', matchThreshold: 0.8 },
   jump: { scriptId: '', actionId: '' },
   start: {}, end: {},
   windowScope: { titlePattern: '.*', outputVariable: 'windowHandles' },
-  mouseClick: { coordinateMode: 'followScript', clickMode: 'foreground', x: 500, y: 300, button: 'left', clickCount: 1, intervalMs: 100 },
-  mouseMove: { inputMode: 'foreground', coordinateMode: 'followScript', x: 500, y: 300, durationMs: 0 },
-  mouseDrag: { inputMode: 'foreground', coordinateMode: 'followScript', startX: 500, startY: 300, endX: 700, endY: 300, button: 'left', durationMs: 500 },
-  mouseScroll: { inputMode: 'foreground', coordinateMode: 'followScript', x: 500, y: 300, delta: 120 },
-  keyPress: { inputMode: 'foreground', key: 'A', durationMs: 50, repeatCount: 1, intervalMs: 100 },
-  textInput: { inputMode: 'foreground', text: 'Hello GameFlow', intervalMs: 30 },
+  mouseClick: { coordinateMode: 'followScript', x: 500, y: 300, button: 'left', clickCount: 1, intervalMs: 100 },
+  mouseMove: { coordinateMode: 'followScript', x: 500, y: 300, durationMs: 0 },
+  mouseDrag: { coordinateMode: 'followScript', startX: 500, startY: 300, endX: 700, endY: 300, button: 'left', durationMs: 500 },
+  mouseScroll: { coordinateMode: 'followScript', x: 500, y: 300, delta: 120 },
+  keyPress: { key: 'A', durationMs: 50, repeatCount: 1, intervalMs: 100 },
+  textInput: { text: 'Hello GameFlow', intervalMs: 30 },
   wait: { durationMs: 1000 },
   runProgram: { path: '', arguments: '' },
-  closeProgram: { windowActionMode: 'foreground', titlePattern: '.*' },
-  minimizeWindow: { windowActionMode: 'foreground', titlePattern: '.*' },
+  closeProgram: { titlePattern: '.*' },
+  minimizeWindow: { titlePattern: '.*' },
   arrangeWindows: { titlePattern: '.*', x: 0, y: 0, offsetY: 20 },
-  setWindowResolution: { windowActionMode: 'foreground', titlePattern: '.*', width: 1280, height: 720 },
+  setWindowResolution: { titlePattern: '.*', width: 1280, height: 720 },
 }
 
 function normalizedParameters(node: WorkflowDocument['nodes'][number]): Record<string, unknown> {
   const windowProgramNodes: NodeType[] = ['closeProgram', 'minimizeWindow', 'arrangeWindows', 'setWindowResolution']
   const parameters = { ...defaultParameters[node.type], ...node.data.parameters }
+  delete parameters.clickMode
+  delete parameters.inputMode
+  delete parameters.captureMode
+  delete parameters.windowActionMode
   if (windowProgramNodes.includes(node.type)) {
     delete parameters.windowHandleVariable
     delete parameters.windowHandleIndex

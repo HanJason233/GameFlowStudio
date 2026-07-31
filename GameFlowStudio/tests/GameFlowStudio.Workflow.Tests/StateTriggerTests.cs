@@ -323,6 +323,7 @@ public sealed class DetectorConditionTests
         public Task<DetectorEvaluationResult> EvaluateAsync(
             DetectorDefinition detector,
             IReadOnlyList<nint> windowHandles,
+            ScriptInteractionMode scriptInteractionMode,
             CancellationToken cancellationToken) => Task.FromResult(result);
     }
 }

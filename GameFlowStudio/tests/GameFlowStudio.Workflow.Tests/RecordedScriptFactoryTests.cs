@@ -72,10 +72,11 @@ public sealed class RecordedScriptFactoryTests
         Assert.Equal(100, script.Nodes[4].Data.Parameters["durationMs"].GetInt32());
         Assert.Equal(100, script.Nodes[6].Data.Parameters["durationMs"].GetInt32());
         Assert.Equal("absolute", script.Nodes[1].Data.Parameters["coordinateMode"].GetString());
-        Assert.Equal("foreground", script.Nodes[1].Data.Parameters["clickMode"].GetString());
-        Assert.Equal("foreground", script.Nodes[3].Data.Parameters["inputMode"].GetString());
-        Assert.Equal("foreground", script.Nodes[5].Data.Parameters["inputMode"].GetString());
-        Assert.Equal("foreground", script.Nodes[7].Data.Parameters["inputMode"].GetString());
+        Assert.Equal(ScriptInteractionMode.Foreground, script.InteractionMode);
+        Assert.DoesNotContain("clickMode", script.Nodes[1].Data.Parameters.Keys);
+        Assert.DoesNotContain("inputMode", script.Nodes[3].Data.Parameters.Keys);
+        Assert.DoesNotContain("inputMode", script.Nodes[5].Data.Parameters.Keys);
+        Assert.DoesNotContain("inputMode", script.Nodes[7].Data.Parameters.Keys);
         Assert.Equal(-25, script.Nodes[1].Data.Parameters["x"].GetInt32());
         Assert.Equal("right", script.Nodes[1].Data.Parameters["button"].GetString());
         Assert.Equal(script.Nodes.Count - 1, script.Edges.Count);
@@ -176,6 +177,7 @@ public sealed class RecordedScriptFactoryTests
     {
         var source = CreateBaseScript();
         source.DefaultNodeDelayMs = 1350;
+        source.InteractionMode = ScriptInteractionMode.Background;
         source.WindowScope = new()
         {
             Enabled = true,
@@ -211,6 +213,7 @@ public sealed class RecordedScriptFactoryTests
         Assert.Equal("script", appended.Id);
         Assert.Equal("当前脚本", appended.Name);
         Assert.Equal(1350, appended.DefaultNodeDelayMs);
+        Assert.Equal(ScriptInteractionMode.Background, appended.InteractionMode);
         Assert.True(appended.WindowScope.Enabled);
         Assert.Equal("^原窗口$", appended.WindowScope.TitlePattern);
         Assert.Equal(WindowExecutionMode.ActionPriority, appended.WindowScope.ExecutionMode);

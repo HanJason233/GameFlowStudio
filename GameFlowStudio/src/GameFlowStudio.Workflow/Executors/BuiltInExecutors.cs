@@ -34,7 +34,8 @@ public sealed class WindowScopeNodeExecutor(
         IReadOnlyList<nint> handles = scopes.ResolveWindowHandles(NodeParameterReader.String(node, "titlePattern"));
         if (NodeParameterReader.Bool(node, "singleWindow", false) && handles.Count > 1)
             handles = [handles[0]];
-        if (NodeParameterReader.Bool(node, "activateWindow", false))
+        if (context.ScriptInteractionMode == ScriptInteractionMode.Foreground
+            && NodeParameterReader.Bool(node, "activateWindow", false))
         {
             if (handles.Count == 0)
                 throw new InvalidOperationException("窗口作用域没有找到匹配的窗口。");
@@ -72,7 +73,7 @@ public sealed class MouseMoveNodeExecutor(
         var point = coordinates.Resolve(NodeParameterReader.Int(node, "x"), NodeParameterReader.Int(node, "y"),
             CoordinateModeReader.Read(NodeParameterReader.String(node, "coordinateMode", "followScript")), context);
         var duration = NodeParameterReader.Int(node, "durationMs", 0);
-        if (InteractionModeParameterReader.IsBackground(node, "inputMode"))
+        if (context.ScriptInteractionMode == ScriptInteractionMode.Background)
         {
             var handle = BackgroundInputExecution.RequireTarget(context, backgroundInput, "鼠标移动");
             await backgroundInput!.MoveMouseAsync(handle, point.X, point.Y, duration, cancellationToken).ConfigureAwait(false);
@@ -98,7 +99,7 @@ public sealed class MouseDragNodeExecutor(
         var end = coordinates.Resolve(NodeParameterReader.Int(node, "endX"), NodeParameterReader.Int(node, "endY"), mode, context);
         var button = MouseActionParameterReader.Button(node);
         var duration = NodeParameterReader.Int(node, "durationMs", 500);
-        if (InteractionModeParameterReader.IsBackground(node, "inputMode"))
+        if (context.ScriptInteractionMode == ScriptInteractionMode.Background)
         {
             var handle = BackgroundInputExecution.RequireTarget(context, backgroundInput, "鼠标拖动");
             await backgroundInput!.DragMouseAsync(
@@ -127,7 +128,7 @@ public sealed class MouseScrollNodeExecutor(
         var point = coordinates.Resolve(NodeParameterReader.Int(node, "x"), NodeParameterReader.Int(node, "y"),
             CoordinateModeReader.Read(NodeParameterReader.String(node, "coordinateMode", "followScript")), context);
         var delta = NodeParameterReader.Int(node, "delta", 120);
-        if (InteractionModeParameterReader.IsBackground(node, "inputMode"))
+        if (context.ScriptInteractionMode == ScriptInteractionMode.Background)
         {
             var handle = BackgroundInputExecution.RequireTarget(context, backgroundInput, "鼠标滚动");
             await backgroundInput!.ScrollMouseAsync(handle, point.X, point.Y, delta, cancellationToken).ConfigureAwait(false);
@@ -175,7 +176,7 @@ public sealed class MouseClickNodeExecutor(
     public override async Task<NodeExecutionResult> ExecuteAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken cancellationToken)
     {
         var parameters = MouseClickParameterReader.Read(node);
-        if (parameters.ClickMode == MouseClickMode.Background)
+        if (context.ScriptInteractionMode == ScriptInteractionMode.Background)
         {
             if (context.WindowHandles.Count != 1)
                 throw new InvalidOperationException("后台点击需要唯一的目标窗口。请在脚本属性中设置窗口范围，或先使用只返回一个窗口的窗口作用域节点。");
@@ -217,7 +218,7 @@ public sealed class KeyPressNodeExecutor(
         var duration = NodeParameterReader.Int(node, "durationMs", 50);
         var repeatCount = NodeParameterReader.Int(node, "repeatCount", 1);
         var interval = NodeParameterReader.Int(node, "intervalMs", 0);
-        if (InteractionModeParameterReader.IsBackground(node, "inputMode"))
+        if (context.ScriptInteractionMode == ScriptInteractionMode.Background)
         {
             var handle = BackgroundInputExecution.RequireTarget(context, backgroundInput, "键盘按键");
             await backgroundInput!.PressKeyAsync(handle, key, duration, repeatCount, interval, cancellationToken).ConfigureAwait(false);
@@ -240,7 +241,7 @@ public sealed class TextInputNodeExecutor(
     {
         var text = NodeParameterReader.String(node, "text");
         var interval = NodeParameterReader.Int(node, "intervalMs", 0);
-        if (InteractionModeParameterReader.IsBackground(node, "inputMode"))
+        if (context.ScriptInteractionMode == ScriptInteractionMode.Background)
         {
             var handle = BackgroundInputExecution.RequireTarget(context, backgroundInput, "文本输入");
             await backgroundInput!.TypeTextAsync(handle, text, interval, cancellationToken).ConfigureAwait(false);
@@ -278,7 +279,11 @@ public sealed class SingleConditionNodeExecutor(string nodeType, DetectorType ex
             Type = expectedType,
             Parameters = node.Data.Parameters.ToDictionary(pair => pair.Key, pair => pair.Value.Clone(), StringComparer.Ordinal)
         };
-        var evaluation = await evaluator.EvaluateAsync(detector, context.WindowHandles, cancellationToken).ConfigureAwait(false);
+        var evaluation = await evaluator.EvaluateAsync(
+            detector,
+            context.WindowHandles,
+            context.ScriptInteractionMode,
+            cancellationToken).ConfigureAwait(false);
         var detail = evaluation.Message ?? "无详细结果";
         if (!evaluation.Supported)
         {

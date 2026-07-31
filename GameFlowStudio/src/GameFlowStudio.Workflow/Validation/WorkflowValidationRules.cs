@@ -16,11 +16,14 @@ internal sealed class ProjectStructureRule(NodeParameterValidator parameterValid
     public void Validate(WorkflowValidationContext context, WorkflowValidationResult result)
     {
         var workflow = context.Workflow;
-        if (workflow.SchemaVersion is not "1.4") result.Add("schema", $"不支持的架构版本：{workflow.SchemaVersion}。");
+        var scriptInteractionMode = ResolveScriptInteractionMode(workflow);
+        if (workflow.SchemaVersion is not "1.5") result.Add("schema", $"不支持的架构版本：{workflow.SchemaVersion}。");
         foreach (var group in workflow.Scripts.GroupBy(script => script.Id).Where(group => string.IsNullOrWhiteSpace(group.Key) || group.Count() > 1))
             result.Add("script_id", "脚本 ID 不能为空且必须唯一。");
         foreach (var script in workflow.Scripts.Where(script => string.IsNullOrWhiteSpace(script.Name)))
             result.Add("script_name", $"脚本 {script.Id} 的名称不能为空。");
+        foreach (var script in workflow.Scripts.Where(script => !Enum.IsDefined(script.InteractionMode)))
+            result.Add("interaction_mode", $"脚本 {script.Id} 的运行方式无效。");
         if (workflow.ActiveScriptId is not null && !context.ContainsScript(workflow.ActiveScriptId))
             result.Add("active_script", "活动脚本不存在。");
         foreach (var group in workflow.Nodes.GroupBy(node => node.Id).Where(group => string.IsNullOrWhiteSpace(group.Key) || group.Count() > 1))
@@ -34,7 +37,59 @@ internal sealed class ProjectStructureRule(NodeParameterValidator parameterValid
             if (!NodeTypes.All.Contains(node.Type)) result.Add("node_type", $"未知节点类型：{node.Type}。", node.Id);
             if (!double.IsFinite(node.Position.X) || !double.IsFinite(node.Position.Y)) result.Add("position", "节点坐标必须是有限数值。", node.Id);
             if (string.IsNullOrWhiteSpace(node.Data.DisplayName)) result.Add("display_name", "节点名称不能为空。", node.Id);
-            parameterValidator.Validate(node, result);
+            parameterValidator.Validate(node, scriptInteractionMode, result);
+        }
+
+        foreach (var script in ReachableTargetScripts(workflow))
+        {
+            if (ReferenceEquals(script.Nodes, workflow.Nodes)
+                || string.Equals(script.Id, workflow.ActiveScriptId, StringComparison.Ordinal))
+                continue;
+
+            foreach (var node in script.Nodes)
+                parameterValidator.Validate(node, script.InteractionMode, result);
+        }
+    }
+
+    private static ScriptInteractionMode ResolveScriptInteractionMode(AutomationProject workflow)
+    {
+        if (workflow.ActiveScriptId is { } activeScriptId)
+        {
+            var active = workflow.Scripts.FirstOrDefault(script => script.Id == activeScriptId);
+            if (active is not null) return active.InteractionMode;
+        }
+
+        return workflow.Scripts.FirstOrDefault(script => ReferenceEquals(script.Nodes, workflow.Nodes))?.InteractionMode
+            ?? workflow.InteractionMode;
+    }
+
+    private static IEnumerable<AutomationScript> ReachableTargetScripts(AutomationProject workflow)
+    {
+        var scripts = workflow.Scripts
+            .Where(script => !string.IsNullOrWhiteSpace(script.Id))
+            .GroupBy(script => script.Id)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+        var visited = new HashSet<string>(StringComparer.Ordinal);
+        if (!string.IsNullOrWhiteSpace(workflow.ActiveScriptId)) visited.Add(workflow.ActiveScriptId);
+        foreach (var active in workflow.Scripts.Where(script => ReferenceEquals(script.Nodes, workflow.Nodes)))
+            visited.Add(active.Id);
+        var pending = new Queue<IReadOnlyList<WorkflowNode>>();
+        pending.Enqueue(workflow.Nodes);
+
+        while (pending.Count > 0)
+        {
+            foreach (var node in pending.Dequeue().Where(node => node.Type == NodeTypes.Jump))
+            {
+                if (!node.Data.Parameters.TryGetValue("scriptId", out var scriptIdElement)
+                    || scriptIdElement.ValueKind != JsonValueKind.String
+                    || string.IsNullOrWhiteSpace(scriptIdElement.GetString())
+                    || !scripts.TryGetValue(scriptIdElement.GetString()!, out var target)
+                    || !visited.Add(target.Id))
+                    continue;
+
+                yield return target;
+                pending.Enqueue(target.Nodes);
+            }
         }
     }
 }

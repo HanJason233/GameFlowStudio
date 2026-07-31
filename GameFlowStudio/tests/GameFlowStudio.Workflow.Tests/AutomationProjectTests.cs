@@ -1,3 +1,4 @@
+using GameFlowStudio.Contracts.Enums;
 using GameFlowStudio.Contracts.Workflows;
 
 namespace GameFlowStudio.Workflow.Tests;
@@ -11,6 +12,12 @@ public sealed class AutomationProjectTests
     }
 
     [Fact]
+    public void NewScriptUsesForegroundInteractionMode()
+    {
+        Assert.Equal(ScriptInteractionMode.Foreground, new AutomationScript().InteractionMode);
+    }
+
+    [Fact]
     public void SetActiveScriptKeepsRuntimeViewConsistent()
     {
         var project = new AutomationProject();
@@ -18,6 +25,7 @@ public sealed class AutomationProjectTests
         {
             Id = "target",
             DefaultNodeDelayMs = 25,
+            InteractionMode = ScriptInteractionMode.Background,
             WindowScope = new() { Enabled = true }
         };
 
@@ -29,5 +37,6 @@ public sealed class AutomationProjectTests
         Assert.Same(script.Edges, project.Edges);
         Assert.Same(script.WindowScope, project.WindowScope);
         Assert.Equal(script.DefaultNodeDelayMs, project.DefaultNodeDelayMs);
+        Assert.Equal(script.InteractionMode, project.InteractionMode);
     }
 }

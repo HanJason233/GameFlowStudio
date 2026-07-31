@@ -113,14 +113,14 @@ public sealed class MouseClickExecutionTests
         var node = WorkflowEngineTests.Node(
             "click",
             Contracts.Nodes.NodeTypes.MouseClick,
-            ("clickMode", "background"),
+            ("clickMode", "foreground"),
             ("coordinateMode", "relative"),
             ("x", 25),
             ("y", 35),
             ("button", "middle"),
             ("clickCount", 2),
             ("intervalMs", 42));
-        var context = Context();
+        var context = Context(ScriptInteractionMode.Background);
         context.WindowHandles = [(nint)101];
 
         await executor.ExecuteAsync(node, context, CancellationToken.None);
@@ -145,10 +145,10 @@ public sealed class MouseClickExecutionTests
         var node = WorkflowEngineTests.Node(
             "click",
             Contracts.Nodes.NodeTypes.MouseClick,
-            ("clickMode", "background"),
+            ("clickMode", "foreground"),
             ("x", 25),
             ("y", 35));
-        var context = Context();
+        var context = Context(ScriptInteractionMode.Background);
         context.WindowHandles = Enumerable.Range(1, windowCount).Select(value => (nint)value).ToArray();
 
         var error = await Assert.ThrowsAsync<InvalidOperationException>(
@@ -161,7 +161,7 @@ public sealed class MouseClickExecutionTests
     [InlineData("unknown")]
     [InlineData("1")]
     [InlineData("999")]
-    public async Task InvalidClickModeIsRejected(string mode)
+    public async Task LegacyClickModeIsIgnored(string mode)
     {
         var executor = new MouseClickNodeExecutor(
             new RecordingInputAutomationService(),
@@ -174,15 +174,16 @@ public sealed class MouseClickExecutionTests
             ("x", 25),
             ("y", 35));
 
-        var error = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => executor.ExecuteAsync(node, Context(), CancellationToken.None));
+        var result = await executor.ExecuteAsync(node, Context(), CancellationToken.None);
 
-        Assert.Contains("点击模式", error.Message);
+        Assert.True(result.Success);
     }
 
-    private static WorkflowExecutionContext Context() => new()
+    private static WorkflowExecutionContext Context(
+        ScriptInteractionMode scriptInteractionMode = ScriptInteractionMode.Foreground) => new()
     {
         Workflow = new AutomationProject(),
+        ScriptInteractionMode = scriptInteractionMode,
         WaitIfPausedAsync = _ => Task.CompletedTask,
         Log = _ => { }
     };

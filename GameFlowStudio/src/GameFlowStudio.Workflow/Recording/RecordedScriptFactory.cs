@@ -244,7 +244,6 @@ public static class RecordedScriptFactory
                     RecordedParameters(
                         recordingSessionId,
                         ("coordinateMode", coordinateMode),
-                        ("clickMode", "foreground"),
                         ("x", action.X),
                         ("y", action.Y),
                         ("button", action.Button.ToString().ToLowerInvariant()),
@@ -259,7 +258,6 @@ public static class RecordedScriptFactory
                     RecordedParameters(
                         recordingSessionId,
                         ("coordinateMode", coordinateMode),
-                        ("inputMode", "foreground"),
                         ("startX", action.X),
                         ("startY", action.Y),
                         ("endX", action.EndX),
@@ -276,7 +274,6 @@ public static class RecordedScriptFactory
                     RecordedParameters(
                         recordingSessionId,
                         ("coordinateMode", coordinateMode),
-                        ("inputMode", "foreground"),
                         ("x", action.X),
                         ("y", action.Y),
                         ("delta", action.Delta)));
@@ -289,7 +286,6 @@ public static class RecordedScriptFactory
                     $"按键 {action.Key}",
                     RecordedParameters(
                         recordingSessionId,
-                        ("inputMode", "foreground"),
                         ("key", action.Key),
                         ("durationMs", Math.Max(0, action.DurationMilliseconds)),
                         ("repeatCount", 1),
@@ -355,6 +351,7 @@ public static class RecordedScriptFactory
     {
         Id = source.Id,
         Name = source.Name,
+        InteractionMode = source.InteractionMode,
         WindowScope = new ScriptWindowScope
         {
             Enabled = source.WindowScope.Enabled,

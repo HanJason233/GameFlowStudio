@@ -77,6 +77,7 @@ public interface IDetectorEvaluator
     Task<DetectorEvaluationResult> EvaluateAsync(
         DetectorDefinition detector,
         IReadOnlyList<nint> windowHandles,
+        ScriptInteractionMode scriptInteractionMode,
         CancellationToken cancellationToken);
 }
 

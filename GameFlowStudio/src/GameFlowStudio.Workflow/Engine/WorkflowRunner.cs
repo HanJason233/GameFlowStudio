@@ -287,7 +287,8 @@ public sealed class WorkflowRunner : IWorkflowRunner
                 Nodes = workflow.Nodes,
                 Edges = workflow.Edges,
                 WindowScope = workflow.WindowScope ?? new(),
-                DefaultNodeDelayMs = workflow.DefaultNodeDelayMs ?? 0
+                DefaultNodeDelayMs = workflow.DefaultNodeDelayMs ?? 0,
+                InteractionMode = workflow.InteractionMode
             };
     }
 
@@ -297,6 +298,7 @@ public sealed class WorkflowRunner : IWorkflowRunner
         context.Variables.Clear();
         foreach (var variable in script.Variables)
             context.Variables[variable.Key] = ConvertElement(variable.Value.Value);
+        context.ScriptInteractionMode = script.InteractionMode;
         context.WindowHandles = [];
         InitializeWindowScope(script.WindowScope, context, windowHandles);
     }
@@ -307,7 +309,7 @@ public sealed class WorkflowRunner : IWorkflowRunner
         Raise(NodeStarted, new(node));
         try
         {
-            if (RequiresContextWindowActivation(node)) ActivateContextWindow(context);
+            if (RequiresContextWindowActivation(node, context.ScriptInteractionMode)) ActivateContextWindow(context);
             var result = await InvokeExecutorAsync(node, context, token).ConfigureAwait(false);
             timer.Stop();
             if (!result.Success) throw new InvalidOperationException(result.ErrorMessage ?? "节点执行失败。");
@@ -333,25 +335,22 @@ public sealed class WorkflowRunner : IWorkflowRunner
     private static bool UsesIndependentWindowTarget(string nodeType) => nodeType is
         NodeTypes.RunProgram or NodeTypes.CloseProgram or NodeTypes.MinimizeWindow or NodeTypes.ArrangeWindows or NodeTypes.SetWindowResolution;
 
-    private static bool RequiresContextWindowActivation(WorkflowNode node)
+    private static bool RequiresContextWindowActivation(
+        WorkflowNode node,
+        ScriptInteractionMode scriptInteractionMode)
     {
         if (UsesIndependentWindowTarget(node.Type)
             || node.Type is NodeTypes.Start or NodeTypes.End or NodeTypes.Wait or NodeTypes.Jump or NodeTypes.WindowScope)
             return false;
 
-        return !UsesBackgroundInteraction(node);
+        return scriptInteractionMode != ScriptInteractionMode.Background
+            || !SupportsBackgroundInteraction(node.Type);
     }
 
-    private static bool UsesBackgroundInteraction(WorkflowNode node) => node.Type switch
-    {
-        NodeTypes.MouseClick => MouseClickParameterReader.ReadClickMode(node) == MouseClickMode.Background,
-        NodeTypes.MouseMove or NodeTypes.MouseDrag or NodeTypes.MouseScroll
-            or NodeTypes.KeyPress or NodeTypes.TextInput =>
-            InteractionModeParameterReader.IsBackground(node, "inputMode"),
-        NodeTypes.ColorCondition or NodeTypes.ImageCondition or NodeTypes.OcrCondition =>
-            InteractionModeParameterReader.IsBackground(node, "captureMode"),
-        _ => false
-    };
+    private static bool SupportsBackgroundInteraction(string nodeType) => nodeType is
+        NodeTypes.MouseClick or NodeTypes.MouseMove or NodeTypes.MouseDrag or NodeTypes.MouseScroll
+        or NodeTypes.KeyPress or NodeTypes.TextInput
+        or NodeTypes.ColorCondition or NodeTypes.ImageCondition or NodeTypes.OcrCondition;
 
     private static IReadOnlyList<nint>? CurrentWindowScope(WorkflowExecutionContext context) =>
         context.WindowHandles.Count == 1 ? context.WindowHandles : null;
@@ -476,6 +475,7 @@ public sealed class WorkflowRunner : IWorkflowRunner
         var context = new WorkflowExecutionContext
         {
             Workflow = workflow,
+            ScriptInteractionMode = script.InteractionMode,
             WaitIfPausedAsync = token => _pauseGate.WaitAsync(token),
             Log = WriteLogEntry
         };

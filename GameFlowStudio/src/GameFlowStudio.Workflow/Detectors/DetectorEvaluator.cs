@@ -1,3 +1,4 @@
+using GameFlowStudio.Contracts.Enums;
 using GameFlowStudio.Contracts.Results;
 using GameFlowStudio.Contracts.Services;
 using GameFlowStudio.Contracts.States;
@@ -14,6 +15,7 @@ public sealed class DetectorEvaluator(
     public async Task<DetectorEvaluationResult> EvaluateAsync(
         DetectorDefinition detector,
         IReadOnlyList<nint> windowHandles,
+        ScriptInteractionMode scriptInteractionMode,
         CancellationToken cancellationToken)
     {
         var context = new DetectorEvaluationContext
@@ -22,7 +24,8 @@ public sealed class DetectorEvaluator(
             WindowCapture = windowCapture,
             Images = images,
             Windows = windows,
-            WindowHandles = windowHandles
+            WindowHandles = windowHandles,
+            ScriptInteractionMode = scriptInteractionMode
         };
         return await detectorService.EvaluateAsync(detector, context, cancellationToken).ConfigureAwait(false);
     }

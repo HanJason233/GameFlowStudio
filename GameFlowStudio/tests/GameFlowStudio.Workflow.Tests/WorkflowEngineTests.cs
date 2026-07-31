@@ -175,6 +175,56 @@ public sealed class WorkflowEngineTests
     }
 
     [Fact]
+    public async Task CrossScriptJumpUsesTargetScriptInteractionMode()
+    {
+        var windows = new RecordingWindowAutomationService();
+        var tracker = new ModeTrackingActionExecutor();
+        var source = new AutomationScript
+        {
+            Id = "source",
+            Name = "source",
+            InteractionMode = ScriptInteractionMode.Foreground,
+            DefaultNodeDelayMs = 0,
+            WindowScope = new() { Enabled = true }
+        };
+        var sourceStart = Node("source-start", NodeTypes.Start);
+        var jump = Node("jump", NodeTypes.Jump, ("scriptId", "target"), ("actionId", "target-action"));
+        var sourceEnd = Node("source-end", NodeTypes.End);
+        source.Nodes = [sourceStart, jump, sourceEnd];
+        source.Edges = [Edge(sourceStart, "output", jump), Edge(jump, "output", sourceEnd)];
+
+        var target = new AutomationScript
+        {
+            Id = "target",
+            Name = "target",
+            InteractionMode = ScriptInteractionMode.Background,
+            DefaultNodeDelayMs = 0,
+            WindowScope = new() { Enabled = true }
+        };
+        var targetStart = Node("target-start", NodeTypes.Start);
+        var targetAction = Node(
+            "target-action",
+            NodeTypes.TextInput,
+            ("inputMode", "foreground"),
+            ("text", "test"));
+        var targetEnd = Node("target-end", NodeTypes.End);
+        target.Nodes = [targetStart, targetAction, targetEnd];
+        target.Edges = [Edge(targetStart, "output", targetAction), Edge(targetAction, "output", targetEnd)];
+
+        var project = NewProject();
+        project.Scripts = [source, target];
+        project.SetActiveScript(source);
+
+        await Runner(
+            tracker,
+            new FixedWindowScopeService([(nint)101]),
+            windows: windows).RunAsync(project, CancellationToken.None);
+
+        Assert.Equal([ScriptInteractionMode.Background], tracker.Modes);
+        Assert.Empty(windows.Activations);
+    }
+
+    [Fact]
     public async Task CrossScriptJumpsReusePlanIndexesAndReportMissingTargetClearly()
     {
         var executor = new RepeatingJumpActionExecutor();
@@ -308,11 +358,12 @@ public sealed class WorkflowEngineTests
         var click = Node(
             "background-click",
             NodeTypes.MouseClick,
-            ("clickMode", "background"),
+            ("clickMode", "foreground"),
             ("coordinateMode", "relative"),
             ("x", 10),
             ("y", 20));
         var project = Chain(click);
+        project.InteractionMode = ScriptInteractionMode.Background;
         project.WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.FirstOnly };
 
         await runner.RunAsync(project, CancellationToken.None);
@@ -328,8 +379,9 @@ public sealed class WorkflowEngineTests
         var windows = new RecordingWindowAutomationService();
         var executor = new ActivationAwareActionExecutor(windows);
         var runner = Runner(executor, new FixedWindowScopeService([(nint)101]), windows: windows);
-        var input = Node("background-input", NodeTypes.TextInput, ("inputMode", "background"), ("text", "test"));
+        var input = Node("background-input", NodeTypes.TextInput, ("inputMode", "foreground"), ("text", "test"));
         var project = Chain(input);
+        project.InteractionMode = ScriptInteractionMode.Background;
         project.WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.FirstOnly };
 
         await runner.RunAsync(project, CancellationToken.None);
@@ -349,7 +401,7 @@ public sealed class WorkflowEngineTests
         var condition = Node(
             "background-color",
             NodeTypes.ColorCondition,
-            ("captureMode", "background"),
+            ("captureMode", "foreground"),
             ("targetColor", "#FFFFFF"));
         var trueEnd = Node("true-end", NodeTypes.End);
         var falseEnd = Node("false-end", NodeTypes.End);
@@ -360,6 +412,7 @@ public sealed class WorkflowEngineTests
             Edge(condition, "true", trueEnd),
             Edge(condition, "false", falseEnd)
         ];
+        project.InteractionMode = ScriptInteractionMode.Background;
         project.WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.FirstOnly };
 
         await runner.RunAsync(project, CancellationToken.None);
@@ -376,7 +429,7 @@ public sealed class WorkflowEngineTests
             new TrackingActionExecutor(),
             new FixedWindowScopeService([(nint)101]),
             windows: windows);
-        var click = Node("foreground-click", NodeTypes.MouseClick, ("x", 10), ("y", 20));
+        var click = Node("foreground-click", NodeTypes.MouseClick, ("clickMode", "background"), ("x", 10), ("y", 20));
         var project = Chain(click);
         project.WindowScope = new() { Enabled = true, ExecutionMode = WindowExecutionMode.FirstOnly };
 
@@ -499,6 +552,21 @@ public sealed class WorkflowEngineTests
         public BlockingActionExecutor() : base(NodeTypes.TextInput) { }
         public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public override async Task<NodeExecutionResult> ExecuteAsync(WorkflowNode node, WorkflowExecutionContext context, CancellationToken cancellationToken) { Started.SetResult(); await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken); return NodeExecutionResult.Ok(); }
+    }
+
+    private sealed class ModeTrackingActionExecutor : NodeExecutorBase
+    {
+        public ModeTrackingActionExecutor() : base(NodeTypes.TextInput) { }
+        public List<ScriptInteractionMode> Modes { get; } = [];
+
+        public override Task<NodeExecutionResult> ExecuteAsync(
+            WorkflowNode node,
+            WorkflowExecutionContext context,
+            CancellationToken cancellationToken)
+        {
+            Modes.Add(context.ScriptInteractionMode);
+            return Task.FromResult(NodeExecutionResult.Ok());
+        }
     }
     private sealed class RestartActionExecutor : NodeExecutorBase
     {

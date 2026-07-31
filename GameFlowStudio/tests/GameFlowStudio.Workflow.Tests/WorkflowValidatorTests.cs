@@ -1,4 +1,5 @@
 using GameFlowStudio.Contracts.Nodes;
+using GameFlowStudio.Contracts.Enums;
 using GameFlowStudio.Workflow.Validation;
 using System.Text.Json;
 using GameFlowStudio.Contracts.Workflows;
@@ -20,15 +21,54 @@ public sealed class WorkflowValidatorTests
     [Fact] public void InvalidWindowScopePatternFails() { var scope = WorkflowEngineTests.Node("scope", NodeTypes.WindowScope, ("titlePattern", "["), ("outputVariable", "windowHandles")); var p = ValidWith(scope); Assert.Contains(_validator.Validate(p).Errors, e => e.Code == "parameters" && e.NodeId == "scope"); }
     [Fact] public void InvalidInlineColorParametersFail() { var color = WorkflowEngineTests.Node("color", NodeTypes.ColorCondition, ("targetColor", "not-a-color")); var p = ValidWith(color); Assert.Contains(_validator.Validate(p).Errors, e => e.Code == "detector_parameters" && e.NodeId == "color"); }
     [Fact] public void LegacyMouseClickWithoutModeRemainsValid() { var click = WorkflowEngineTests.Node("click", NodeTypes.MouseClick, ("x", 10), ("y", 20)); Assert.True(_validator.Validate(ValidWith(click)).IsValid); }
-    [Fact] public void InvalidMouseClickModeFails() { var click = WorkflowEngineTests.Node("click", NodeTypes.MouseClick, ("clickMode", "unsafe"), ("x", 10), ("y", 20)); Assert.Contains(_validator.Validate(ValidWith(click)).Errors, e => e.Code == "parameters" && e.NodeId == "click"); }
+    [Fact] public void LegacyMouseClickModeIsIgnored() { var click = WorkflowEngineTests.Node("click", NodeTypes.MouseClick, ("clickMode", "unsafe"), ("x", 10), ("y", 20)); Assert.True(_validator.Validate(ValidWith(click)).IsValid); }
     [Fact] public void NumericMouseButtonOutsideEnumFails() { var click = WorkflowEngineTests.Node("click", NodeTypes.MouseClick, ("button", "999"), ("x", 10), ("y", 20)); Assert.Contains(_validator.Validate(ValidWith(click)).Errors, e => e.Code == "parameters" && e.NodeId == "click"); }
-    [Fact] public void BackgroundMouseClickCountAboveSafetyLimitFails() { var click = WorkflowEngineTests.Node("click", NodeTypes.MouseClick, ("clickMode", "background"), ("x", 10), ("y", 20), ("clickCount", 101)); Assert.Contains(_validator.Validate(ValidWith(click)).Errors, e => e.Code == "parameters" && e.NodeId == "click"); }
-    [Fact] public void ForegroundMouseClickKeepsExistingLargeCountCompatibility() { var click = WorkflowEngineTests.Node("click", NodeTypes.MouseClick, ("clickMode", "foreground"), ("x", 10), ("y", 20), ("clickCount", 101)); Assert.True(_validator.Validate(ValidWith(click)).IsValid); }
-    [Fact] public void InvalidInputModeFails() { var move = WorkflowEngineTests.Node("move", NodeTypes.MouseMove, ("inputMode", "unsafe"), ("x", 10), ("y", 20)); Assert.Contains(_validator.Validate(ValidWith(move)).Errors, e => e.Code == "parameters" && e.NodeId == "move"); }
-    [Fact] public void BackgroundMouseScrollOutsideMessageRangeFails() { var scroll = WorkflowEngineTests.Node("scroll", NodeTypes.MouseScroll, ("inputMode", "background"), ("x", 10), ("y", 20), ("delta", 40000)); Assert.Contains(_validator.Validate(ValidWith(scroll)).Errors, e => e.Code == "parameters" && e.NodeId == "scroll"); }
-    [Fact] public void ForegroundMouseScrollKeepsLargeDeltaCompatibility() { var scroll = WorkflowEngineTests.Node("scroll", NodeTypes.MouseScroll, ("inputMode", "foreground"), ("x", 10), ("y", 20), ("delta", 40000)); Assert.True(_validator.Validate(ValidWith(scroll)).IsValid); }
-    [Fact] public void InvalidCaptureModeFails() { var color = WorkflowEngineTests.Node("color", NodeTypes.ColorCondition, ("captureMode", "unsafe")); Assert.Contains(_validator.Validate(ValidWith(color)).Errors, e => e.Code == "parameters" && e.NodeId == "color"); }
-    [Fact] public void InvalidWindowActionModeFails() { var close = WorkflowEngineTests.Node("close", NodeTypes.CloseProgram, ("windowActionMode", "unsafe"), ("titlePattern", ".*")); Assert.Contains(_validator.Validate(ValidWith(close)).Errors, e => e.Code == "parameters" && e.NodeId == "close"); }
+    [Fact] public void BackgroundMouseClickCountAboveSafetyLimitFails() { var click = WorkflowEngineTests.Node("click", NodeTypes.MouseClick, ("x", 10), ("y", 20), ("clickCount", 101)); var project = ValidWith(click); project.InteractionMode = ScriptInteractionMode.Background; Assert.Contains(_validator.Validate(project).Errors, e => e.Code == "parameters" && e.NodeId == "click"); }
+    [Fact] public void ForegroundMouseClickKeepsExistingLargeCountCompatibility() { var click = WorkflowEngineTests.Node("click", NodeTypes.MouseClick, ("x", 10), ("y", 20), ("clickCount", 101)); var project = ValidWith(click); project.InteractionMode = ScriptInteractionMode.Foreground; Assert.True(_validator.Validate(project).IsValid); }
+    [Fact] public void LegacyInputModeIsIgnored() { var move = WorkflowEngineTests.Node("move", NodeTypes.MouseMove, ("inputMode", "unsafe"), ("x", 10), ("y", 20)); Assert.True(_validator.Validate(ValidWith(move)).IsValid); }
+    [Fact] public void BackgroundMouseScrollOutsideMessageRangeFails() { var scroll = WorkflowEngineTests.Node("scroll", NodeTypes.MouseScroll, ("x", 10), ("y", 20), ("delta", 40000)); var project = ValidWith(scroll); project.InteractionMode = ScriptInteractionMode.Background; Assert.Contains(_validator.Validate(project).Errors, e => e.Code == "parameters" && e.NodeId == "scroll"); }
+    [Fact] public void ForegroundMouseScrollKeepsLargeDeltaCompatibility() { var scroll = WorkflowEngineTests.Node("scroll", NodeTypes.MouseScroll, ("x", 10), ("y", 20), ("delta", 40000)); var project = ValidWith(scroll); project.InteractionMode = ScriptInteractionMode.Foreground; Assert.True(_validator.Validate(project).IsValid); }
+    [Fact]
+    public void BackgroundTargetScriptLimitsAreValidatedBeforeJumpExecution()
+    {
+        var jump = WorkflowEngineTests.Node(
+            "jump",
+            NodeTypes.Jump,
+            ("scriptId", "target"),
+            ("actionId", "target-click"));
+        var project = ValidWith(jump);
+        var source = new AutomationScript { Id = "source", Name = "源脚本", Nodes = project.Nodes, Edges = project.Edges };
+        var targetClick = WorkflowEngineTests.Node("target-click", NodeTypes.MouseClick, ("x", 10), ("y", 20), ("clickCount", 101));
+        var target = new AutomationScript
+        {
+            Id = "target",
+            Name = "目标脚本",
+            InteractionMode = ScriptInteractionMode.Background,
+            Nodes = [targetClick]
+        };
+        project.Scripts = [source, target];
+        project.ActiveScriptId = source.Id;
+
+        var result = _validator.Validate(project);
+
+        Assert.Contains(result.Errors, error => error.Code == "parameters" && error.NodeId == targetClick.Id);
+    }
+    [Fact]
+    public void UnrelatedDraftScriptDoesNotBlockActiveScript()
+    {
+        var project = Valid();
+        var source = new AutomationScript { Id = "source", Name = "源脚本", Nodes = project.Nodes, Edges = project.Edges };
+        var draft = new AutomationScript
+        {
+            Id = "draft",
+            Name = "草稿脚本",
+            Nodes = [WorkflowEngineTests.Node("unfinished", NodeTypes.RunProgram, ("path", ""))]
+        };
+        project.Scripts = [source, draft];
+        project.ActiveScriptId = source.Id;
+
+        Assert.True(_validator.Validate(project).IsValid);
+    }
     [Fact] public void DuplicateScriptIdsFail() { var p = Valid(); p.Scripts = [new() { Id = "same" }, new() { Id = "same" }]; Assert.Contains(_validator.Validate(p).Errors, e => e.Code == "script_id"); }
     [Fact] public void MissingActiveScriptFails() { var p = Valid(); p.Scripts = [new() { Id = "one" }]; p.ActiveScriptId = "missing"; Assert.Contains(_validator.Validate(p).Errors, e => e.Code == "active_script"); }
     [Fact] public void ActiveScriptWithoutScriptsFails() { var p = Valid(); p.ActiveScriptId = "missing"; Assert.Contains(_validator.Validate(p).Errors, e => e.Code == "active_script"); }

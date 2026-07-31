@@ -17,6 +17,7 @@ using GameFlowStudio.Desktop.Services;
 using GameFlowStudio.Infrastructure.Logging;
 using GameFlowStudio.Workflow.Recording;
 using Microsoft.Extensions.Logging;
+using ScriptInteractionModeValue = GameFlowStudio.Contracts.Enums.ScriptInteractionMode;
 
 namespace GameFlowStudio.Desktop.ViewModels;
 
@@ -92,6 +93,7 @@ public sealed class MainViewModel : ObservableObject
     private bool _scriptWindowScopeEnabled;
     private string _scriptWindowTitlePattern = ".*";
     private WindowExecutionMode _scriptWindowExecutionMode = WindowExecutionMode.FirstOnly;
+    private ScriptInteractionModeValue _scriptInteractionMode = ScriptInteractionModeValue.Foreground;
     private string _activeScriptName = string.Empty;
     private int _scriptDefaultNodeDelayMs = AutomationScript.DefaultNodeDelayMilliseconds;
 
@@ -121,6 +123,11 @@ public sealed class MainViewModel : ObservableObject
         new(WindowExecutionMode.FirstOnly, "只操作第一个窗口", "匹配多个窗口时，只激活并操作第一个窗口。"),
         new(WindowExecutionMode.WindowPriority, "窗口优先", "先完整执行窗口 1 的流程，再完整执行窗口 2 的流程。"),
         new(WindowExecutionMode.ActionPriority, "动作优先", "每一轮让所有窗口各执行一个当前动作，再进入下一轮。")
+    ];
+    public IReadOnlyList<ScriptInteractionModeOption> ScriptInteractionModes { get; } =
+    [
+        new(ScriptInteractionModeValue.Foreground, "前台"),
+        new(ScriptInteractionModeValue.Background, "后台")
     ];
     public IReadOnlyList<ToolboxGroup> ToolboxGroups { get; }
     public AppSettings Settings { get; private set; } = new();
@@ -223,6 +230,16 @@ public sealed class MainViewModel : ObservableObject
     }
     public string ScriptWindowExecutionModeDescription =>
         WindowExecutionModes.First(mode => mode.Value == ScriptWindowExecutionMode).Description;
+    public ScriptInteractionModeValue ScriptInteractionMode
+    {
+        get => _scriptInteractionMode;
+        set
+        {
+            if (!Set(ref _scriptInteractionMode, value)) return;
+            ActiveScript.InteractionMode = value;
+            MarkScriptSettingsChanged();
+        }
+    }
     public int ScriptDefaultNodeDelayMs
     {
         get => _scriptDefaultNodeDelayMs;
@@ -388,8 +405,6 @@ public sealed class MainViewModel : ObservableObject
                 var value = property.Name switch
                 {
                     "coordinateMode" => NormalizeCoordinateMode(displayValue),
-                    "clickMode" or "inputMode" or "captureMode" or "windowActionMode" =>
-                        NormalizeInteractionMode(displayValue),
                     _ => displayValue
                 };
                 selected.Parameters.Add(new(property.Name, value, property.Value.ValueKind, OnSelectedNodeEditorChanged));
@@ -397,11 +412,6 @@ public sealed class MainViewModel : ObservableObject
         }
         if (selected.SupportsCoordinateMode && !selected.Parameters.Any(parameter => parameter.Name == "coordinateMode"))
             selected.Parameters.Insert(0, new("coordinateMode", "followScript", JsonValueKind.String, OnSelectedNodeEditorChanged));
-        var interactionModeParameter = InteractionModeParameterName(selected.Type);
-        if (interactionModeParameter is not null && !selected.Parameters.Any(parameter => parameter.Name == interactionModeParameter))
-            selected.Parameters.Insert(
-                selected.Parameters.Any(parameter => parameter.Name == "coordinateMode") ? 1 : 0,
-                new(interactionModeParameter, "foreground", JsonValueKind.String, OnSelectedNodeEditorChanged));
         if (selected.Type == NodeTypes.ImageCondition && !selected.Parameters.Any(parameter => parameter.Name == "imageSearchMode"))
             selected.Parameters.Insert(selected.Parameters.Any(parameter => parameter.Name == "coordinateMode") ? 1 : 0, new("imageSearchMode", "fixed", JsonValueKind.String, OnSelectedNodeEditorChanged));
         if (selected.Type == NodeTypes.ImageCondition && !selected.Parameters.Any(parameter => parameter.Name == "imageMatchEngine"))
@@ -425,22 +435,6 @@ public sealed class MainViewModel : ObservableObject
         "screen" => "absolute",
         "windowrelative" => "relative",
         _ => value
-    };
-
-    private static string NormalizeInteractionMode(string value) => value.Trim().ToLowerInvariant() switch
-    {
-        "foreground" => "foreground",
-        "background" => "background",
-        _ => value
-    };
-
-    private static string? InteractionModeParameterName(string nodeType) => nodeType switch
-    {
-        NodeTypes.MouseClick => "clickMode",
-        NodeTypes.MouseMove or NodeTypes.MouseDrag or NodeTypes.MouseScroll or NodeTypes.KeyPress or NodeTypes.TextInput => "inputMode",
-        NodeTypes.ColorCondition or NodeTypes.ImageCondition or NodeTypes.OcrCondition => "captureMode",
-        NodeTypes.CloseProgram or NodeTypes.MinimizeWindow or NodeTypes.SetWindowResolution => "windowActionMode",
-        _ => null
     };
 
     private void OnSelectedNodeEditorChanged()
@@ -1135,6 +1129,7 @@ public sealed class MainViewModel : ObservableObject
         _scriptWindowScopeEnabled = script.WindowScope.Enabled;
         _scriptWindowTitlePattern = script.WindowScope.TitlePattern;
         _scriptWindowExecutionMode = script.WindowScope.ExecutionMode;
+        _scriptInteractionMode = script.InteractionMode;
         _scriptDefaultNodeDelayMs = Math.Clamp(script.DefaultNodeDelayMs, 0, 60000);
         Raise(nameof(ActiveScriptName));
         Raise(nameof(ActiveScriptId));
@@ -1143,6 +1138,7 @@ public sealed class MainViewModel : ObservableObject
         Raise(nameof(ScriptWindowTitlePattern));
         Raise(nameof(ScriptWindowExecutionMode));
         Raise(nameof(ScriptWindowExecutionModeDescription));
+        Raise(nameof(ScriptInteractionMode));
         Raise(nameof(ScriptDefaultNodeDelayMs));
     }
 

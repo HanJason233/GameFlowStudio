@@ -11,49 +11,54 @@ namespace GameFlowStudio.Workflow.Validation;
 
 internal sealed class NodeParameterValidator
 {
-    public void Validate(WorkflowNode node, WorkflowValidationResult result)
+    public void Validate(
+        WorkflowNode node,
+        ScriptInteractionMode scriptInteractionMode,
+        WorkflowValidationResult result)
     {
-        try { ValidateKnownNode(node); }
+        try { ValidateKnownNode(node, scriptInteractionMode); }
         catch (Exception exception) when (exception is InvalidOperationException or FormatException or JsonException)
         {
             result.Add("parameters", exception.Message, node.Id);
         }
     }
 
-    private static void ValidateKnownNode(WorkflowNode node)
+    private static void ValidateKnownNode(
+        WorkflowNode node,
+        ScriptInteractionMode scriptInteractionMode)
     {
         switch (node.Type)
         {
             case NodeTypes.WindowScope:
                 ValidateWindowScope(node); break;
             case NodeTypes.MouseClick:
-                ValidateMouseClick(node); break;
+                ValidateMouseClick(node, scriptInteractionMode); break;
             case NodeTypes.MouseMove:
-                CoordinateMode(node); InteractionMode(node, "inputMode"); Coordinate(node); NonNegative(node, "durationMs", 0); break;
+                CoordinateMode(node); Coordinate(node); NonNegative(node, "durationMs", 0); break;
             case NodeTypes.MouseDrag:
-                CoordinateMode(node); InteractionMode(node, "inputMode"); Coordinate(node, "startX", "startY"); Coordinate(node, "endX", "endY");
+                CoordinateMode(node); Coordinate(node, "startX", "startY"); Coordinate(node, "endX", "endY");
                 MouseButton(node); NonNegative(node, "durationMs", 0); break;
             case NodeTypes.MouseScroll:
-                ValidateMouseScroll(node); break;
+                ValidateMouseScroll(node, scriptInteractionMode); break;
             case NodeTypes.KeyPress:
-                InteractionMode(node, "inputMode"); RequiredText(node, "key"); NonNegative(node, "durationMs", 0); Positive(node, "repeatCount", 1); NonNegative(node, "intervalMs", 0); break;
+                RequiredText(node, "key"); NonNegative(node, "durationMs", 0); Positive(node, "repeatCount", 1); NonNegative(node, "intervalMs", 0); break;
             case NodeTypes.TextInput:
-                InteractionMode(node, "inputMode"); NodeParameterReader.String(node, "text"); NonNegative(node, "intervalMs", 0); break;
+                NodeParameterReader.String(node, "text"); NonNegative(node, "intervalMs", 0); break;
             case NodeTypes.Wait:
                 ValidateWait(node); break;
             case NodeTypes.ColorCondition:
             case NodeTypes.ImageCondition:
             case NodeTypes.OcrCondition:
-                CoordinateMode(node); InteractionMode(node, "captureMode"); break;
+                CoordinateMode(node); break;
             case NodeTypes.Jump:
                 RequiredText(node, "scriptId"); RequiredText(node, "actionId"); break;
             case NodeTypes.RunProgram:
                 RequiredText(node, "path"); break;
             case NodeTypes.CloseProgram:
             case NodeTypes.MinimizeWindow:
-                WindowTarget(node); InteractionMode(node, "windowActionMode"); break;
+                WindowTarget(node); break;
             case NodeTypes.SetWindowResolution:
-                WindowTarget(node); InteractionMode(node, "windowActionMode"); Positive(node, "width", 0); Positive(node, "height", 0); break;
+                WindowTarget(node); Positive(node, "width", 0); Positive(node, "height", 0); break;
             case NodeTypes.ArrangeWindows:
                 ValidateTitlePattern(node); Coordinate(node); NonNegative(node, "offsetY", 20); break;
         }
@@ -79,25 +84,29 @@ internal sealed class NodeParameterValidator
         }
     }
 
-    private static void ValidateMouseClick(WorkflowNode node)
+    private static void ValidateMouseClick(
+        WorkflowNode node,
+        ScriptInteractionMode scriptInteractionMode)
     {
         var parameters = MouseClickParameterReader.Read(node);
         Coordinate(node);
         Positive(node, "clickCount", parameters.ClickCount);
-        if (parameters.ClickMode == MouseClickMode.Background
+        if (scriptInteractionMode == ScriptInteractionMode.Background
             && parameters.ClickCount > MouseClickLimits.MaximumBackgroundClickCount)
             throw new InvalidOperationException($"单个后台点击节点最多允许点击 {MouseClickLimits.MaximumBackgroundClickCount} 次。");
         NonNegative(node, "intervalMs", parameters.IntervalMs);
     }
 
-    private static void ValidateMouseScroll(WorkflowNode node)
+    private static void ValidateMouseScroll(
+        WorkflowNode node,
+        ScriptInteractionMode scriptInteractionMode)
     {
         CoordinateMode(node);
-        var mode = InteractionModeParameterReader.Read(node, "inputMode");
         Coordinate(node);
         var delta = NodeParameterReader.Int(node, "delta", 120);
         if (delta == 0) throw new InvalidOperationException("滚动量不能为零。");
-        if (mode == GameFlowStudio.Workflow.Executors.InteractionMode.Background && delta is < short.MinValue or > short.MaxValue)
+        if (scriptInteractionMode == ScriptInteractionMode.Background
+            && delta is < short.MinValue or > short.MaxValue)
             throw new InvalidOperationException($"后台滚动量必须位于 {short.MinValue} 到 {short.MaxValue} 之间。");
     }
 
@@ -126,9 +135,6 @@ internal sealed class NodeParameterValidator
 
     private static void CoordinateMode(WorkflowNode node) =>
         _ = CoordinateModeReader.Read(NodeParameterReader.String(node, "coordinateMode", "followScript"));
-
-    private static void InteractionMode(WorkflowNode node, string parameterName) =>
-        _ = InteractionModeParameterReader.Read(node, parameterName);
 
     private static void MouseButton(WorkflowNode node)
     {

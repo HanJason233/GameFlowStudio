@@ -42,7 +42,7 @@ public sealed class ColorStateDetector : IStateDetector
         var minimumRatio = Math.Clamp(DetectorParameterReader.Double(detector, "minMatchRatio", 1), 0, 1);
         var frame = await context.CaptureAsync(
             region,
-            DetectorCaptureModeReader.IsBackground(detector),
+            context.ScriptInteractionMode == ScriptInteractionMode.Background,
             cancellationToken).ConfigureAwait(false);
         var total = frame.Width * frame.Height;
         var matching = 0;
@@ -102,7 +102,7 @@ public sealed class ImageStateDetector : IStateDetector
             : ReadSearchRegion(detector, context.Capture.VirtualScreenBounds, CoordinateOrigin.Read(detector, context));
         var frame = await context.CaptureAsync(
             search,
-            DetectorCaptureModeReader.IsBackground(detector),
+            context.ScriptInteractionMode == ScriptInteractionMode.Background,
             cancellationToken).ConfigureAwait(false);
         var tolerance = Math.Clamp(DetectorParameterReader.Int(detector, "tolerance", 10), 0, 255);
         var threshold = Math.Clamp(DetectorParameterReader.Double(detector, "matchThreshold", 0.95), 0, 1);
@@ -192,21 +192,6 @@ internal static class DetectorSearchRegionReader
     }
 }
 
-internal static class DetectorCaptureModeReader
-{
-    public static bool IsBackground(DetectorDefinition detector)
-    {
-        var value = DetectorParameterReader.String(detector, "captureMode", "foreground").Trim();
-        return value.ToLowerInvariant() switch
-        {
-            "" or "foreground" => false,
-            "background" => true,
-            _ => throw new InvalidOperationException(
-                $"参数 captureMode 只支持 foreground 或 background，当前值为「{value}」。")
-        };
-    }
-}
-
 /// <summary>在屏幕区域执行 OCR，并按识别文本及置信度输出状态。</summary>
 public sealed class OcrStateDetector(IOcrService geminiOcr, ILocalOcrService? localOcr = null) : IStateDetector
 {
@@ -225,7 +210,7 @@ public sealed class OcrStateDetector(IOcrService geminiOcr, ILocalOcrService? lo
             : ReadRegion(detector, context.Capture.VirtualScreenBounds, CoordinateOrigin.Read(detector, context));
         var frame = await context.CaptureAsync(
             region,
-            DetectorCaptureModeReader.IsBackground(detector),
+            context.ScriptInteractionMode == ScriptInteractionMode.Background,
             cancellationToken).ConfigureAwait(false);
         var engine = DetectorParameterReader.String(detector, "ocrEngine", "gemini").Trim().ToLowerInvariant();
         var selectedOcr = engine switch

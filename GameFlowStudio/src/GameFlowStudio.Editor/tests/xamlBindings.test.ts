@@ -19,7 +19,7 @@ test('可选择只读文本的动态 Text 绑定必须显式使用 OneWay', () =
   }
 })
 
-test('普通节点和判断节点属性面板都提供前后台模式选择', () => {
+test('前后台模式只在脚本属性中提供且不显示提示', () => {
   const mainWindow = readFileSync(
     resolve('..', 'GameFlowStudio.Desktop', 'Views', 'MainWindow.xaml'),
     'utf8',
@@ -27,10 +27,19 @@ test('普通节点和判断节点属性面板都提供前后台模式选择', ()
 
   assert.equal(
     [...mainWindow.matchAll(/SelectedValue="\{Binding InteractionModeParameter\.Value,/g)].length,
-    2,
+    0,
   )
   assert.equal(
     [...mainWindow.matchAll(/ItemsSource="\{Binding InteractionModeOptions\}"/g)].length,
-    2,
+    0,
   )
+  assert.equal(
+    [...mainWindow.matchAll(/ItemsSource="\{Binding ScriptInteractionModes\}"/g)].length,
+    1,
+  )
+  assert.equal(
+    [...mainWindow.matchAll(/SelectedValue="\{Binding ScriptInteractionMode, Mode=TwoWay\}"/g)].length,
+    1,
+  )
+  assert.doesNotMatch(mainWindow, /InteractionModeHint/)
 })

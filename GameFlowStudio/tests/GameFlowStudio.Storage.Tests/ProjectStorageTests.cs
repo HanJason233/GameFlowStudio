@@ -26,6 +26,7 @@ public sealed class ProjectStorageTests : IDisposable
         var project = Project();
         project.Scripts[0].Name = "异常恢复脚本";
         project.Scripts[0].WindowScope = new() { Enabled = true, TitlePattern = "^Game", ExecutionMode = WindowExecutionMode.WindowPriority };
+        project.Scripts[0].InteractionMode = ScriptInteractionMode.Background;
         project.Scripts[0].DefaultNodeDelayMs = 75;
 
         await _storage.SaveAsync(project, path, CancellationToken.None);
@@ -35,7 +36,100 @@ public sealed class ProjectStorageTests : IDisposable
         Assert.True(loaded.Scripts[0].WindowScope.Enabled);
         Assert.Equal("^Game", loaded.Scripts[0].WindowScope.TitlePattern);
         Assert.Equal(WindowExecutionMode.WindowPriority, loaded.Scripts[0].WindowScope.ExecutionMode);
+        Assert.Equal(ScriptInteractionMode.Background, loaded.Scripts[0].InteractionMode);
         Assert.Equal(75, loaded.Scripts[0].DefaultNodeDelayMs);
+    }
+
+    [Fact]
+    public async Task LegacyScriptWithoutInteractionModeDefaultsToForeground()
+    {
+        Directory.CreateDirectory(_directory);
+        var path = Path.Combine(_directory, "legacy-interaction-mode.gflow");
+        const string json = """
+        {
+          "schemaVersion": "1.4",
+          "project": {
+            "id": "legacy",
+            "name": "旧项目",
+            "createdAt": "2026-01-01T00:00:00+00:00",
+            "updatedAt": "2026-01-01T00:00:00+00:00"
+          },
+          "scripts": [
+            {
+              "id": "1",
+              "name": "旧脚本",
+              "windowScope": { "enabled": false, "titlePattern": ".*", "executionMode": "firstOnly" },
+              "defaultNodeDelayMs": 2000,
+              "variables": {},
+              "nodes": [],
+              "edges": []
+            }
+          ]
+        }
+        """;
+        await File.WriteAllTextAsync(path, json);
+
+        var loaded = await _storage.LoadAsync(path, CancellationToken.None);
+
+        Assert.Equal("1.5", loaded.SchemaVersion);
+        Assert.Equal(ScriptInteractionMode.Foreground, loaded.Scripts[0].InteractionMode);
+    }
+
+    [Fact]
+    public async Task LegacyScriptWithOnlyBackgroundNodesMigratesToBackground()
+    {
+        Directory.CreateDirectory(_directory);
+        var path = Path.Combine(_directory, "legacy-background-mode.gflow");
+        const string json = """
+        {
+          "schemaVersion": "1.4",
+          "project": { "id": "legacy", "name": "旧项目", "createdAt": "2026-01-01T00:00:00+00:00", "updatedAt": "2026-01-01T00:00:00+00:00" },
+          "scripts": [{
+            "id": "1", "name": "旧后台脚本",
+            "windowScope": { "enabled": true, "titlePattern": ".*", "executionMode": "firstOnly" },
+            "defaultNodeDelayMs": 2000, "variables": {},
+            "nodes": [
+              { "id": "click", "type": "mouseClick", "position": { "x": 0, "y": 0 }, "data": { "displayName": "点击", "parameters": { "clickMode": "background", "x": 1, "y": 1 } } },
+              { "id": "key", "type": "keyPress", "position": { "x": 1, "y": 0 }, "data": { "displayName": "按键", "parameters": { "inputMode": "background", "key": "A" } } }
+            ],
+            "edges": []
+          }]
+        }
+        """;
+        await File.WriteAllTextAsync(path, json);
+
+        var loaded = await _storage.LoadAsync(path, CancellationToken.None);
+
+        Assert.Equal("1.5", loaded.SchemaVersion);
+        Assert.Equal(ScriptInteractionMode.Background, loaded.Scripts[0].InteractionMode);
+    }
+
+    [Fact]
+    public async Task LegacyScriptWithMixedNodeModesMigratesToForeground()
+    {
+        Directory.CreateDirectory(_directory);
+        var path = Path.Combine(_directory, "legacy-mixed-mode.gflow");
+        const string json = """
+        {
+          "schemaVersion": "1.4",
+          "project": { "id": "legacy", "name": "旧项目", "createdAt": "2026-01-01T00:00:00+00:00", "updatedAt": "2026-01-01T00:00:00+00:00" },
+          "scripts": [{
+            "id": "1", "name": "旧混合脚本",
+            "windowScope": { "enabled": true, "titlePattern": ".*", "executionMode": "firstOnly" },
+            "defaultNodeDelayMs": 2000, "variables": {},
+            "nodes": [
+              { "id": "click", "type": "mouseClick", "position": { "x": 0, "y": 0 }, "data": { "displayName": "后台点击", "parameters": { "clickMode": "background", "x": 1, "y": 1 } } },
+              { "id": "key", "type": "keyPress", "position": { "x": 1, "y": 0 }, "data": { "displayName": "前台按键", "parameters": { "inputMode": "foreground", "key": "A" } } }
+            ],
+            "edges": []
+          }]
+        }
+        """;
+        await File.WriteAllTextAsync(path, json);
+
+        var loaded = await _storage.LoadAsync(path, CancellationToken.None);
+
+        Assert.Equal(ScriptInteractionMode.Foreground, loaded.Scripts[0].InteractionMode);
     }
 
     [Fact]
@@ -65,12 +159,12 @@ public sealed class ProjectStorageTests : IDisposable
 
     [Theory]
     [InlineData("""{"project":{},"scripts":[]}""", "schemaVersion")]
-    [InlineData("""{"schemaVersion":"1.5","project":{},"scripts":[]}""", "1.5")]
-    [InlineData("""{"schemaVersion":"1.4","project":{}}""", "scripts")]
-    [InlineData("""{"schemaVersion":"1.4","project":{},"scripts":null}""", "scripts")]
-    [InlineData("""{"schemaVersion":"1.4","project":{},"scripts":[{"windowScope":{},"variables":{},"edges":[]}]}""", "nodes")]
-    [InlineData("""{"schemaVersion":"1.4","project":{},"scripts":[{"windowScope":{},"variables":{},"nodes":[{"position":{}}],"edges":[]}]}""", "data")]
-    [InlineData("""{"schemaVersion":"1.4","project":{},"scripts":[{"id":null,"windowScope":{},"variables":{},"nodes":[],"edges":[]}]}""", "id")]
+    [InlineData("""{"schemaVersion":"1.6","project":{},"scripts":[]}""", "1.6")]
+    [InlineData("""{"schemaVersion":"1.5","project":{}}""", "scripts")]
+    [InlineData("""{"schemaVersion":"1.5","project":{},"scripts":null}""", "scripts")]
+    [InlineData("""{"schemaVersion":"1.5","project":{},"scripts":[{"windowScope":{},"variables":{},"edges":[]}]}""", "nodes")]
+    [InlineData("""{"schemaVersion":"1.5","project":{},"scripts":[{"windowScope":{},"variables":{},"nodes":[{"position":{}}],"edges":[]}]}""", "data")]
+    [InlineData("""{"schemaVersion":"1.5","project":{},"scripts":[{"id":null,"windowScope":{},"variables":{},"nodes":[],"edges":[]}]}""", "id")]
     public async Task UnsupportedOrIncompleteDocumentsAreRejected(string json, string expectedMessage)
     {
         Directory.CreateDirectory(_directory);

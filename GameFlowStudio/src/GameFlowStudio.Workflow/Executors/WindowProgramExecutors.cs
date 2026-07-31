@@ -1,3 +1,4 @@
+using GameFlowStudio.Contracts.Enums;
 using GameFlowStudio.Contracts.Results;
 using GameFlowStudio.Contracts.Services;
 using GameFlowStudio.Contracts.Workflows;
@@ -24,7 +25,7 @@ public sealed class CloseProgramNodeExecutor(IWindowAutomationService windows, I
     {
         cancellationToken.ThrowIfCancellationRequested();
         var handles = WindowActionParameters.SelectAll(node, scopes);
-        var background = InteractionModeParameterReader.IsBackground(node, "windowActionMode");
+        var background = context.ScriptInteractionMode == ScriptInteractionMode.Background;
         var result = WindowActionParameters.ExecuteAll(windows, handles, windows.CloseWindow, "关闭目标窗口失败。", !background);
         if (result.Success) ActionExecutionLogging.Write(context, node, $"{(background ? "后台" : "前台")}关闭 {handles.Count} 个匹配窗口。");
         return Task.FromResult(result);
@@ -37,7 +38,7 @@ public sealed class MinimizeWindowNodeExecutor(IWindowAutomationService windows,
     {
         cancellationToken.ThrowIfCancellationRequested();
         var handles = WindowActionParameters.SelectAll(node, scopes);
-        var background = InteractionModeParameterReader.IsBackground(node, "windowActionMode");
+        var background = context.ScriptInteractionMode == ScriptInteractionMode.Background;
         var result = WindowActionParameters.ExecuteAll(windows, handles, windows.MinimizeWindow, "最小化目标窗口失败。", !background);
         if (result.Success) ActionExecutionLogging.Write(context, node, $"{(background ? "后台" : "前台")}最小化 {handles.Count} 个匹配窗口。");
         return Task.FromResult(result);
@@ -66,7 +67,7 @@ public sealed class SetWindowResolutionNodeExecutor(IWindowAutomationService win
         var handles = WindowActionParameters.SelectAll(node, scopes);
         var width = NodeParameterReader.Int(node, "width");
         var height = NodeParameterReader.Int(node, "height");
-        var background = InteractionModeParameterReader.IsBackground(node, "windowActionMode");
+        var background = context.ScriptInteractionMode == ScriptInteractionMode.Background;
         var result = WindowActionParameters.ExecuteAll(
             windows,
             handles,

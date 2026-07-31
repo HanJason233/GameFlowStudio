@@ -27,6 +27,7 @@ public sealed class WorkflowValidationResult
 public sealed class WorkflowExecutionContext
 {
     public required AutomationProject Workflow { get; init; }
+    public ScriptInteractionMode ScriptInteractionMode { get; set; } = ScriptInteractionMode.Foreground;
     public Dictionary<string, object?> Variables { get; } = new(StringComparer.Ordinal);
     public IReadOnlyList<nint> WindowHandles { get; set; } = [];
     public required Func<CancellationToken, Task> WaitIfPausedAsync { get; init; }
@@ -92,6 +93,7 @@ public sealed class DetectorEvaluationContext
     private readonly Dictionary<string, DetectorImage> _images = new(StringComparer.OrdinalIgnoreCase);
 
     public required IDesktopCaptureService Capture { get; init; }
+    public ScriptInteractionMode ScriptInteractionMode { get; init; } = ScriptInteractionMode.Foreground;
     public IWindowCaptureService? WindowCapture { get; init; }
     public IImageTemplateProvider? Images { get; init; }
     public IWindowAutomationService? Windows { get; init; }
