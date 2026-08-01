@@ -20,6 +20,10 @@ GameFlow Studio 是一个 Windows 无代码键盘鼠标自动化 MVP。桌面外
 
 > 自动化节点会真实控制当前 Windows 桌面。运行示例前请确认鼠标移动、点击和按键不会影响未保存的数据。
 
+## 下载
+
+最新 Windows x64 安装包和 SHA-256 校验文件见 [GitHub Releases](https://github.com/HanJason233/GameFlowStudio/releases/latest)。
+
 ## 环境
 
 本项目创建和验证时使用：
@@ -36,13 +40,13 @@ GameFlow Studio 是一个 Windows 无代码键盘鼠标自动化 MVP。桌面外
 PowerShell 的执行策略可能阻止 `npm.ps1`，此时使用下列 `npm.cmd`；普通命令提示符可直接使用 `npm`。
 
 ```powershell
-cd C:\auto\GameFlowStudio\src\GameFlowStudio.Editor
+cd .\src\GameFlowStudio.Editor
 npm.cmd install
 npm.cmd run lint
 npm.cmd run test
 npm.cmd run build
 
-cd C:\auto\GameFlowStudio
+cd .
 dotnet restore GameFlowStudio.sln
 dotnet build GameFlowStudio.sln -c Release
 ```
@@ -52,7 +56,7 @@ Vite 会直接将资源生成到 `src\GameFlowStudio.Desktop\EditorAssets`。WPF
 ## 启动和测试
 
 ```powershell
-cd C:\auto\GameFlowStudio
+cd .
 dotnet run --project src\GameFlowStudio.Desktop\GameFlowStudio.Desktop.csproj
 dotnet test GameFlowStudio.sln -c Release
 ```
@@ -64,7 +68,7 @@ dotnet test GameFlowStudio.sln -c Release
 项目使用 WiX Toolset 生成包含 .NET 运行时的 x64 MSI，构建机只需要当前项目要求的 .NET SDK 和 Node.js：
 
 ```powershell
-cd C:\auto\GameFlowStudio
+cd .
 powershell -NoProfile -ExecutionPolicy Bypass -File .\build\Publish-Installer.ps1
 ```
 
@@ -92,7 +96,7 @@ Import-Certificate -FilePath .\GameFlowStudio-TestPublisher.cer -CertStoreLocati
 ## 目录结构
 
 ```text
-GameFlowStudio/
+.
 ├── GameFlowStudio.sln
 ├── src/
 │   ├── GameFlowStudio.Contracts/       JSON 模型、枚举、公共接口和事件
