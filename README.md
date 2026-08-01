@@ -1,135 +1,167 @@
+<div align="center">
+
 # GameFlow Studio
 
-GameFlow Studio 是一个 Windows 无代码键盘鼠标自动化 MVP。桌面外壳使用 .NET 10 + WPF，流程画布使用 WebView2 承载 React + TypeScript + React Flow；流程验证、执行、Windows API 自动化、项目存储和日志均在 C# 进程内完成，运行时不需要 Node.js 服务。
+### Windows 可视化脚本 · 无代码桌面自动化 · 键鼠录制
 
-## 当前能力
+用流程图搭建自动化脚本，把键盘、鼠标、窗口和图像识别组合成可复用的 Windows 桌面自动化流程。
 
-- 脚本内逻辑判断：色检测、图检测、Gemini OCR 文本检测；OCR 默认通过 Gemini 云端接口识别截图，模型为 `gemini-flash-lite-latest`；AI 识别仍保留 TODO。检测器只属于当前脚本，逻辑节点到达时检测并通过 `true/false` 分支继续执行。
+[立即下载 v0.1.5](https://github.com/HanJason233/GameFlowStudio/releases/tag/v0.1.5) · [查看全部版本](https://github.com/HanJason233/GameFlowStudio/releases) · [浏览文档](docs/architecture.md)
 
-- 十六种操作卡片：开始、点击、鼠标拖动、鼠标滑动、键盘按键、输入文本、等待、色判断、图判断、文本判断、启动程序、关闭程序、最小化窗口、窗口整理、设置窗口分辨率、结束。每个操作卡片执行成功或失败都会自动写入运行日志。窗口整理始终按卡片标题正则处理整组窗口；后台关闭、最小化和设置分辨率在存在唯一脚本窗口上下文时只处理当前窗口，否则按卡片标题正则处理匹配窗口。后台并行时，启动程序和窗口整理这类全局动作由所有窗口轨道共享一次执行。
-- 操作录制：点击工具栏“录制”后，先选择基于整个屏幕或指定窗口，再捕获单击、拖动、滚轮和可回放键盘组合；窗口模式复用坐标拾取的窗口选择并只记录目标窗口，自动将当前脚本的选择作用域设置为该窗口，鼠标坐标保存为窗口相对坐标。按 F7 或点击“停止录制”后，带“录制开始/录制结束”标记的步骤会追加到当前脚本，不再新建脚本；单次最多录制 4,000 个操作，达到上限时自动停止。
-- 脚本属性可配置窗口匹配、前后台执行方式及操作流程。窗口匹配先用“正则匹配”规定可操作窗口，再用“排除正则匹配”从结果中移除不需要的目标。前台可选择“伪并行”，依次切换窗口并让各窗口的操作进度保持一致，也可选择逐窗口完整执行的“串行”；后台固定使用各窗口同时执行的“并行”。后台方式会让点击、移动、拖动、滚轮、按键、文本输入、色判断、图判断、文本判断以及可后台执行的窗口动作都不激活目标窗口；后台键鼠通过传统 Win32 消息投递，后台读取通过 `PrintWindow` 请求唯一目标窗口绘制。游戏、硬件加速窗口、高权限或受保护程序可能忽略消息或返回黑图。
-- React Flow 节点添加、拖动、连接、选择、Delete 删除、Ctrl+C/Ctrl+V 复制粘贴、缩放和平移；“整理”会按连接层级和分支重心生成紧凑的多行布局。
-- WPF 属性面板、坐标拾取、项目文件模块中的新建/打开/安全保存/另存为、单项目多脚本、示例项目和主题设置。
-- 顺序执行与色判断、图判断、Gemini OCR 判断分支；类型化变量和脚本级窗口匹配。
-- 异步暂停、恢复、停止、防重复运行、10,000 节点安全上限、取消传播和节点级异常状态。
-- F8 运行、F9 暂停/继续、F10 停止；可在设置中改为其他 F1–F24 键。
-- 编辑完成后可点击“悬浮运行”：尚未保存或有修改的项目会先要求保存，再导出到临时文件；编辑器进程退出并释放 WebView2 内存，随后启动只包含脚本列表、进度和运行开关的轻量悬浮窗。从悬浮窗切回的临时快照按未保存项目打开，首次保存会要求选择正式路径。
-- 节点运行/成功/失败状态同步到画布，日志面板默认显示底部实时日志；检测动作会记录识别文本、颜色值、图像置信度和实际坐标，并写入 `%LOCALAPPDATA%\GameFlowStudio\logs\yyyy-MM-dd.log` 文件。
-- 运行前图验证：开始/结束节点、孤立和不可达节点、句柄、参数、坐标、分支出口和非法环路。
+**Windows 10/11 · x64 · 可视化编排 · 不需要编写代码**
 
-> 自动化节点会真实控制当前 Windows 桌面。运行示例前请确认鼠标移动、点击和按键不会影响未保存的数据。
+</div>
 
-## 下载
+GameFlow Studio 是一款面向中国用户的 **Windows 可视化脚本工具** 和 **无代码桌面自动化工具**。通过拖拽节点、连接流程和填写参数，即可制作重复点击、表单填写、多窗口操作、键鼠回放和视觉判断脚本；运行时不需要 Node.js 服务。
 
-最新 Windows x64 安装包和 SHA-256 校验文件见 [GitHub Releases](https://github.com/HanJason233/GameFlowStudio/releases/latest)。
+> 自动化脚本会真实控制当前 Windows 桌面。运行流程前，请确认鼠标、键盘和窗口操作不会影响未保存的数据。
 
-## 环境
+## 30 秒开始制作可视化脚本
 
-本项目创建和验证时使用：
+1. 下载并运行 [Windows x64 MSI 安装包](https://github.com/HanJason233/GameFlowStudio/releases/download/v0.1.5/GameFlowStudio-0.1.5-win-x64.msi)。
+2. 打开示例项目，或新建一个带有“开始”和“结束”节点的自动化流程。
+3. 从步骤面板添加节点、拖动连线，按 `F8` 运行，按 `F9` 暂停/继续，按 `F10` 停止。
 
-- .NET SDK 10.0.302，目标框架 `net10.0-windows`
-- Node.js 24.18.0 LTS
-- React 19.2.7
-- `@xyflow/react` 12.11.2
-- WebView2 SDK 1.0.4078.44；本机需要安装 Microsoft Edge WebView2 Runtime
-- x64 Windows 10/11
+安装包自带 .NET 运行时；运行电脑需要 Microsoft Edge WebView2 Runtime。
 
-## 首次构建
+## 适合哪些自动化场景？
 
-PowerShell 的执行策略可能阻止 `npm.ps1`，此时使用下列 `npm.cmd`；普通命令提示符可直接使用 `npm`。
+| 使用场景 | 可视化脚本能力 |
+| --- | --- |
+| 办公自动化 / RPA | 重复点击、文本输入、键盘操作、等待和流程分支 |
+| 网页或桌面软件操作 | 窗口匹配、鼠标拖动、滚轮、程序启动与关闭 |
+| 多窗口批量处理 | 标题正则匹配、排除规则、窗口整理、前后台执行 |
+| 键鼠操作回放 | 屏幕/窗口录制，自动生成可编辑的自动化步骤 |
+| 需要识别后再操作 | 色判断、图判断、OCR 文本判断和 `true/false` 分支 |
+| 可维护的自动化项目 | `.gflow` 项目文件、流程验证、运行日志和节点状态 |
+
+## 以用户体验为中心的可视化工作台
+
+整个界面围绕“编辑脚本 → 检查流程 → 运行自动化”设计：
+
+- **流程画布**：像画流程图一样拖拽节点、连接分支、缩放和平移；“整理”自动生成紧凑布局。
+- **步骤面板**：按类别选择操作，不需要记忆脚本语法。
+- **属性面板**：直接填写文本、坐标、延迟、窗口规则、变量和执行模式。
+- **录制工具**：选择整个屏幕或指定窗口，捕获点击、拖动、滚轮和可回放的键盘组合。
+- **运行反馈**：节点实时显示等待、成功和失败状态，日志面板同步展示执行过程。
+- **悬浮运行**：编辑完成后切换到轻量运行窗口，只保留脚本列表、进度和运行控制。
+
+## 核心功能
+
+### 可视化流程编排
+
+- 基于 React Flow 的流程图编辑器，支持添加、拖动、连接、选择、删除、缩放和平移。
+- 支持条件分支、自动布局、流程校验和最多 10,000 个节点的安全上限。
+- 节点运行状态直接回写画布，失败步骤一眼可见。
+
+### 无代码键鼠录制
+
+- 支持屏幕模式和窗口模式录制。
+- 可捕获单击、拖动、滚轮和常见键盘组合。
+- 窗口模式自动保存窗口相对坐标，适合制作可复用的自动化脚本。
+- 录制结果追加到当前脚本；单次最多录制 4,000 个操作。
+
+### 多窗口桌面自动化
+
+- 用窗口标题正则包含目标窗口，用排除正则移除不需要的窗口。
+- 前台支持串行和伪并行；后台支持多窗口并行。
+- 支持启动、关闭、最小化程序，以及统一整理窗口布局和设置窗口分辨率。
+
+### 视觉识别与自动化判断
+
+- **色判断**：根据屏幕颜色决定下一步流程。
+- **图判断**：根据图像匹配结果决定下一步流程。
+- **OCR 文本判断**：识别截图中的文字后进入不同分支。
+- 判断节点可以直接接入流程连线，不需要额外编写条件代码。
+
+### 稳定运行与项目管理
+
+- 运行前检查开始/结束节点、孤立节点、参数、坐标、分支出口和非法环路。
+- 支持异步暂停、恢复、停止和防重复运行。
+- `.gflow` 项目保存采用临时文件、序列化校验和原子替换，降低项目损坏风险。
+- 日志保存在 `%LOCALAPPDATA%\GameFlowStudio\logs`，方便排查自动化脚本问题。
+
+## 支持的自动化节点
+
+| 类别 | 节点 |
+| --- | --- |
+| 流程控制 | 开始、等待、结束 |
+| 鼠标键盘 | 点击、鼠标拖动、鼠标滑动、键盘按键、输入文本 |
+| 视觉判断 | 色判断、图判断、文本判断 |
+| 窗口与程序 | 启动程序、关闭程序、最小化窗口、窗口整理、设置窗口分辨率 |
+
+## 快捷键
+
+| 快捷键 | 操作 |
+| --- | --- |
+| `F8` | 运行自动化脚本 |
+| `F9` | 暂停 / 继续 |
+| `F10` | 停止运行 |
+| `F7` | 停止录制 |
+
+快捷键可以在设置中改为其他 `F1`–`F24` 按键。
+
+## 下载、配置与安全提示
+
+最新 Windows 安装包和 SHA-256 校验文件见 [GitHub Releases](https://github.com/HanJason233/GameFlowStudio/releases/latest)。
+
+使用 OCR 文本判断时，可在“全局设置 → Gemini OCR API 密钥”中保存 API 密钥，也可以使用 `GEMINI_API_KEY` 环境变量。API 地址、模型、提示词和超时时间均可通过设置覆盖。
+
+自动化脚本可能操作真实窗口、输入文字或启动程序。建议先使用示例项目和低风险窗口验证流程，再处理重要数据。
+
+## 从源码构建
+
+<details>
+<summary>展开构建、测试和打包命令</summary>
+
+开发环境：.NET SDK 10.0.302、Node.js 24.18.0 LTS。
 
 ```powershell
 cd .\src\GameFlowStudio.Editor
-npm.cmd install
+npm.cmd ci
 npm.cmd run lint
 npm.cmd run test
 npm.cmd run build
 
-cd .
+cd ..\..
 dotnet restore GameFlowStudio.sln
+dotnet test GameFlowStudio.sln -c Release
 dotnet build GameFlowStudio.sln -c Release
 ```
 
-Vite 会直接将资源生成到 `src\GameFlowStudio.Desktop\EditorAssets`。WPF 构建会把它们复制到应用输出目录，不会启动本地 Web 服务器。
-
-## 启动和测试
+生成 Windows x64 MSI：
 
 ```powershell
-cd .
-dotnet run --project src\GameFlowStudio.Desktop\GameFlowStudio.Desktop.csproj
-dotnet test GameFlowStudio.sln -c Release
+powershell -NoProfile -ExecutionPolicy Bypass -File .\build\Publish-Installer.ps1 -Version 0.1.5
 ```
 
-首次启动可点击“打开示例项目”。创建新项目时会得到一个已连接的开始和结束节点；从节点编辑区下方的步骤面板添加节点，重新连接后即可保存和运行。
+</details>
 
-## 发布 Windows 安装包
-
-项目使用 WiX Toolset 生成包含 .NET 运行时的 x64 MSI，构建机只需要当前项目要求的 .NET SDK 和 Node.js：
-
-```powershell
-cd .
-powershell -NoProfile -ExecutionPolicy Bypass -File .\build\Publish-Installer.ps1
-```
-
-脚本会重新安装锁定版本的前端依赖，执行 lint、前端构建和全部 .NET 测试，然后将自包含应用发布到 `artifacts\publish\win-x64`，最终安装包及 SHA-256 校验文件输出到 `artifacts\installer`。可通过 `-Version 0.2.0` 显式指定三段式版本号；未指定时使用项目的 `VersionPrefix`。
-
-本机测试可以生成自签名代码证书，并仅在当前用户证书存储区信任它：
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\build\Publish-Installer.ps1 -TestSign -TrustTestCertificate
-```
-
-测试证书的公钥会输出到 `artifacts\installer\GameFlowStudio-TestPublisher.cer`，私钥只保存在生成证书的当前 Windows 用户证书存储区，不会写入项目或提交到 Git。自签名证书不具备公共信誉，其他电脑需要先显式信任该测试证书；正式分发必须改用受信任 CA 签发的代码签名证书。
-
-在另一台测试机上信任证书时，以该测试用户运行：
-
-```powershell
-Import-Certificate -FilePath .\GameFlowStudio-TestPublisher.cer -CertStoreLocation Cert:\CurrentUser\Root
-Import-Certificate -FilePath .\GameFlowStudio-TestPublisher.cer -CertStoreLocation Cert:\CurrentUser\TrustedPublisher
-```
-
-## Gemini OCR 配置
-
-桌面端默认使用 `https://gemini.11145149.xyz/` 的 Gemini `generateContent` 接口和 `gemini-flash-lite-latest` 模型，默认提示词为“你当前是ocr识别助手，只输出识别到的文字，字母，数字，符号等”。API 密钥可在“全局设置 → Gemini OCR API 密钥”中保存到本机设置；留空时也可以使用 `GEMINI_API_KEY` 环境变量。也可以使用 `GeminiOcr__ApiBaseUrl`、`GeminiOcr__EndpointPath`、`GeminiOcr__Model`、`GeminiOcr__Prompt` 和 `GeminiOcr__TimeoutSeconds` 覆盖默认配置。
-
-## 目录结构
+## 项目结构
 
 ```text
-.
-├── GameFlowStudio.sln
-├── src/
-│   ├── GameFlowStudio.Contracts/       JSON 模型、枚举、公共接口和事件
-│   ├── GameFlowStudio.Workflow/        验证、执行引擎、同步门和节点执行器
-│   ├── GameFlowStudio.Automation/      SendInput、窗口、坐标与集中 P/Invoke
-│   ├── GameFlowStudio.Storage/         项目安全写入、本地设置和路径策略
-│   ├── GameFlowStudio.Infrastructure/  DI 注册与 UI/文件日志提供程序
-│   ├── GameFlowStudio.Desktop/         WPF MVVM、WebView2、属性面板和坐标选择器
-│   └── GameFlowStudio.Editor/          React/TypeScript/React Flow 编辑器
-├── tests/
-│   ├── GameFlowStudio.Workflow.Tests/
-│   └── GameFlowStudio.Storage.Tests/
-├── samples/basic-example.gflow
-└── docs/
+src/        C# 核心、Windows 自动化、WPF 桌面端和 React 可视化编辑器
+tests/      .NET 单元测试
+installer/  WiX Windows 安装包工程
+build/      发布和打包脚本
+docs/       架构、通信协议和工作流格式文档
+samples/    示例自动化流程
 ```
 
-## 执行模型
+更多信息： [架构设计](docs/architecture.md) · [编辑器通信协议](docs/editor-communication.md) · [工作流格式](docs/workflow-schema.md)
 
-运行前，C# 从编辑器请求最新项目快照并进行权威验证。运行器从唯一开始节点出发，调用节点类型对应的 `INodeExecutor`，根据结果中的输出句柄选择下一条边。色判断、图判断和 Gemini OCR 判断返回 `true` 或 `false`。编辑器内运行时，每个节点事件经 WPF 转成 WebView2 JSON 消息；悬浮纯运行模式不加载 WebView2，只在轻量窗口更新脚本进度。
+## 当前限制
 
-暂停使用异步手动重置事件，不占用线程；停止取消关联 `CancellationTokenSource`。等待、重复点击/按键和文本输入均响应取消。自动化接口可替换，因此测试不会实际发送键鼠输入。
+<details>
+<summary>展开查看</summary>
 
-## `.gflow` 保存策略
+- 当前版本不提供自动更新、云同步、登录、插件市场或崩溃恢复。
+- 录制不采集连续鼠标轨迹、触摸、手柄或 IME 文本提交。
+- 锁屏、UAC 安全桌面、部分游戏和受保护窗口可能无法捕获或响应后台输入。
+- 后台自动化依赖目标窗口对传统 Win32 消息和 `PrintWindow` 的支持。
 
-保存先在目标目录创建临时文件，完整序列化后再反序列化校验；已有文件使用 Windows 原子替换，新文件使用同卷移动。任何失败都会删除临时文件并保留原项目。项目 JSON 协议见 [workflow-schema.md](docs/workflow-schema.md)。
+</details>
 
-## 已知限制
+## 许可证
 
-- 鼠标移动的 `durationMs` 已保留，但 MVP 当前执行瞬时定位。
-- 浅色主题切换 WPF 主背景；React 编辑器保持适合流程调试的深色画布。
-- 未提供自动更新或崩溃恢复。
-- 操作录制不采集连续鼠标移动轨迹、触摸、手柄或 IME 文本提交；低级键盘录制只生成当前按键执行器支持的按键。锁屏、UAC 安全桌面和部分使用受保护输入的游戏可能无法捕获。
-- 录制步骤按节点顺序回放，当前不能精确还原“按住一个键的同时点击鼠标”等重叠输入，也不记录单独按下的 Ctrl、Shift 或 Alt。
-- 不包含云同步、登录、插件、脚本市场、游戏内存、注入、驱动输入或反作弊能力。
-
-架构细节见 [architecture.md](docs/architecture.md)，消息协议见 [editor-communication.md](docs/editor-communication.md)。
+当前仓库未声明开源许可证。使用或再分发前，请先联系项目作者确认授权范围。
