@@ -54,6 +54,7 @@ public sealed class AutomationScript
     public Dictionary<string, ProjectVariable> Variables { get; set; } = new(StringComparer.Ordinal);
     public List<WorkflowNode> Nodes { get; set; } = [];
     public List<WorkflowEdge> Edges { get; set; } = [];
+    public List<WorkflowGroup> Groups { get; set; } = [];
 }
 
 public sealed class ScriptWindowScope
@@ -72,6 +73,7 @@ public sealed class WorkflowDocument
     public Dictionary<string, ProjectVariable> Variables { get; set; } = new(StringComparer.Ordinal);
     public List<WorkflowNode> Nodes { get; set; } = [];
     public List<WorkflowEdge> Edges { get; set; } = [];
+    public List<WorkflowGroup> Groups { get; set; } = [];
 }
 
 public sealed class ProjectMetadata
@@ -115,6 +117,19 @@ public sealed class WorkflowEdge
     public string SourceHandle { get; set; } = "output";
     public string Target { get; set; } = string.Empty;
     public string TargetHandle { get; set; } = "input";
+}
+
+/// <summary>编辑器画布中的卡片组，仅用于组织和折叠节点，不参与运行时执行。</summary>
+public sealed class WorkflowGroup
+{
+    public string Id { get; set; } = string.Empty;
+    public string Name { get; set; } = "卡片组";
+    public List<string> NodeIds { get; set; } = [];
+    public NodePosition Position { get; set; } = new();
+    public double Width { get; set; } = 420;
+    public double Height { get; set; } = 260;
+    public bool Collapsed { get; set; }
+    public List<WorkflowEdge> ExternalEdges { get; set; } = [];
 }
 
 /// <summary>项目 JSON 的唯一序列化配置。</summary>

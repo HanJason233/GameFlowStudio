@@ -8,13 +8,13 @@ import { postBridgeMessage } from '../services/bridge'
 import { arrangeWorkflowNodes, selectWorkflowFocusNodeIds } from '../workflowLayout'
 import {
   defaultParameters, fromDocument, nodeLabels, toDocument,
-  nextActionId, type GameFlowNode, type NodeDataUpdate, type NodeType, type WorkflowDocument,
+  nextActionId, type CanvasGroup, type GameFlowNode, type NodeDataUpdate, type NodeType, type WorkflowDocument,
 } from '../types/workflow'
 
 const createEmptyDocument = (): WorkflowDocument => ({
   schemaVersion: '1.8',
   project: { id: `project-${crypto.randomUUID()}`, name: '未命名项目', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  variables: {}, nodes: [], edges: [],
+  variables: {}, nodes: [], edges: [], groups: [],
 })
 
 const largeWorkflowFocusNodeCount = 12
@@ -115,8 +115,9 @@ export function useWorkflowDocument() {
   }, [flow, nodesInitialized, pendingFit, renderedNodes])
 
   const importDocument = useCallback((incoming: WorkflowDocument) => {
-    const graph = fromDocument(incoming)
-    setSourceDocument(incoming)
+    const normalized = { ...incoming, groups: incoming.groups ?? [] }
+    const graph = fromDocument(normalized)
+    setSourceDocument(normalized)
     setNodes(graph.nodes)
     setEdges(graph.edges)
     fitWorkflowView(graph.nodes, graph.edges)
@@ -162,13 +163,84 @@ export function useWorkflowDocument() {
     setNodes(current => current.map(node => ({ ...node, selected: selectedIds.has(node.id) })))
   }, [setNodes])
 
+  const selectAllNodes = useCallback(() => {
+    setNodes(current => current.map(node => node.data.group ? node : { ...node, selected: true }))
+  }, [setNodes])
+
+  const invertNodeSelection = useCallback(() => {
+    setNodes(current => current.map(node => node.data.group ? node : { ...node, selected: !node.selected }))
+  }, [setNodes])
+
+  const groupNodes = useCallback((nodeIds: string[]) => {
+    if (readOnly || nodeIds.length < 2) return
+    const memberIds = [...new Set(nodeIds)].filter(id => nodes.some(node => node.id === id && !node.data.group))
+    if (memberIds.length < 2) return
+    const bounds = flow.getNodesBounds(memberIds)
+    const padding = 32
+    const group: CanvasGroup = {
+      id: `group-${crypto.randomUUID()}`,
+      name: `卡片组 ${((sourceDocument.groups ?? []).length + 1)}`,
+      nodeIds: memberIds,
+      position: { x: bounds.x - padding, y: bounds.y - padding },
+      width: Math.max(260, bounds.width + padding * 2),
+      height: Math.max(150, bounds.height + padding * 2),
+      collapsed: true,
+    }
+    setSourceDocument(current => ({ ...current, groups: [...(current.groups ?? []), group] }))
+    setNodes(current => current.map(node => memberIds.includes(node.id)
+      ? { ...node, selected: false, hidden: true }
+      : node).concat({
+        id: group.id,
+        type: 'groupNode',
+        position: group.position,
+        zIndex: -1,
+        data: { nodeType: 'start', displayName: group.name, parameters: {}, group },
+      }))
+    markChanged()
+  }, [flow, markChanged, nodes, readOnly, setNodes, sourceDocument.groups])
+
+  const toggleGroup = useCallback((groupId: string) => {
+    if (readOnly) return
+    const group = (sourceDocument.groups ?? []).find(item => item.id === groupId)
+    if (!group) return
+    const collapsed = !group.collapsed
+    const updated = { ...group, collapsed }
+    setSourceDocument(current => ({ ...current, groups: (current.groups ?? []).map(item => item.id === groupId ? updated : item) }))
+    setNodes(current => current.map(node => {
+      if (node.id === groupId) return {
+        ...node,
+        data: { ...node.data, group: updated, displayName: updated.name },
+      }
+      if (updated.nodeIds.includes(node.id)) return { ...node, hidden: collapsed }
+      return node
+    }))
+    markChanged()
+  }, [markChanged, readOnly, setNodes, sourceDocument.groups])
+
+  const ungroup = useCallback((groupId: string) => {
+    if (readOnly) return
+    const group = (sourceDocument.groups ?? []).find(item => item.id === groupId)
+    if (!group) return
+    setSourceDocument(current => ({ ...current, groups: (current.groups ?? []).filter(item => item.id !== groupId) }))
+    setNodes(current => current.filter(node => node.id !== groupId).map(node =>
+      group.nodeIds.includes(node.id) ? { ...node, hidden: false, selected: false } : node))
+    markChanged()
+  }, [markChanged, readOnly, setNodes, sourceDocument.groups])
+
   const deleteNodes = useCallback((nodeIds: string[]) => {
     if (readOnly || nodeIds.length === 0) return
     const deletedIds = new Set(nodeIds)
-    setNodes(current => current.filter(node => !deletedIds.has(node.id)))
+    const deletedGroups = (sourceDocument.groups ?? []).filter(group => deletedIds.has(group.id) || group.nodeIds.some(id => deletedIds.has(id)))
+    if (deletedGroups.length > 0) {
+      setSourceDocument(current => ({
+        ...current,
+        groups: (current.groups ?? []).filter(group => !deletedGroups.some(deleted => deleted.id === group.id)),
+      }))
+    }
+    setNodes(current => current.filter(node => !deletedIds.has(node.id) && !deletedGroups.some(group => group.id === node.id)))
     setEdges(current => current.filter(edge => !deletedIds.has(edge.source) && !deletedIds.has(edge.target)))
     markChanged()
-  }, [markChanged, readOnly, setEdges, setNodes])
+  }, [markChanged, readOnly, setEdges, setNodes, sourceDocument.groups])
 
   const deleteEdges = useCallback((edgeIds: string[]) => {
     if (readOnly || edgeIds.length === 0) return
@@ -209,7 +281,8 @@ export function useWorkflowDocument() {
 
   return {
     nodes, edges, readOnly, setNodes, setReadOnly, exportDocument, importDocument, addNode,
-    updateNodeData, updateExecutionStatus, clearExecutionState, selectNodes, deleteNodes, deleteEdges, markChanged,
+    updateNodeData, updateExecutionStatus, clearExecutionState, selectNodes, selectAllNodes, invertNodeSelection,
+    groupNodes, toggleGroup, ungroup, deleteNodes, deleteEdges, markChanged,
     onConnect, onNodesChange, onEdgesChange, arrangeNodes,
   }
 }

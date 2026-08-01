@@ -12,7 +12,8 @@ export function isWorkflowDocument(value: unknown): value is WorkflowDocument {
     || !isProjectMetadata(value.project)
     || !isVariables(value.variables)
     || !Array.isArray(value.nodes)
-    || !Array.isArray(value.edges)) return false
+    || !Array.isArray(value.edges)
+    || (Object.hasOwn(value, 'groups') && !isGroups(value.groups))) return false
 
   const nodeIds = new Set<string>()
   for (const node of value.nodes) {
@@ -30,6 +31,22 @@ export function isWorkflowDocument(value: unknown): value is WorkflowDocument {
   }
 
   return true
+}
+
+function isGroups(value: unknown): boolean {
+  if (!Array.isArray(value)) return false
+  return value.every(group => isRecord(group)
+    && isNonEmptyString(group.id)
+    && typeof group.name === 'string'
+    && Array.isArray(group.nodeIds)
+    && group.nodeIds.every(isNonEmptyString)
+    && isRecord(group.position)
+    && isFiniteNumber(group.position.x)
+    && isFiniteNumber(group.position.y)
+    && isFiniteNumber(group.width)
+    && isFiniteNumber(group.height)
+    && typeof group.collapsed === 'boolean'
+    && (!Object.hasOwn(group, 'externalEdges') || (Array.isArray(group.externalEdges) && group.externalEdges.every(isWorkflowEdge))))
 }
 
 export function isNodeDataUpdate(value: unknown): value is NodeDataUpdate {

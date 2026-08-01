@@ -223,18 +223,16 @@
                             <controls:SelectableTextBlock Text="操作卡片" FontWeight="SemiBold" FontSize="13" Margin="12,0" VerticalAlignment="Center"/>
                             <Button Content="—" Style="{StaticResource PaneHeaderButton}" HorizontalAlignment="Right" Command="{Binding ToggleToolboxPaneCommand}" ToolTip="最小化操作卡片"/>
                         </Grid>
-                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="8,0,8,8" Visibility="{Binding IsHorizontalStepLayout, Converter={StaticResource InverseBoolVisibility}}">
-                            <ItemsControl ItemsSource="{Binding ToolboxGroups}" ItemTemplate="{StaticResource StepCategoryTemplate}"/>
-                        </ScrollViewer>
-                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" Padding="8,0,8,8" Visibility="{Binding IsHorizontalStepLayout, Converter={StaticResource BoolVisibility}}">
-                            <ItemsControl ItemsSource="{Binding ToolboxGroups}" ItemTemplate="{StaticResource StepCategoryTemplate}">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <StackPanel Orientation="Horizontal"/>
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                            </ItemsControl>
-                        </ScrollViewer>
+                        <ItemsControl ItemsSource="{Binding ToolboxGroups}" ItemTemplate="{StaticResource StepCategoryTemplate}" Padding="8,0,8,8" Visibility="{Binding IsHorizontalStepLayout, Converter={StaticResource InverseBoolVisibility}}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate><WrapPanel Orientation="Horizontal"/></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+                        <ItemsControl ItemsSource="{Binding ToolboxGroups}" ItemTemplate="{StaticResource StepCategoryTemplate}" Padding="8,0,8,8" Visibility="{Binding IsHorizontalStepLayout, Converter={StaticResource BoolVisibility}}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate><WrapPanel Orientation="Horizontal"/></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
                     </DockPanel>
                 </Border>
             </Grid>
@@ -368,7 +366,7 @@
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
                                                 <StackPanel Width="112" Margin="0,2,6,2">
-                                                    <controls:SelectableTextBlock Text="{Binding Name, Mode=OneWay}" Foreground="#94A3B8" ToolTip="{Binding Description}"/>
+                                                    <controls:SelectableTextBlock Text="{Binding DisplayName, Mode=OneWay}" Foreground="#94A3B8" ToolTip="{Binding Description}"/>
                                                     <TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"/>
                                                 </StackPanel>
                                             </DataTemplate>
@@ -427,7 +425,7 @@
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate>
                                                     <StackPanel Width="112" Margin="0,2,6,2">
-                                                        <controls:SelectableTextBlock Text="{Binding Name, Mode=OneWay}" Foreground="#94A3B8" ToolTip="{Binding Description}"/>
+                                                        <controls:SelectableTextBlock Text="{Binding DisplayName, Mode=OneWay}" Foreground="#94A3B8" ToolTip="{Binding Description}"/>
                                                         <TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"/>
                                                     </StackPanel>
                                                 </DataTemplate>

@@ -366,7 +366,7 @@ public sealed class MainViewModel : ObservableObject
     }
 
     public Task LoadStartupProjectAsync(string path) =>
-        LoadProjectAsync(path, rememberPath: false, markDirty: true);
+        LoadProjectAsync(path, rememberPath: true, markDirty: false);
 
     public bool CanClose()
     {
@@ -761,7 +761,7 @@ public sealed class MainViewModel : ObservableObject
                 if (_dirty || _currentPath is null) return;
                 project = _project;
             }
-            await _runtimeLauncher.LaunchAsync(project, CancellationToken.None);
+            await _runtimeLauncher.LaunchAsync(project, _currentPath, CancellationToken.None);
             _runtimeLaunchInProgress = true;
             Application.Current?.Shutdown();
         }
@@ -866,7 +866,9 @@ public sealed class MainViewModel : ObservableObject
                     {
                         TargetEndNodeId = _recordingTargetEndNodeId,
                         Scope = _recordingScope,
-                        WindowTitle = _recordingWindow?.Title
+                        WindowTitle = _recordingWindow?.Title,
+                        RecordWaitTime = Settings.RecordWaitTimeDuringRecording,
+                        MergeKeyboardInput = Settings.MergeContinuousKeyboardInput
                     });
                 await ImportEditorWorkflowAsync(candidate);
                 var scriptIndex = _project.Scripts.FindIndex(script => script.Id == current.Id);
@@ -1066,6 +1068,7 @@ public sealed class MainViewModel : ObservableObject
         script.Variables = snapshot.Variables;
         script.Nodes = snapshot.Nodes;
         script.Edges = snapshot.Edges;
+        script.Groups = snapshot.Groups;
         _project.Project = snapshot.Project;
         SyncRuntimeScriptView(script);
         RefreshScripts();
@@ -1195,7 +1198,8 @@ public sealed class MainViewModel : ObservableObject
         Project = project.Project,
         Variables = script.Variables,
         Nodes = script.Nodes,
-        Edges = script.Edges
+        Edges = script.Edges,
+        Groups = script.Groups
     };
 
     private void RefreshScripts()

@@ -74,7 +74,7 @@ public partial class App : Application
         if (EditorLaunchOptions.TryParse(e.Args, out var parsedEditorOptions))
         {
             editorOptions = parsedEditorOptions;
-            _temporaryEditorProjectPath = parsedEditorOptions?.ProjectPath;
+            _temporaryEditorProjectPath = parsedEditorOptions is { DeleteOnExit: true } ? parsedEditorOptions.ProjectPath : null;
         }
 
         var window = _host.Services.GetRequiredService<MainWindow>();

@@ -1,6 +1,6 @@
 using System.Globalization;
+using System.Text;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using GameFlowStudio.Contracts.Nodes;
 using GameFlowStudio.Contracts.Recording;
 using GameFlowStudio.Contracts.Workflows;
@@ -13,15 +13,18 @@ public sealed record RecordedScriptAppendOptions
     public InputRecordingScope Scope { get; init; } = InputRecordingScope.Screen;
     public string? WindowTitle { get; init; }
     public string? SessionId { get; init; }
+    public bool RecordWaitTime { get; init; } = true;
+    public bool MergeKeyboardInput { get; init; } = true;
 }
 
 /// <summary>将输入录制快照转换为现有工作流节点，或追加到当前脚本。</summary>
 public static class RecordedScriptFactory
 {
-    public const int MinimumWaitMilliseconds = 20;
+    public const int MinimumWaitMilliseconds = 80;
     public const string RecordingSessionParameter = "recordingSessionId";
     public const string RecordingBoundaryParameter = "recordingBoundary";
     private const int NodesPerRow = 6;
+    private const int MaximumTextInputGapMilliseconds = 250;
     private const double HorizontalStep = 190;
     private const double VerticalStep = 120;
 
@@ -46,9 +49,7 @@ public static class RecordedScriptFactory
         };
         AddNode(script, NodeTypes.Start, "开始", []);
 
-        var ordered = actions
-            .OrderBy(action => action.OffsetMilliseconds)
-            .ToArray();
+        var ordered = OrderActions(actions, mergeKeyboardInput: true);
         RecordedInputAction? previous = null;
         foreach (var action in ordered)
         {
@@ -169,9 +170,7 @@ public static class RecordedScriptFactory
                 (RecordingSessionParameter, sessionId),
                 (RecordingBoundaryParameter, "start")));
 
-        var ordered = actions
-            .OrderBy(action => action.OffsetMilliseconds)
-            .ToArray();
+        var ordered = OrderActions(actions, options.MergeKeyboardInput);
         RecordedInputAction? previous = null;
         foreach (var action in ordered)
         {
@@ -180,7 +179,7 @@ public static class RecordedScriptFactory
                 : action.OffsetMilliseconds
                     - previous.OffsetMilliseconds
                     - PlaybackDuration(previous);
-            if (gap >= MinimumWaitMilliseconds)
+            if (options.RecordWaitTime && gap >= MinimumWaitMilliseconds)
             {
                 var duration = (int)Math.Min(gap, int.MaxValue);
                 AddNode(
@@ -272,6 +271,17 @@ public static class RecordedScriptFactory
                         ("key", action.Key),
                         ("durationMs", Math.Max(0, action.DurationMilliseconds)),
                         ("repeatCount", 1),
+                        ("intervalMs", 0)));
+                break;
+            case RecordedInputActionKind.TextInput:
+                if (string.IsNullOrEmpty(action.Text)) return;
+                AddNode(
+                    script,
+                    NodeTypes.TextInput,
+                    $"输入文本 {action.Text}",
+                    RecordedParameters(
+                        recordingSessionId,
+                        ("text", action.Text),
                         ("intervalMs", 0)));
                 break;
             default:
@@ -370,6 +380,24 @@ public static class RecordedScriptFactory
             SourceHandle = edge.SourceHandle,
             Target = edge.Target,
             TargetHandle = edge.TargetHandle
+        }).ToList(),
+        Groups = source.Groups.Select(group => new WorkflowGroup
+        {
+            Id = group.Id,
+            Name = group.Name,
+            NodeIds = [.. group.NodeIds],
+            Position = new NodePosition { X = group.Position.X, Y = group.Position.Y },
+            Width = group.Width,
+            Height = group.Height,
+            Collapsed = group.Collapsed,
+            ExternalEdges = group.ExternalEdges.Select(edge => new WorkflowEdge
+            {
+                Id = edge.Id,
+                Source = edge.Source,
+                SourceHandle = edge.SourceHandle,
+                Target = edge.Target,
+                TargetHandle = edge.TargetHandle
+            }).ToList()
         }).ToList()
     };
 
@@ -385,14 +413,82 @@ public static class RecordedScriptFactory
             ExecutionMode = source.WindowScope.ExecutionMode
         };
 
-        if (options.Scope == InputRecordingScope.Window)
+        return scope;
+    }
+
+    private static IReadOnlyList<RecordedInputAction> MergeTextInputActions(
+        IReadOnlyList<RecordedInputAction> ordered)
+    {
+        var result = new List<RecordedInputAction>(ordered.Count);
+        for (var index = 0; index < ordered.Count; index++)
         {
-            scope.Enabled = true;
-            scope.MatchPattern = $"^{Regex.Escape(options.WindowTitle!.Trim())}$";
-            scope.ExcludePattern = string.Empty;
+            var action = ordered[index];
+            if (!TryGetInputCharacter(action, out var character))
+            {
+                result.Add(action);
+                continue;
+            }
+
+            var text = new StringBuilder();
+            text.Append(character);
+            var firstOffset = action.OffsetMilliseconds;
+            var lastEnd = action.OffsetMilliseconds + Math.Max(0, action.DurationMilliseconds);
+            while (index + 1 < ordered.Count
+                && TryGetInputCharacter(ordered[index + 1], out var nextCharacter)
+                && ordered[index + 1].OffsetMilliseconds - lastEnd <= MaximumTextInputGapMilliseconds)
+            {
+                index++;
+                var next = ordered[index];
+                text.Append(nextCharacter);
+                lastEnd = Math.Max(lastEnd, next.OffsetMilliseconds + Math.Max(0, next.DurationMilliseconds));
+            }
+
+            result.Add(new RecordedInputAction
+            {
+                Kind = RecordedInputActionKind.TextInput,
+                OffsetMilliseconds = firstOffset,
+                DurationMilliseconds = (int)Math.Clamp(lastEnd - firstOffset, 0, int.MaxValue),
+                Text = text.ToString()
+            });
         }
 
-        return scope;
+        return result;
+    }
+
+    private static IReadOnlyList<RecordedInputAction> OrderActions(
+        IReadOnlyList<RecordedInputAction> actions,
+        bool mergeKeyboardInput)
+    {
+        var ordered = actions.OrderBy(action => action.OffsetMilliseconds).ToArray();
+        return mergeKeyboardInput ? MergeTextInputActions(ordered) : ordered;
+    }
+
+    private static bool TryGetInputCharacter(RecordedInputAction action, out char character)
+    {
+        character = default;
+        if (action.Kind != RecordedInputActionKind.KeyPress) return false;
+        var key = action.Key.Trim();
+        if (key.Equals("Space", StringComparison.OrdinalIgnoreCase))
+        {
+            character = ' ';
+            return true;
+        }
+
+        var parts = key.Split('+', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (parts.Length == 1 && parts[0].Length == 1 && char.IsLetterOrDigit(parts[0][0]))
+        {
+            character = parts[0][0];
+            return true;
+        }
+
+        if (parts.Length == 2 && parts[0].Equals("Shift", StringComparison.OrdinalIgnoreCase)
+            && parts[1].Length == 1 && char.IsLetterOrDigit(parts[1][0]))
+        {
+            character = char.ToUpperInvariant(parts[1][0]);
+            return true;
+        }
+
+        return false;
     }
 
     private static void AssignFragmentIdsAndPositions(
@@ -445,6 +541,7 @@ public static class RecordedScriptFactory
         {
             RecordedInputActionKind.MouseDrag or RecordedInputActionKind.KeyPress =>
                 Math.Max(0, action.DurationMilliseconds),
+            RecordedInputActionKind.TextInput => Math.Max(0, action.DurationMilliseconds),
             RecordedInputActionKind.MouseClick when action.ClickCount > 1 =>
                 (long)(action.ClickCount - 1) * Math.Max(0, action.IntervalMilliseconds),
             _ => 0

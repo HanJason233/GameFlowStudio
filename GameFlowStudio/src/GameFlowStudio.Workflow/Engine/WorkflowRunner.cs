@@ -445,23 +445,42 @@ public sealed class WorkflowRunner : IWorkflowRunner
     private async Task<NodeExecutionResult> ExecuteNodeAsync(AutomationProject workflow, WorkflowNode node, WorkflowExecutionContext context, CancellationToken token)
     {
         var timer = Stopwatch.StartNew();
-        Raise(NodeStarted, new(node));
+        var startedWindow = GetCurrentWindowInfo(context);
+        Raise(NodeStarted, new(node, windowHandle: startedWindow?.Handle, windowTitle: startedWindow?.Title));
         try
         {
             if (RequiresContextWindowActivation(node, context.ScriptInteractionMode)) ActivateContextWindow(context);
             var result = await InvokeExecutorAsync(node, context, token).ConfigureAwait(false);
             timer.Stop();
             if (!result.Success) throw new InvalidOperationException(result.ErrorMessage ?? "节点执行失败。");
-            Raise(NodeCompleted, new(node, timer.ElapsedMilliseconds));
+            var completedWindow = GetCurrentWindowInfo(context);
+            Raise(NodeCompleted, new(node, timer.ElapsedMilliseconds, windowHandle: completedWindow?.Handle, windowTitle: completedWindow?.Title));
             context.Log(Log(workflow, node, WorkflowLogLevel.Information, "节点执行成功。", timer.ElapsedMilliseconds));
             return result;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             timer.Stop();
-            Raise(NodeFailed, new(node, timer.ElapsedMilliseconds, ex.Message));
+            var failedWindow = GetCurrentWindowInfo(context);
+            Raise(NodeFailed, new(node, timer.ElapsedMilliseconds, ex.Message, failedWindow?.Handle, failedWindow?.Title));
             context.Log(Log(workflow, node, WorkflowLogLevel.Error, ex.Message, timer.ElapsedMilliseconds, ex));
             throw;
+        }
+    }
+
+    private WindowInfo? GetCurrentWindowInfo(WorkflowExecutionContext context)
+    {
+        if (context.WindowHandles.Count != 1) return null;
+        var handle = context.WindowHandles[0];
+        if (_windows is null) return new WindowInfo(handle, string.Empty);
+        try
+        {
+            return _windows.GetOpenWindows().FirstOrDefault(window => window.Handle == handle)
+                ?? new WindowInfo(handle, string.Empty);
+        }
+        catch
+        {
+            return new WindowInfo(handle, string.Empty);
         }
     }
 

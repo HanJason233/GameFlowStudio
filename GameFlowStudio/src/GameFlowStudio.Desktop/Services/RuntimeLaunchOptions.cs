@@ -5,10 +5,11 @@ using GameFlowStudio.Contracts.Workflows;
 namespace GameFlowStudio.Desktop.Services;
 
 /// <summary>纯运行进程的命令行参数。</summary>
-public sealed record RuntimeLaunchOptions(string ProjectPath, string? ScriptId)
+public sealed record RuntimeLaunchOptions(string ProjectPath, string? ScriptId, string? EditorProjectPath)
 {
     public const string RuntimeSwitch = "--runtime";
     public const string ScriptSwitch = "--script";
+    public const string EditorProjectSwitch = "--editor-project";
 
     public static bool TryParse(IReadOnlyList<string> arguments, out RuntimeLaunchOptions? options)
     {
@@ -23,7 +24,12 @@ public sealed record RuntimeLaunchOptions(string ProjectPath, string? ScriptId)
         if (scriptIndex >= 0 && scriptIndex + 1 < arguments.Count && !string.IsNullOrWhiteSpace(arguments[scriptIndex + 1]))
             scriptId = arguments[scriptIndex + 1];
 
-        options = new(projectPath, scriptId);
+        string? editorProjectPath = null;
+        var editorIndex = IndexOf(arguments, EditorProjectSwitch);
+        if (editorIndex >= 0 && editorIndex + 1 < arguments.Count && !string.IsNullOrWhiteSpace(arguments[editorIndex + 1]))
+            editorProjectPath = Path.GetFullPath(arguments[editorIndex + 1]);
+
+        options = new(projectPath, scriptId, editorProjectPath);
         return true;
     }
 
@@ -37,9 +43,10 @@ public sealed record RuntimeLaunchOptions(string ProjectPath, string? ScriptId)
 }
 
 /// <summary>从纯运行窗口切回编辑器时使用的命令行参数。</summary>
-public sealed record EditorLaunchOptions(string ProjectPath)
+public sealed record EditorLaunchOptions(string ProjectPath, bool DeleteOnExit = false)
 {
     public const string EditorSwitch = "--editor";
+    public const string DeleteOnExitSwitch = "--delete-on-exit";
 
     public static bool TryParse(IReadOnlyList<string> arguments, out EditorLaunchOptions? options)
     {
@@ -48,7 +55,15 @@ public sealed record EditorLaunchOptions(string ProjectPath)
         {
             if (!string.Equals(arguments[index], EditorSwitch, StringComparison.OrdinalIgnoreCase)) continue;
             if (string.IsNullOrWhiteSpace(arguments[index + 1])) return false;
-            options = new(Path.GetFullPath(arguments[index + 1]));
+            var deleteOnExit = arguments.Any(argument => string.Equals(argument, DeleteOnExitSwitch, StringComparison.OrdinalIgnoreCase));
+            options = new(Path.GetFullPath(arguments[index + 1]), deleteOnExit);
+            return true;
+        }
+
+        if (arguments.Count == 1 && Path.GetExtension(arguments[0]).Equals(".gflow", StringComparison.OrdinalIgnoreCase)
+            && File.Exists(arguments[0]))
+        {
+            options = new(Path.GetFullPath(arguments[0]));
             return true;
         }
 
@@ -58,14 +73,14 @@ public sealed record EditorLaunchOptions(string ProjectPath)
 
 public interface IRuntimeProcessLauncher
 {
-    Task LaunchAsync(AutomationProject project, CancellationToken cancellationToken);
+    Task LaunchAsync(AutomationProject project, string? editorProjectPath, CancellationToken cancellationToken);
 }
 
 /// <summary>把最新编辑内容交给独立的纯运行进程。</summary>
 public sealed class RuntimeProcessLauncher(IProjectStorageService storage)
     : IRuntimeProcessLauncher
 {
-    public async Task LaunchAsync(AutomationProject project, CancellationToken cancellationToken)
+    public async Task LaunchAsync(AutomationProject project, string? editorProjectPath, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(project);
         var directory = Path.Combine(Path.GetTempPath(), "GameFlowStudio", "runtime");
@@ -91,6 +106,11 @@ public sealed class RuntimeProcessLauncher(IProjectStorageService storage)
             {
                 startInfo.ArgumentList.Add(RuntimeLaunchOptions.ScriptSwitch);
                 startInfo.ArgumentList.Add(project.ActiveScriptId);
+            }
+            if (!string.IsNullOrWhiteSpace(editorProjectPath))
+            {
+                startInfo.ArgumentList.Add(RuntimeLaunchOptions.EditorProjectSwitch);
+                startInfo.ArgumentList.Add(editorProjectPath);
             }
 
             if (System.Diagnostics.Process.Start(startInfo) is null)

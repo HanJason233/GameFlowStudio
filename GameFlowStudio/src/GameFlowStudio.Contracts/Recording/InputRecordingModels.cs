@@ -27,7 +27,8 @@ public enum RecordedInputActionKind
     MouseClick,
     MouseDrag,
     MouseScroll,
-    KeyPress
+    KeyPress,
+    TextInput
 }
 
 /// <summary>
@@ -48,6 +49,7 @@ public sealed record RecordedInputAction
     public int IntervalMilliseconds { get; init; }
     public int Delta { get; init; }
     public string Key { get; init; } = string.Empty;
+    public string Text { get; init; } = string.Empty;
 }
 
 public sealed class RecordedInputActionEventArgs(RecordedInputAction action) : EventArgs

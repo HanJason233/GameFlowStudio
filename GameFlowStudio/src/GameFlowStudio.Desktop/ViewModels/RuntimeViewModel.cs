@@ -29,6 +29,8 @@ public sealed class RuntimeViewModel : ObservableObject, IDisposable
     private RuntimeScriptItem? _selectedScript;
     private string _stateText = "未运行";
     private string _currentNodeText = "—";
+    private string _currentWindowTitle = "未绑定窗口";
+    private string _currentWindowHandleText = "—";
     private string _progressText = "0 / 0";
     private string _errorText = string.Empty;
     private double _progressValue;
@@ -69,6 +71,8 @@ public sealed class RuntimeViewModel : ObservableObject, IDisposable
     }
     public string StateText { get => _stateText; private set => Set(ref _stateText, value); }
     public string CurrentNodeText { get => _currentNodeText; private set => Set(ref _currentNodeText, value); }
+    public string CurrentWindowTitle { get => _currentWindowTitle; private set => Set(ref _currentWindowTitle, value); }
+    public string CurrentWindowHandleText { get => _currentWindowHandleText; private set => Set(ref _currentWindowHandleText, value); }
     public string ProgressText { get => _progressText; private set => Set(ref _progressText, value); }
     public string ErrorText { get => _errorText; private set => Set(ref _errorText, value); }
     public double ProgressValue { get => _progressValue; private set => Set(ref _progressValue, value); }
@@ -170,10 +174,15 @@ public sealed class RuntimeViewModel : ObservableObject, IDisposable
         if (IsWorkflowActive) await StopAsync();
     }
 
-    private void OnNodeStarted(object? sender, NodeExecutionEventArgs args) => OnUi(() => CurrentNodeText = args.Node.Data.DisplayName);
+    private void OnNodeStarted(object? sender, NodeExecutionEventArgs args) => OnUi(() =>
+    {
+        CurrentNodeText = args.Node.Data.DisplayName;
+        UpdateCurrentWindow(args);
+    });
 
     private void OnNodeCompleted(object? sender, NodeExecutionEventArgs args) => OnUi(() =>
     {
+        UpdateCurrentWindow(args);
         // 后台并行会为同一节点发布多条轨道完成事件，进度只按流程节点计数一次。
         if (!_completedNodeSet.Add(args.Node)) return;
         _completedNodes = _completedNodeSet.Count;
@@ -206,7 +215,15 @@ public sealed class RuntimeViewModel : ObservableObject, IDisposable
         ProgressValue = 0;
         ProgressText = $"0 / {_totalNodes}";
         CurrentNodeText = "—";
+        CurrentWindowTitle = "未绑定窗口";
+        CurrentWindowHandleText = "—";
         ErrorText = string.Empty;
+    }
+
+    private void UpdateCurrentWindow(NodeExecutionEventArgs args)
+    {
+        CurrentWindowTitle = string.IsNullOrWhiteSpace(args.WindowTitle) ? "未绑定窗口" : args.WindowTitle;
+        CurrentWindowHandleText = args.WindowHandle is { } handle ? $"0x{handle.ToInt64():X}" : "—";
     }
 
     private void RaiseRuntimeCommands()

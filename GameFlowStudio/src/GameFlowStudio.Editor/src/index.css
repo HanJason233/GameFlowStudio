@@ -9,6 +9,7 @@ html, body, #root { width: 100%; height: 100%; margin: 0; overflow: hidden; }
 .react-flow__controls-button { background: #172033; color: #dbeafe; border-color: #334155; }
 .flow-toolbar { display: flex; gap: 6px; padding: 6px; border: 1px solid #334155; border-radius: 8px; background: #111b2ee8; box-shadow: 0 8px 24px #0006; }
 .flow-actions-panel { margin-left: 48px !important; }
+.organize-control-button svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; }
 .organize-button { padding: 7px 12px; border: 1px solid #4b6386; border-radius: 6px; background: #1e3a5f; color: #dbeafe; cursor: pointer; font: inherit; font-size: 12px; }
 .organize-button.icon-button { display: grid; width: 30px; height: 30px; padding: 6px; place-items: center; }
 .organize-button svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; }
@@ -19,6 +20,7 @@ html, body, #root { width: 100%; height: 100%; margin: 0; overflow: hidden; }
 .node-context-menu button { display: block; width: 100%; padding: 7px 12px; border: 0; border-radius: 4px; background: transparent; color: #dbeafe; cursor: pointer; font: inherit; font-size: 12px; text-align: left; }
 .node-context-menu button:hover:not(:disabled) { background: #263756; color: #fff; }
 .node-context-menu button:disabled { cursor: not-allowed; opacity: .45; }
+.group-action-node { --node-color: #14b8a6; }
 .game-node, .game-node * { user-select: text; }
 .react-flow__handle { user-select: none; }
 .game-node { --node-color: #3b82f6; position: relative; width: 112px; min-width: 112px; max-width: 112px; padding: 6px 8px; border-radius: 6px; background: #111b2e; border: 1px solid color-mix(in srgb, var(--node-color) 60%, #334155); box-shadow: 0 5px 12px #0005, inset 2px 0 var(--node-color); transition: .15s ease; overflow-wrap: anywhere; }

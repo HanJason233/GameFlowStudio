@@ -127,8 +127,9 @@ public sealed class RecordedScriptFactoryTests
         var script = RecordedScriptFactory.Create("快速按键", "4", actions);
 
         Assert.Equal(
-            [NodeTypes.Start, NodeTypes.KeyPress, NodeTypes.KeyPress, NodeTypes.End],
+            [NodeTypes.Start, NodeTypes.TextInput, NodeTypes.End],
             script.Nodes.Select(node => node.Type));
+        Assert.Equal("AB", script.Nodes[1].Data.Parameters["text"].GetString());
     }
 
     [Fact]
@@ -140,7 +141,7 @@ public sealed class RecordedScriptFactoryTests
             {
                 Kind = RecordedInputActionKind.KeyPress,
                 OffsetMilliseconds = index * 10,
-                Key = "A"
+                Key = "Ctrl+A"
             })
             .ToArray();
 
@@ -270,8 +271,8 @@ public sealed class RecordedScriptFactoryTests
             ordered.Select(node => node.Type));
         Assert.Equal(["start", "1", "2", "3", "end"], ordered.Select(node => node.Id));
         Assert.All(ordered.Skip(1).Take(3), node => Assert.Matches("^\\d+$", node.Id));
-        Assert.True(appended.WindowScope.Enabled);
-        Assert.Equal(@"^Game\ \[1]\.\*$", appended.WindowScope.MatchPattern);
+        Assert.False(appended.WindowScope.Enabled);
+        Assert.Equal(".*", appended.WindowScope.MatchPattern);
         Assert.Equal(string.Empty, appended.WindowScope.ExcludePattern);
         Assert.Equal("录制开始 · 窗口：Game [1].*", ordered[1].Data.DisplayName);
         Assert.Equal("relative", ordered[2].Data.Parameters["coordinateMode"].GetString());

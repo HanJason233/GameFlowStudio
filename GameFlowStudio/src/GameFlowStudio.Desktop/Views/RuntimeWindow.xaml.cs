@@ -11,6 +11,7 @@ public partial class RuntimeWindow : Window
 {
     private readonly RuntimeViewModel _viewModel;
     private string? _projectPath;
+    private string? _editorProjectPath;
     private bool _isClosing;
     private bool _keepProjectFile;
 
@@ -26,6 +27,7 @@ public partial class RuntimeWindow : Window
     public async Task InitializeAsync(RuntimeLaunchOptions options, CancellationToken cancellationToken = default)
     {
         _projectPath = options.ProjectPath;
+        _editorProjectPath = options.EditorProjectPath;
         await _viewModel.InitializeAsync(options.ProjectPath, options.ScriptId, cancellationToken);
     }
 
@@ -49,11 +51,14 @@ public partial class RuntimeWindow : Window
                 WorkingDirectory = AppContext.BaseDirectory
             };
             startInfo.ArgumentList.Add(EditorLaunchOptions.EditorSwitch);
-            startInfo.ArgumentList.Add(_projectPath);
+            var editorPath = _editorProjectPath ?? _projectPath;
+            startInfo.ArgumentList.Add(editorPath);
+            if (_editorProjectPath is null)
+                startInfo.ArgumentList.Add(EditorLaunchOptions.DeleteOnExitSwitch);
             if (Process.Start(startInfo) is null)
                 throw new InvalidOperationException("编辑器启动失败。");
 
-            _keepProjectFile = true;
+            _keepProjectFile = _editorProjectPath is null;
             Close();
         }
         catch (Exception exception)
