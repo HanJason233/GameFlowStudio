@@ -56,18 +56,6 @@
                 </ScrollViewer>
             </TabItem>
 
-            <TabItem Header="外观">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,12,8,8">
-                    <StackPanel>
-                        <controls:SelectableTextBlock Text="主题"/>
-                        <ComboBox SelectedValue="{Binding Theme}" SelectedValuePath="Tag">
-                            <ComboBoxItem Tag="light" Content="Windows 10 浅色"/>
-                            <ComboBoxItem Tag="dark" Content="深色"/>
-                        </ComboBox>
-                        <controls:SelectableTextBlock Text="浅色主题采用 Windows 10 的浅灰面板、细边框和蓝色强调色；主题会立即应用。" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="3,5,3,0"/>
-                    </StackPanel>
-                </ScrollViewer>
-            </TabItem>
         </TabControl>
 
         <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">

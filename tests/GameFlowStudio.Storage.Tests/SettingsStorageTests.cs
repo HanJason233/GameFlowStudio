@@ -20,7 +20,7 @@ public sealed class SettingsStorageTests : IDisposable
 
         var loaded = await storage.LoadAsync(CancellationToken.None);
         var index = int.Parse(loaded.DefaultProjectDirectory);
-        Assert.Equal($"theme-{index}", loaded.Theme);
+        Assert.Equal($"layout-{index}", loaded.StepCategoryLayout);
         Assert.Empty(Directory.EnumerateFiles(_directory, "*.tmp"));
     }
 
@@ -37,7 +37,7 @@ public sealed class SettingsStorageTests : IDisposable
 
         var loaded = await new SettingsStorageService(path).LoadAsync(CancellationToken.None);
         var index = int.Parse(loaded.DefaultProjectDirectory);
-        Assert.Equal($"theme-{index}", loaded.Theme);
+        Assert.Equal($"layout-{index}", loaded.StepCategoryLayout);
         Assert.Empty(Directory.EnumerateFiles(_directory, "*.tmp"));
     }
 
@@ -52,8 +52,7 @@ public sealed class SettingsStorageTests : IDisposable
             {
               "stepCategoryLayout": null,
               "defaultProjectDirectory": null,
-              "geminiApiKey": null,
-              "theme": null
+              "geminiApiKey": null
             }
             """);
 
@@ -63,7 +62,6 @@ public sealed class SettingsStorageTests : IDisposable
         Assert.Equal(defaults.StepCategoryLayout, loaded.StepCategoryLayout);
         Assert.Equal(defaults.DefaultProjectDirectory, loaded.DefaultProjectDirectory);
         Assert.Equal(defaults.GeminiApiKey, loaded.GeminiApiKey);
-        Assert.Equal(defaults.Theme, loaded.Theme);
     }
 
     [Fact]
@@ -74,12 +72,12 @@ public sealed class SettingsStorageTests : IDisposable
         var settings = CreateSettings(7);
 
         var save = storage.SaveAsync(settings, CancellationToken.None);
-        settings.Theme = "mutated";
+        settings.StepCategoryLayout = "mutated";
         settings.DefaultProjectDirectory = "mutated";
         await save;
 
         var loaded = await storage.LoadAsync(CancellationToken.None);
-        Assert.Equal("theme-7", loaded.Theme);
+        Assert.Equal("layout-7", loaded.StepCategoryLayout);
         Assert.Equal("7", loaded.DefaultProjectDirectory);
     }
 
@@ -100,7 +98,7 @@ public sealed class SettingsStorageTests : IDisposable
 
     private static AppSettings CreateSettings(int index) => new()
     {
-        Theme = $"theme-{index}",
+        StepCategoryLayout = $"layout-{index}",
         DefaultProjectDirectory = index.ToString()
     };
 

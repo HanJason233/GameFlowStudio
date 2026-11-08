@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="clr-namespace:GameFlowStudio.Desktop.Controls">
     <Application.Resources>
-        <!-- Windows 10 light palette. MainViewModel swaps these brushes for dark mode. -->
+        <!-- Windows 10 light palette. -->
         <SolidColorBrush x:Key="AppBackground" Color="#F3F3F3" />
         <SolidColorBrush x:Key="PanelBackground" Color="#FFFFFF" />
         <SolidColorBrush x:Key="PanelBorderBrush" Color="#D6D6D6" />

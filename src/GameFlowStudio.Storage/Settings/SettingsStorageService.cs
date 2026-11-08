@@ -99,7 +99,6 @@ public sealed class SettingsStorageService : ISettingsStorageService
         settings.StepCategoryLayout ??= defaults.StepCategoryLayout;
         settings.DefaultProjectDirectory ??= defaults.DefaultProjectDirectory;
         settings.GeminiApiKey ??= defaults.GeminiApiKey;
-        settings.Theme ??= defaults.Theme;
         return settings;
     }
 }

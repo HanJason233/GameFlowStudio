@@ -507,7 +507,7 @@
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• Gemini OCR API 密钥：供文本判断的 Gemini OCR 模式使用。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 启动可见模块：决定软件下次启动时默认显示哪些面板。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 操作卡片“竖向 / 横向”：只改变下方分类的排列方式，不改变画布流程方向，也不等于整理画布。"/>
-                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 浅色 / 深色主题会改变软件外壳和面板；流程编辑画布保持深色。"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 软件采用 Windows 10 浅色风格，面板可通过顶部按钮调整显示。"/>
                             </StackPanel>
                         </Border>
                     </StackPanel>
