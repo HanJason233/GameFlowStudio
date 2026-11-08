@@ -141,8 +141,8 @@
             <StackPanel>
                 <DockPanel Margin="8,3,8,7">
                     <StackPanel Orientation="Horizontal">
-                        <Button Content="▶ 运行" Command="{Binding RuntimeLaunchCommand}" Background="{DynamicResource AccentSoftBrush}" Foreground="{DynamicResource AccentForegroundBrush}" BorderBrush="{DynamicResource PrimaryBrush}" ToolTip="关闭编辑器并启动轻量纯运行悬浮窗"/>
-                        <Button Content="▶ 调试运行" Command="{Binding RunCommand}" Background="{DynamicResource PrimaryBrush}" Foreground="{DynamicResource PrimaryButtonForegroundBrush}" BorderBrush="{DynamicResource PrimaryBrush}" ToolTip="在编辑器中运行并显示调试状态"/>
+                        <Button Content="▶ 在运行器运行" Command="{Binding RuntimeLaunchCommand}" Background="{DynamicResource AccentSoftBrush}" Foreground="{DynamicResource AccentForegroundBrush}" BorderBrush="{DynamicResource PrimaryBrush}" ToolTip="关闭编辑器并启动轻量纯运行悬浮窗"/>
+                        <Button Content="▶ 在编辑器运行" Command="{Binding RunCommand}" Background="{DynamicResource PrimaryBrush}" Foreground="{DynamicResource PrimaryButtonForegroundBrush}" BorderBrush="{DynamicResource PrimaryBrush}" ToolTip="在编辑器中运行并显示调试状态"/>
                         <Button Content="Ⅱ 暂停" Command="{Binding PauseCommand}"/>
                         <Button Content="继续" Command="{Binding ResumeCommand}"/>
                         <Button Content="■ 停止" Command="{Binding StopCommand}"/>
@@ -171,10 +171,10 @@
                 <Grid>
                     <StackPanel VerticalAlignment="Top">
                         <Button Content="&#xE8B7;" Style="{StaticResource ActivityBarButtonStyle}" Tag="{Binding IsProjectFilesNavigationActive}" Command="{Binding NavigatePaneCommand}" CommandParameter="project" ToolTip="项目文件"/>
-                        <Button Content="&#xE8A5;" Style="{StaticResource ActivityBarButtonStyle}" Tag="{Binding IsScriptListNavigationActive}" Command="{Binding NavigatePaneCommand}" CommandParameter="scripts" ToolTip="脚本列表"/>
-                        <Button Content="&#xE8FD;" Style="{StaticResource ActivityBarButtonStyle}" Tag="{Binding IsToolboxNavigationActive}" Command="{Binding NavigatePaneCommand}" CommandParameter="toolbox" ToolTip="操作卡片"/>
-                        <Button Content="&#xE713;" Style="{StaticResource ActivityBarButtonStyle}" Tag="{Binding IsPropertiesNavigationActive}" Command="{Binding NavigatePaneCommand}" CommandParameter="properties" ToolTip="属性"/>
-                        <Button Content="&#xE9D9;" Style="{StaticResource ActivityBarButtonStyle}" Tag="{Binding IsOutputNavigationActive}" Command="{Binding NavigatePaneCommand}" CommandParameter="output" ToolTip="运行日志"/>
+                        <Button Content="&#xE8FD;" Style="{StaticResource ActivityBarButtonStyle}" Tag="{Binding IsScriptListNavigationActive}" Command="{Binding NavigatePaneCommand}" CommandParameter="scripts" ToolTip="脚本列表"/>
+                        <Button Content="&#xE8F1;" Style="{StaticResource ActivityBarButtonStyle}" Tag="{Binding IsToolboxNavigationActive}" Command="{Binding NavigatePaneCommand}" CommandParameter="toolbox" ToolTip="操作卡片"/>
+                        <Button Content="&#xE9E9;" Style="{StaticResource ActivityBarButtonStyle}" Tag="{Binding IsPropertiesNavigationActive}" Command="{Binding NavigatePaneCommand}" CommandParameter="properties" ToolTip="属性"/>
+                        <Button Content="&#xE756;" Style="{StaticResource ActivityBarButtonStyle}" Tag="{Binding IsOutputNavigationActive}" Command="{Binding NavigatePaneCommand}" CommandParameter="output" ToolTip="运行日志"/>
                     </StackPanel>
                     <StackPanel VerticalAlignment="Bottom">
                         <Border Height="1" Margin="8,6" Background="{DynamicResource PanelBorderBrush}"/>
