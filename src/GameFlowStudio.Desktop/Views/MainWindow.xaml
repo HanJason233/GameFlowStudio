@@ -83,6 +83,57 @@
             <Setter Property="Width" Value="24"/>
             <Setter Property="Margin" Value="0,5,4,5"/>
         </Style>
+        <Style x:Key="ActivityBarButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="48"/>
+            <Setter Property="Height" Value="48"/>
+            <Setter Property="MinHeight" Value="0"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSubtleBrush}"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
+            <Setter Property="FontSize" Value="22"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid>
+                            <Border x:Name="ActivityButtonBackground" Background="{TemplateBinding Background}" BorderBrush="Transparent" BorderThickness="1"/>
+                            <Border x:Name="ActivitySelectionIndicator" Width="3" HorizontalAlignment="Left" Background="Transparent"/>
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                              TextElement.Foreground="{TemplateBinding Foreground}"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ActivityButtonBackground" Property="Background" Value="{DynamicResource HoverBackgroundBrush}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="ActivityButtonBackground" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}"/>
+                            </Trigger>
+                            <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" Value="True">
+                                <Setter TargetName="ActivityButtonBackground" Property="Background" Value="{DynamicResource PanelBackground}"/>
+                                <Setter TargetName="ActivitySelectionIndicator" Property="Background" Value="{DynamicResource PrimaryBrush}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}"/>
+                            </DataTrigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ActivityButtonBackground" Property="Opacity" Value="0.72"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="ActivityButtonBackground" Property="Opacity" Value="0.45"/>
+                                <Setter Property="Cursor" Value="Arrow"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
     <DockPanel>
@@ -95,15 +146,6 @@
                         <Button Content="Ⅱ 暂停" Command="{Binding PauseCommand}"/>
                         <Button Content="继续" Command="{Binding ResumeCommand}"/>
                         <Button Content="■ 停止" Command="{Binding StopCommand}"/>
-                        <Border Width="1" Height="20" Margin="8,0" Background="{DynamicResource PanelBorderBrush}"/>
-                        <Button Content="项目" Command="{Binding ToggleProjectFilesPaneCommand}" ToolTip="显示或隐藏项目文件"/>
-                        <Button Content="脚本" Command="{Binding ToggleScriptListPaneCommand}" ToolTip="显示或隐藏脚本列表"/>
-                        <Button Content="操作卡片" Command="{Binding ToggleToolboxPaneCommand}" ToolTip="显示或隐藏操作卡片"/>
-                        <Button Content="属性" Command="{Binding TogglePropertiesPaneCommand}" ToolTip="显示或隐藏属性面板"/>
-                        <Button Content="日志" Command="{Binding ToggleOutputPaneCommand}" ToolTip="显示或隐藏运行日志"/>
-                        <Border Width="1" Height="20" Margin="8,0" Background="{DynamicResource PanelBorderBrush}"/>
-                        <Button Content="设置" Command="{Binding SettingsCommand}" ToolTip="打开全局设置"/>
-                        <Button Content="帮助" Command="{Binding HelpCommand}" ToolTip="查看软件使用说明和模式解释"/>
                     </StackPanel>
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
                         <controls:SelectableTextBlock Text="{Binding Path=ProjectName, Mode=OneWay}" FontWeight="SemiBold" Margin="12,0" VerticalAlignment="Center"/>
@@ -120,7 +162,29 @@
             </StackPanel>
         </Border>
 
-        <Grid IsEnabled="{Binding IsEditorInteractionEnabled}"
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="48"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Border Grid.Column="0" Background="{DynamicResource HeaderBackgroundBrush}" BorderBrush="{DynamicResource PanelBorderBrush}" BorderThickness="0,0,1,0">
+                <Grid>
+                    <StackPanel VerticalAlignment="Top">
+                        <Button Content="&#xE8B7;" Style="{StaticResource ActivityBarButtonStyle}" Tag="{Binding IsProjectFilesNavigationActive}" Command="{Binding NavigatePaneCommand}" CommandParameter="project" ToolTip="项目文件"/>
+                        <Button Content="&#xE8A5;" Style="{StaticResource ActivityBarButtonStyle}" Tag="{Binding IsScriptListNavigationActive}" Command="{Binding NavigatePaneCommand}" CommandParameter="scripts" ToolTip="脚本列表"/>
+                        <Button Content="&#xE8FD;" Style="{StaticResource ActivityBarButtonStyle}" Tag="{Binding IsToolboxNavigationActive}" Command="{Binding NavigatePaneCommand}" CommandParameter="toolbox" ToolTip="操作卡片"/>
+                        <Button Content="&#xE713;" Style="{StaticResource ActivityBarButtonStyle}" Tag="{Binding IsPropertiesNavigationActive}" Command="{Binding NavigatePaneCommand}" CommandParameter="properties" ToolTip="属性"/>
+                        <Button Content="&#xE9D9;" Style="{StaticResource ActivityBarButtonStyle}" Tag="{Binding IsOutputNavigationActive}" Command="{Binding NavigatePaneCommand}" CommandParameter="output" ToolTip="运行日志"/>
+                    </StackPanel>
+                    <StackPanel VerticalAlignment="Bottom">
+                        <Border Height="1" Margin="8,6" Background="{DynamicResource PanelBorderBrush}"/>
+                        <Button Content="&#xE713;" Style="{StaticResource ActivityBarButtonStyle}" Command="{Binding SettingsCommand}" ToolTip="全局设置"/>
+                        <Button Content="&#xE897;" Style="{StaticResource ActivityBarButtonStyle}" Command="{Binding HelpCommand}" ToolTip="使用帮助"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+        <Grid Grid.Column="1" IsEnabled="{Binding IsEditorInteractionEnabled}"
               IsHitTestVisible="{Binding IsWorkspaceInputEnabled}">
             <Grid.RowDefinitions>
                 <RowDefinition Height="*"/>
@@ -661,6 +725,7 @@
                     </ListBox>
                 </Grid>
             </Border>
+        </Grid>
         </Grid>
     </DockPanel>
 </Window>
