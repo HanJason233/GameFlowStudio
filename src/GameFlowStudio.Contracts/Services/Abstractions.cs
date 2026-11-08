@@ -221,7 +221,7 @@ public sealed class AppSettings
     public double? WindowTop { get; set; }
     public string DefaultProjectDirectory { get; set; } = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
     public string GeminiApiKey { get; set; } = string.Empty;
-    public string Theme { get; set; } = "dark";
+    public string Theme { get; set; } = "light";
     /// <summary>录制时是否将动作之间的空闲时间生成等待卡片。</summary>
     public bool RecordWaitTimeDuringRecording { get; set; } = true;
     /// <summary>录制时是否将连续的可输入键盘字符合并为一个文本输入卡片。</summary>

@@ -1,42 +1,205 @@
 @import '@xyflow/react/dist/style.css';
 
-:root { font-family: "Segoe UI", "Microsoft YaHei UI", sans-serif; color: #dbeafe; background: #0b1120; }
+:root {
+  font-family: "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", sans-serif;
+  color: #202020;
+  background: #fafafa;
+  color-scheme: light;
+  --canvas-bg: #fafafa;
+  --canvas-grid: #cbd4dc;
+  --surface: #ffffff;
+  --surface-soft: #f3f3f3;
+  --border: #d6d6d6;
+  --border-strong: #a6a6a6;
+  --text: #202020;
+  --text-muted: #5f5f5f;
+  --text-subtle: #737373;
+  --accent: #0078d4;
+  --accent-hover: #006cbe;
+  --accent-soft: #eaf4fc;
+  --accent-text: #005a9e;
+  --danger: #a4262c;
+  --danger-soft: #fde7e7;
+  --success: #107c10;
+  --success-soft: #e9f5e9;
+  --warning: #806000;
+  --warning-soft: #fff4ce;
+  --shadow: 0 4px 14px rgb(0 0 0 / 14%);
+}
+
+:root[data-theme='dark'] {
+  color: #f4f4f4;
+  background: #1c1c1c;
+  color-scheme: dark;
+  --canvas-bg: #1c1c1c;
+  --canvas-grid: #484848;
+  --surface: #292929;
+  --surface-soft: #242424;
+  --border: #3e3e3e;
+  --border-strong: #737373;
+  --text: #f4f4f4;
+  --text-muted: #c8c8c8;
+  --text-subtle: #a0a0a0;
+  --accent: #60cdff;
+  --accent-hover: #8bdcff;
+  --accent-soft: #193a56;
+  --accent-text: #a4e3ff;
+  --danger: #ffb4ab;
+  --danger-soft: #4a2626;
+  --success: #8bdc90;
+  --success-soft: #203b24;
+  --warning: #f5d87a;
+  --warning-soft: #453a1d;
+  --shadow: 0 5px 18px rgb(0 0 0 / 38%);
+}
+
 * { box-sizing: border-box; }
 html, body, #root { width: 100%; height: 100%; margin: 0; overflow: hidden; }
-.editor { position: relative; width: 100%; height: 100%; background: radial-gradient(circle at 20% 10%, #16233e, #09101e 55%); }
-.react-flow__background { opacity: .42; }
-.react-flow__controls { border: 1px solid #334155; box-shadow: 0 8px 24px #0006; }
-.react-flow__controls-button { background: #172033; color: #dbeafe; border-color: #334155; }
-.flow-toolbar { display: flex; gap: 6px; padding: 6px; border: 1px solid #334155; border-radius: 8px; background: #111b2ee8; box-shadow: 0 8px 24px #0006; }
+body { color: var(--text); }
+button { font: inherit; }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.editor {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: var(--canvas-bg);
+}
+.react-flow__background { opacity: .72; }
+.react-flow__controls {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  box-shadow: var(--shadow);
+}
+.react-flow__controls-button {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--border);
+}
+.react-flow__controls-button:hover { background: var(--accent-soft); }
+.react-flow__controls-button svg { fill: currentColor; }
+.react-flow__edge-path { stroke: #687887; }
+.react-flow__connection-path { stroke: var(--accent); }
+
+.flow-toolbar {
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--surface) 96%, transparent);
+  box-shadow: var(--shadow);
+}
 .flow-actions-panel { margin-left: 48px !important; }
-.organize-control-button svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; }
-.organize-button { padding: 7px 12px; border: 1px solid #4b6386; border-radius: 6px; background: #1e3a5f; color: #dbeafe; cursor: pointer; font: inherit; font-size: 12px; }
+.organize-control-button svg,
+.organize-button svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+}
+.organize-control-button svg { width: 16px; height: 16px; }
+.organize-button {
+  padding: 7px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 2px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+}
 .organize-button.icon-button { display: grid; width: 30px; height: 30px; padding: 6px; place-items: center; }
-.organize-button svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; }
-.organize-button:hover:not(:disabled) { background: #2563a5; border-color: #60a5fa; }
-.organize-button:disabled { cursor: not-allowed; opacity: .45; }
-.right-selection-box { position: absolute; z-index: 12; border: 1px solid #60a5fa; background: #3b82f633; pointer-events: none; }
-.node-context-menu { position: fixed; z-index: 30; min-width: 112px; padding: 4px; border: 1px solid #475569; border-radius: 6px; background: #172033; box-shadow: 0 8px 24px #0008; }
-.node-context-menu button { display: block; width: 100%; padding: 7px 12px; border: 0; border-radius: 4px; background: transparent; color: #dbeafe; cursor: pointer; font: inherit; font-size: 12px; text-align: left; }
-.node-context-menu button:hover:not(:disabled) { background: #263756; color: #fff; }
-.node-context-menu button:disabled { cursor: not-allowed; opacity: .45; }
-.group-action-node { --node-color: #14b8a6; }
+.organize-button:hover:not(:disabled) { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-text); }
+.organize-button:disabled { cursor: not-allowed; opacity: .48; }
+
+.right-selection-box {
+  position: absolute;
+  z-index: 12;
+  border: 1px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  pointer-events: none;
+}
+.node-context-menu {
+  position: fixed;
+  z-index: 30;
+  min-width: 150px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.node-context-menu button {
+  display: block;
+  width: 100%;
+  padding: 7px 12px;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+}
+.node-context-menu button:hover:not(:disabled) { background: var(--accent-soft); color: var(--accent-text); }
+.node-context-menu button:disabled { cursor: not-allowed; opacity: .48; }
+
+.group-action-node { --node-color: #008c95; }
 .game-node, .game-node * { user-select: text; }
 .react-flow__handle { user-select: none; }
-.game-node { --node-color: #3b82f6; position: relative; width: 112px; min-width: 112px; max-width: 112px; padding: 6px 8px; border-radius: 6px; background: #111b2e; border: 1px solid color-mix(in srgb, var(--node-color) 60%, #334155); box-shadow: 0 5px 12px #0005, inset 2px 0 var(--node-color); transition: .15s ease; overflow-wrap: anywhere; }
-.game-node.selected { box-shadow: 0 0 0 2px #93c5fd, 0 10px 25px #0006; }
-.game-node.status-running { animation: pulse 1.1s infinite; box-shadow: 0 0 0 3px #facc15, 0 0 25px #facc1566; }
-.game-node.status-success { border-color: #22c55e; box-shadow: inset 4px 0 #22c55e; }
-.game-node.status-error { border-color: #ef4444; box-shadow: 0 0 0 2px #ef4444, 0 0 25px #ef444455; }
-.node-heading { font-size: 12px; font-weight: 650; line-height: 1.25; color: #f8fafc; }
-.node-type { margin-top: 1px; font-size: 9px; line-height: 1.2; color: #94a3b8; }
-.node-rule-summary { margin-top: 8px; padding: 4px 6px; border-radius: 5px; background: #422006; color: #fbbf24; font-size: 10px; text-align: center; }
-.react-flow__handle { width: 8px; height: 8px; background: var(--node-color); border: 1px solid #dbeafe; }
-.handle-label { position: absolute; right: 10px; top: -7px; color: #cbd5e1; font-size: 10px; white-space: nowrap; }
-.empty-hint { position: absolute; z-index: 4; inset: 0; display: grid; place-content: center; pointer-events: auto; user-select: text; color: #64748b; text-align: center; }
-.empty-hint strong { color: #94a3b8; font-size: 18px; }
-.editor-fallback { width: 100%; height: 100%; display: grid; place-content: center; justify-items: center; gap: 12px; padding: 24px; color: #cbd5e1; text-align: center; background: #0b1120; }
-.editor-fallback strong { color: #f8fafc; font-size: 18px; }
-.editor-fallback button { padding: 8px 14px; border: 1px solid #4b6386; border-radius: 6px; color: #dbeafe; background: #1e3a5f; cursor: pointer; font: inherit; }
-.editor-fallback button:hover { background: #2563a5; border-color: #60a5fa; }
-@keyframes pulse { 50% { box-shadow: 0 0 0 5px #facc1544, 0 0 32px #facc1588; } }
+.game-node {
+  --node-color: #0078d4;
+  position: relative;
+  width: 126px;
+  min-width: 126px;
+  max-width: 126px;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--node-color) 42%, var(--border));
+  border-radius: 3px;
+  background: var(--surface);
+  box-shadow: inset 3px 0 var(--node-color), 0 2px 5px rgb(0 0 0 / 9%);
+  transition: border-color .12s ease, box-shadow .12s ease;
+  overflow-wrap: anywhere;
+}
+.game-node.selected {
+  box-shadow: inset 3px 0 var(--node-color), 0 0 0 2px var(--accent), 0 4px 10px rgb(0 0 0 / 12%);
+}
+.game-node.status-running {
+  animation: pulse 1.3s infinite;
+  box-shadow: inset 3px 0 #d7a600, 0 0 0 2px #d7a600;
+}
+.game-node.status-success { border-color: var(--success); box-shadow: inset 3px 0 var(--success); }
+.game-node.status-error { border-color: var(--danger); box-shadow: inset 3px 0 var(--danger), 0 0 0 2px var(--danger); }
+.node-heading { color: var(--text); font-size: 12px; font-weight: 600; line-height: 1.3; }
+.node-type { margin-top: 2px; color: var(--text-subtle); font-size: 10px; line-height: 1.25; }
+.node-rule-summary {
+  margin-top: 8px;
+  padding: 4px 6px;
+  border: 1px solid color-mix(in srgb, var(--warning) 30%, var(--border));
+  border-radius: 2px;
+  background: var(--warning-soft);
+  color: var(--warning);
+  font-size: 10px;
+  text-align: center;
+}
+.react-flow__handle {
+  width: 9px;
+  height: 9px;
+  border: 1px solid var(--surface);
+  background: var(--node-color);
+}
+.handle-label { position: absolute; right: 10px; top: -7px; color: var(--text-muted); font-size: 10px; white-space: nowrap; }
+.empty-hint { position: absolute; z-index: 4; inset: 0; display: grid; place-content: center; pointer-events: auto; user-select: text; color: var(--text-subtle); text-align: center; }
+.empty-hint strong { color: var(--text-muted); font-size: 18px; font-weight: 600; }
+.editor-fallback { width: 100%; height: 100%; display: grid; place-content: center; justify-items: center; gap: 12px; padding: 24px; color: var(--text-muted); text-align: center; background: var(--canvas-bg); }
+.editor-fallback strong { color: var(--text); font-size: 18px; }
+.editor-fallback button { padding: 8px 14px; border: 1px solid var(--accent); border-radius: 2px; color: white; background: var(--accent); cursor: pointer; font: inherit; }
+.editor-fallback button:hover { background: var(--accent-hover); }
+
+@keyframes pulse { 50% { box-shadow: inset 3px 0 #d7a600, 0 0 0 3px color-mix(in srgb, #d7a600 42%, transparent); } }

@@ -28,6 +28,13 @@ export function useEditorBridge(handlers: EditorBridgeHandlers): void {
 
 function routeMessage(message: BridgeMessage, handlers: EditorBridgeHandlers): void {
   switch (message.type) {
+    case 'set_theme': {
+      const payload = readRecord(message.payload)
+      if (payload?.theme === 'light' || payload?.theme === 'dark') {
+        document.documentElement.dataset.theme = payload.theme
+      }
+      break
+    }
     case 'initialize_editor': case 'import_workflow': {
       if (!isWorkflowDocument(message.payload)) return reject(message.type, 'invalid workflow document')
       handlers.importDocument(message.payload)

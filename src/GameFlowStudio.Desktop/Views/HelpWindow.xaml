@@ -8,8 +8,8 @@
         MinHeight="580"
         WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False"
-        Background="#0B1120"
-        Foreground="#E2E8F0"
+        Background="{DynamicResource AppBackground}"
+        Foreground="{DynamicResource TextPrimaryBrush}"
         UseLayoutRounding="True"
         SnapsToDevicePixels="True">
     <Window.Resources>
@@ -29,8 +29,8 @@
                                       Margin="0,0,0,10"
                                       KeyboardNavigation.TabIndex="1"/>
                             <Border Grid.Row="1"
-                                    Background="#0F172A"
-                                    BorderBrush="#334155"
+                                    Background="{DynamicResource HeaderBackgroundBrush}"
+                                    BorderBrush="{DynamicResource PanelBorderBrush}"
                                     BorderThickness="1"
                                     CornerRadius="8">
                                 <ContentPresenter x:Name="PART_SelectedContentHost"
@@ -44,9 +44,9 @@
         </Style>
 
         <Style TargetType="{x:Type TabItem}">
-            <Setter Property="Foreground" Value="#CBD5E1"/>
-            <Setter Property="Background" Value="#172033"/>
-            <Setter Property="BorderBrush" Value="#334155"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource PanelBorderBrush}"/>
             <Setter Property="Padding" Value="12,8"/>
             <Setter Property="Margin" Value="0,0,5,0"/>
             <Setter Property="Cursor" Value="Hand"/>
@@ -66,12 +66,12 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="TabBorder" Property="Background" Value="#24324A"/>
-                                <Setter Property="Foreground" Value="#F8FAFC"/>
+                                <Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource HoverBackgroundBrush}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
                             </Trigger>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="TabBorder" Property="Background" Value="#1D4ED8"/>
-                                <Setter TargetName="TabBorder" Property="BorderBrush" Value="#60A5FA"/>
+                                <Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource PrimaryBrush}"/>
+                                <Setter TargetName="TabBorder" Property="BorderBrush" Value="{DynamicResource AccentForegroundBrush}"/>
                                 <Setter Property="Foreground" Value="White"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
@@ -83,21 +83,21 @@
         <Style x:Key="PageTitleStyle" TargetType="TextBlock">
             <Setter Property="FontSize" Value="22"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Foreground" Value="#F8FAFC"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
             <Setter Property="Margin" Value="0,0,0,6"/>
         </Style>
 
         <Style x:Key="PageIntroStyle" TargetType="TextBlock">
             <Setter Property="FontSize" Value="13"/>
-            <Setter Property="Foreground" Value="#94A3B8"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
             <Setter Property="TextWrapping" Value="Wrap"/>
             <Setter Property="LineHeight" Value="21"/>
             <Setter Property="Margin" Value="0,0,0,18"/>
         </Style>
 
         <Style x:Key="HelpCardStyle" TargetType="Border">
-            <Setter Property="Background" Value="#172033"/>
-            <Setter Property="BorderBrush" Value="#334155"/>
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource PanelBorderBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="7"/>
             <Setter Property="Padding" Value="15"/>
@@ -107,13 +107,13 @@
         <Style x:Key="CardTitleStyle" TargetType="TextBlock">
             <Setter Property="FontSize" Value="15"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Foreground" Value="#93C5FD"/>
+            <Setter Property="Foreground" Value="{DynamicResource AccentForegroundBrush}"/>
             <Setter Property="Margin" Value="0,0,0,9"/>
         </Style>
 
         <Style x:Key="BodyTextStyle" TargetType="TextBlock">
             <Setter Property="FontSize" Value="13"/>
-            <Setter Property="Foreground" Value="#CBD5E1"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
             <Setter Property="TextWrapping" Value="Wrap"/>
             <Setter Property="LineHeight" Value="21"/>
             <Setter Property="Margin" Value="0,2"/>
@@ -124,7 +124,7 @@
         </Style>
 
         <Style x:Key="NoticeTextStyle" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="#FDE68A"/>
+            <Setter Property="Foreground" Value="{DynamicResource WarningForegroundBrush}"/>
             <Setter Property="TextWrapping" Value="Wrap"/>
             <Setter Property="LineHeight" Value="21"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
@@ -139,18 +139,18 @@
         </Grid.RowDefinitions>
 
         <Border Grid.Row="0"
-                Background="#0F172A"
-                BorderBrush="#334155"
+                Background="{DynamicResource HeaderBackgroundBrush}"
+                BorderBrush="{DynamicResource PanelBorderBrush}"
                 BorderThickness="0,0,0,1"
                 Padding="22,16">
             <StackPanel>
                 <TextBlock Text="GameFlow Studio 使用帮助"
                            FontSize="24"
                            FontWeight="SemiBold"
-                           Foreground="#F8FAFC"/>
+                           Foreground="{DynamicResource TextPrimaryBrush}"/>
                 <TextBlock Text="按主题查看操作步骤与模式说明；各页内容彼此独立，方便快速查找。"
                            Margin="0,5,0,0"
-                           Foreground="#94A3B8"/>
+                           Foreground="{DynamicResource TextSecondaryBrush}"/>
             </StackPanel>
         </Border>
 
@@ -191,7 +191,7 @@
                             </StackPanel>
                         </Border>
 
-                        <Border Style="{StaticResource HelpCardStyle}" BorderBrush="#A16207">
+                        <Border Style="{StaticResource HelpCardStyle}" BorderBrush="{DynamicResource WarningBorderBrush}">
                             <TextBlock Style="{StaticResource NoticeTextStyle}"
                                        Text="提示：软件当前没有自动保存。新建、打开、关闭或粘贴项目前，请先保存需要保留的修改。"/>
                         </Border>
@@ -236,7 +236,7 @@
                             </StackPanel>
                         </Border>
 
-                        <Border Style="{StaticResource HelpCardStyle}" BorderBrush="#A16207">
+                        <Border Style="{StaticResource HelpCardStyle}" BorderBrush="{DynamicResource WarningBorderBrush}">
                             <TextBlock Style="{StaticResource NoticeTextStyle}"
                                        Text="删除脚本目前没有单独的确认或撤销步骤。删除前建议先保存项目，或先复制需要保留的脚本。"/>
                         </Border>
@@ -324,9 +324,9 @@
                             </StackPanel>
                         </Border>
 
-                        <Border Style="{StaticResource HelpCardStyle}" BorderBrush="#A16207">
+                        <Border Style="{StaticResource HelpCardStyle}" BorderBrush="{DynamicResource WarningBorderBrush}">
                             <StackPanel>
-                                <TextBlock Style="{StaticResource CardTitleStyle}" Foreground="#FDE68A" Text="录制限制"/>
+                                <TextBlock Style="{StaticResource CardTitleStyle}" Foreground="{DynamicResource WarningForegroundBrush}" Text="录制限制"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 当前不记录连续鼠标移动轨迹、触摸、手柄、IME 文本提交、Windows 键组合和 Alt+Tab。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 锁屏、UAC 安全桌面及部分受保护游戏输入可能无法捕获；录制达到 4,000 个操作时会自动停止。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 未捕获到有效操作时，当前脚本不会发生变化。"/>
@@ -364,9 +364,9 @@
                             </StackPanel>
                         </Border>
 
-                        <Border Style="{StaticResource HelpCardStyle}" BorderBrush="#A16207">
+                        <Border Style="{StaticResource HelpCardStyle}" BorderBrush="{DynamicResource WarningBorderBrush}">
                             <StackPanel>
-                                <TextBlock Style="{StaticResource CardTitleStyle}" Foreground="#FDE68A" Text="前台与后台模式"/>
+                                <TextBlock Style="{StaticResource CardTitleStyle}" Foreground="{DynamicResource WarningForegroundBrush}" Text="前台与后台模式"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 在脚本属性中统一选择前台或后台；脚本内的操作卡片不再单独设置。不同执行方式提供不同的操作流程。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 前台输入会激活目标窗口并发送真实系统输入；前台读取会激活窗口后读取桌面上的可见像素。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 前台模式可选择“伪并行”或“串行”。伪并行依次切换窗口执行当前操作，使各窗口的进度尽量一致；串行会完整执行一个窗口后再处理下一个。"/>
@@ -516,8 +516,8 @@
         </TabControl>
 
         <Border Grid.Row="2"
-                Background="#0F172A"
-                BorderBrush="#334155"
+                Background="{DynamicResource HeaderBackgroundBrush}"
+                BorderBrush="{DynamicResource PanelBorderBrush}"
                 BorderThickness="0,1,0,0"
                 Padding="16,10">
             <DockPanel LastChildFill="True">
@@ -529,7 +529,7 @@
                         Click="CloseClick"/>
                 <TextBlock Text="帮助内容按功能分组，可直接切换上方页签查找。"
                            VerticalAlignment="Center"
-                           Foreground="#64748B"/>
+                           Foreground="{DynamicResource TextSubtleBrush}"/>
             </DockPanel>
         </Border>
     </Grid>

@@ -276,7 +276,7 @@ function EditorCanvas() {
       deleteKeyCode={document.readOnly ? null : ['Backspace', 'Delete']}
       proOptions={{ hideAttribution: true }}
       minZoom={.2} maxZoom={1.5}>
-      <Background variant={BackgroundVariant.Dots} gap={22} size={1.2} color="#4b6386" />
+      <Background variant={BackgroundVariant.Dots} gap={22} size={1.2} color="var(--canvas-grid)" />
       <Controls showInteractive={false} position="bottom-left">
         <ControlButton className="organize-control-button" onClick={document.arrangeNodes} disabled={document.readOnly || document.nodes.length < 2} aria-label="紧凑整理流程" title="紧凑整理并聚焦流程">
           <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">

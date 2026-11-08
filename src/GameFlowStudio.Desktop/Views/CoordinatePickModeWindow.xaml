@@ -4,7 +4,7 @@
         xmlns:controls="clr-namespace:GameFlowStudio.Desktop.Controls"
         Title="选择拾取模式" Width="390" Height="220" MinWidth="350" MinHeight="190"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
-        Background="#111827" Foreground="#E2E8F0">
+        Background="{DynamicResource PanelBackground}" Foreground="{DynamicResource TextPrimaryBrush}">
     <Grid Margin="18">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -15,12 +15,12 @@
         <StackPanel>
             <controls:SelectableTextBlock Text="选择坐标拾取模式" FontSize="16" FontWeight="SemiBold"/>
             <controls:SelectableTextBlock Text="屏幕模式记录绝对坐标；窗口模式先选择窗口，再记录窗口相对坐标。拾取后会同步更新动作坐标基准。"
-                                          Foreground="#94A3B8" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                                          Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,6,0,0"/>
         </StackPanel>
 
         <UniformGrid Grid.Row="1" Columns="2" Margin="0,18,0,12">
             <Button Content="基于屏幕" Click="ScreenClick" Margin="0,0,6,0" Padding="8,7"/>
-            <Button Content="基于窗口" Click="WindowClick" Margin="6,0,0,0" Padding="8,7" Background="#2563EB" BorderBrush="#3B82F6"/>
+            <Button Content="基于窗口" Click="WindowClick" Margin="6,0,0,0" Padding="8,7" Background="{DynamicResource PrimaryBrush}" BorderBrush="{DynamicResource PrimaryBrush}"/>
         </UniformGrid>
 
         <Button Grid.Row="2" Content="取消" Click="CancelClick" HorizontalAlignment="Right" Padding="16,5"/>

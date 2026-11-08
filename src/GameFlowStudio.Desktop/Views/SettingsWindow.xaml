@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:GameFlowStudio.Desktop.Controls"
         Title="全局设置" Width="520" Height="620" MinWidth="480" MinHeight="500"
-        WindowStartupLocation="CenterOwner" Background="#111827" Foreground="#E2E8F0">
+        WindowStartupLocation="CenterOwner" Background="{DynamicResource PanelBackground}" Foreground="{DynamicResource TextPrimaryBrush}">
     <Grid Margin="18">
         <Grid.RowDefinitions>
             <RowDefinition Height="*"/>
@@ -18,7 +18,7 @@
                         <TextBox Text="{Binding DefaultProjectDirectory, UpdateSourceTrigger=PropertyChanged}"/>
                         <controls:SelectableTextBlock Text="Gemini OCR API 密钥" Margin="0,16,0,0"/>
                         <PasswordBox x:Name="GeminiApiKeyBox" Margin="0,4,0,0"/>
-                        <controls:SelectableTextBlock Text="密钥仅保存到本机全局设置，用于 OCR 云端识别。留空时使用环境变量 GEMINI_API_KEY。" Foreground="#94A3B8" TextWrapping="Wrap" Margin="3,5,3,0"/>
+                        <controls:SelectableTextBlock Text="密钥仅保存到本机全局设置，用于 OCR 云端识别。留空时使用环境变量 GEMINI_API_KEY。" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="3,5,3,0"/>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
@@ -34,13 +34,13 @@
                             <CheckBox Content="属性" IsChecked="{Binding IsPropertiesPaneVisible, Mode=TwoWay}" Margin="0,6,0,0"/>
                             <CheckBox Content="运行日志" IsChecked="{Binding IsOutputPaneVisible, Mode=TwoWay}" Margin="0,6,0,0"/>
                         </StackPanel>
-                        <controls:SelectableTextBlock Text="脚本流程图始终展示；勾选的模块会在软件打开时显示，未勾选的模块默认最小化。" Foreground="#94A3B8" TextWrapping="Wrap" Margin="3,6,3,0"/>
+                        <controls:SelectableTextBlock Text="脚本流程图始终展示；勾选的模块会在软件打开时显示，未勾选的模块默认最小化。" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="3,6,3,0"/>
                         <controls:SelectableTextBlock Text="操作卡片分类布局" Margin="0,16,0,0"/>
                         <ComboBox SelectedValue="{Binding StepCategoryLayout}" SelectedValuePath="Tag">
                             <ComboBoxItem Tag="vertical" Content="竖向（分类上下排列）"/>
                             <ComboBoxItem Tag="horizontal" Content="横向（分类左右排列）"/>
                         </ComboBox>
-                        <controls:SelectableTextBlock Text="设置对所有项目生效；操作卡片模块位于节点编辑区下方，可拖动分隔线调整高度。" Foreground="#94A3B8" TextWrapping="Wrap" Margin="3,5,3,0"/>
+                        <controls:SelectableTextBlock Text="设置对所有项目生效；操作卡片模块位于节点编辑区下方，可拖动分隔线调整高度。" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="3,5,3,0"/>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
@@ -49,9 +49,9 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,12,8,8">
                     <StackPanel>
                         <CheckBox Content="录制时记录等待时间" IsChecked="{Binding RecordWaitTimeDuringRecording, Mode=TwoWay}"/>
-                        <controls:SelectableTextBlock Text="勾选后，录制过程中动作之间的空闲时间会生成等待卡片。" Foreground="#94A3B8" TextWrapping="Wrap" Margin="3,4,3,0"/>
+                        <controls:SelectableTextBlock Text="勾选后，录制过程中动作之间的空闲时间会生成等待卡片。" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="3,4,3,0"/>
                         <CheckBox Content="将录制的连续键盘输入整合" IsChecked="{Binding MergeContinuousKeyboardInput, Mode=TwoWay}" Margin="0,12,0,0"/>
-                        <controls:SelectableTextBlock Text="勾选后，连续输入的字母、数字和空格会合并为一个文本输入卡片。" Foreground="#94A3B8" TextWrapping="Wrap" Margin="3,4,3,0"/>
+                        <controls:SelectableTextBlock Text="勾选后，连续输入的字母、数字和空格会合并为一个文本输入卡片。" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="3,4,3,0"/>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
@@ -60,11 +60,11 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,12,8,8">
                     <StackPanel>
                         <controls:SelectableTextBlock Text="主题"/>
-                        <ComboBox SelectedValue="{Binding Theme}" SelectedValuePath="Content">
-                            <ComboBoxItem Content="light"/>
-                            <ComboBoxItem Content="dark"/>
+                        <ComboBox SelectedValue="{Binding Theme}" SelectedValuePath="Tag">
+                            <ComboBoxItem Tag="light" Content="Windows 10 浅色"/>
+                            <ComboBoxItem Tag="dark" Content="深色"/>
                         </ComboBox>
-                        <controls:SelectableTextBlock Text="主题背景会立即应用；编辑器画布保持深色。" Foreground="#94A3B8" TextWrapping="Wrap" Margin="3,5,3,0"/>
+                        <controls:SelectableTextBlock Text="浅色主题采用 Windows 10 的浅灰面板、细边框和蓝色强调色；主题会立即应用。" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="3,5,3,0"/>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
@@ -72,7 +72,7 @@
 
         <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
             <Button Content="取消" Click="CancelClick"/>
-            <Button Content="保存" Click="SaveClick" Background="#1D4ED8"/>
+            <Button Content="保存" Click="SaveClick" Background="{DynamicResource PrimaryBrush}"/>
         </StackPanel>
     </Grid>
 </Window>

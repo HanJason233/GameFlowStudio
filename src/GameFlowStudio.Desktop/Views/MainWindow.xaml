@@ -5,7 +5,7 @@
         xmlns:controls="clr-namespace:GameFlowStudio.Desktop.Controls"
         xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
         Title="GameFlow Studio" Width="1400" Height="900" MinWidth="1200" MinHeight="650"
-        Background="{StaticResource AppBackground}" Foreground="#E2E8F0"
+        Background="{DynamicResource AppBackground}" Foreground="{DynamicResource TextPrimaryBrush}"
         UseLayoutRounding="True" SnapsToDevicePixels="True">
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolVisibility"/>
@@ -13,7 +13,7 @@
         <converters:StringPercentConverter x:Key="StringPercent"/>
         <converters:PercentTextConverter x:Key="PercentText"/>
         <DataTemplate x:Key="StepCategoryTemplate">
-            <Expander Header="{Binding Name}" IsExpanded="{Binding IsExpanded}" Foreground="#CBD5E1" Background="Transparent" BorderThickness="0" Width="190" Margin="0,2">
+            <Expander Header="{Binding Name}" IsExpanded="{Binding IsExpanded}" Foreground="{DynamicResource TextPrimaryBrush}" Background="Transparent" BorderThickness="0" Width="190" Margin="0,2">
                 <ItemsControl ItemsSource="{Binding Items}" Margin="4,0,0,4">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
@@ -30,6 +30,7 @@
                       Background="Transparent"
                       PreviewMouseRightButtonDown="ScriptRightClick">
                     <Button Command="{Binding DataContext.SelectScriptCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                            Style="{StaticResource StepButtonStyle}"
                             CommandParameter="{Binding}"
                             Cursor="Hand"
                             HorizontalContentAlignment="Stretch"
@@ -43,7 +44,7 @@
                             </Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0"
                                        Text="{Binding Path=Name, Mode=OneWay}"
-                                       Foreground="#F8FAFC"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"
                                        FontWeight="SemiBold"
                                        TextTrimming="CharacterEllipsis"/>
                             <Border Grid.Column="1"
@@ -60,13 +61,13 @@
                                 Command="{Binding DataContext.StartRecordingCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                 Visibility="{Binding DataContext.IsRecording, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource InverseBoolVisibility}}"
                                 MinWidth="58" Margin="0" Padding="6,2"
-                                Background="#B91C1C" BorderBrush="#EF4444"
+                                Background="{DynamicResource DangerBackgroundBrush}" BorderBrush="{DynamicResource DangerBorderBrush}"
                                 ToolTip="选择基于屏幕或指定窗口录制；停止后把步骤追加到当前脚本。"/>
                         <Button Content="■ 停止"
                                 Command="{Binding DataContext.StopRecordingCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                 Visibility="{Binding DataContext.IsRecording, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolVisibility}}"
                                 MinWidth="58" Margin="0" Padding="6,2"
-                                Background="#991B1B" BorderBrush="#EF4444"
+                                Background="{DynamicResource DangerPressedBrush}" BorderBrush="{DynamicResource DangerBorderBrush}"
                                 ToolTip="停止录制并追加到当前脚本（F7）"/>
                     </Grid>
                 </Grid>
@@ -85,33 +86,33 @@
     </Window.Resources>
 
     <DockPanel>
-        <Border DockPanel.Dock="Top" Background="#0F172A" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="0,0,0,1">
+        <Border DockPanel.Dock="Top" Background="{DynamicResource HeaderBackgroundBrush}" BorderBrush="{DynamicResource PanelBorderBrush}" BorderThickness="0,0,0,1">
             <StackPanel>
                 <DockPanel Margin="8,3,8,7">
                     <StackPanel Orientation="Horizontal">
-                        <Button Content="▶ 运行" Command="{Binding RuntimeLaunchCommand}" Background="#0F766E" BorderBrush="#14B8A6" ToolTip="关闭编辑器并启动轻量纯运行悬浮窗"/>
-                        <Button Content="▶ 调试运行" Command="{Binding RunCommand}" Background="#2563EB" BorderBrush="#3B82F6" ToolTip="在编辑器中运行并显示调试状态"/>
+                        <Button Content="▶ 运行" Command="{Binding RuntimeLaunchCommand}" Background="{DynamicResource AccentSoftBrush}" Foreground="{DynamicResource AccentForegroundBrush}" BorderBrush="{DynamicResource PrimaryBrush}" ToolTip="关闭编辑器并启动轻量纯运行悬浮窗"/>
+                        <Button Content="▶ 调试运行" Command="{Binding RunCommand}" Background="{DynamicResource PrimaryBrush}" Foreground="{DynamicResource PrimaryButtonForegroundBrush}" BorderBrush="{DynamicResource PrimaryBrush}" ToolTip="在编辑器中运行并显示调试状态"/>
                         <Button Content="Ⅱ 暂停" Command="{Binding PauseCommand}"/>
                         <Button Content="继续" Command="{Binding ResumeCommand}"/>
                         <Button Content="■ 停止" Command="{Binding StopCommand}"/>
-                        <Border Width="1" Height="20" Margin="8,0" Background="#334155"/>
+                        <Border Width="1" Height="20" Margin="8,0" Background="{DynamicResource PanelBorderBrush}"/>
                         <Button Content="项目" Command="{Binding ToggleProjectFilesPaneCommand}" ToolTip="显示或隐藏项目文件"/>
                         <Button Content="脚本" Command="{Binding ToggleScriptListPaneCommand}" ToolTip="显示或隐藏脚本列表"/>
                         <Button Content="操作卡片" Command="{Binding ToggleToolboxPaneCommand}" ToolTip="显示或隐藏操作卡片"/>
                         <Button Content="属性" Command="{Binding TogglePropertiesPaneCommand}" ToolTip="显示或隐藏属性面板"/>
                         <Button Content="日志" Command="{Binding ToggleOutputPaneCommand}" ToolTip="显示或隐藏运行日志"/>
-                        <Border Width="1" Height="20" Margin="8,0" Background="#334155"/>
+                        <Border Width="1" Height="20" Margin="8,0" Background="{DynamicResource PanelBorderBrush}"/>
                         <Button Content="设置" Command="{Binding SettingsCommand}" ToolTip="打开全局设置"/>
                         <Button Content="帮助" Command="{Binding HelpCommand}" ToolTip="查看软件使用说明和模式解释"/>
                     </StackPanel>
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
                         <controls:SelectableTextBlock Text="{Binding Path=ProjectName, Mode=OneWay}" FontWeight="SemiBold" Margin="12,0" VerticalAlignment="Center"/>
-                        <Border Background="#7F1D1D" BorderBrush="#EF4444" BorderThickness="1" CornerRadius="12" Padding="12,4" Margin="0,0,8,0"
+                        <Border Background="{DynamicResource DangerBackgroundBrush}" BorderBrush="{DynamicResource DangerBorderBrush}" BorderThickness="1" CornerRadius="3" Padding="10,3" Margin="0,0,8,0"
                                 Visibility="{Binding IsRecording, Converter={StaticResource BoolVisibility}}">
-                            <controls:SelectableTextBlock Text="{Binding Path=RecordingStatusText, Mode=OneWay}" Foreground="#FCA5A5"/>
+                            <controls:SelectableTextBlock Text="{Binding Path=RecordingStatusText, Mode=OneWay}" Foreground="{DynamicResource DangerForegroundBrush}"/>
                         </Border>
-                        <Border Background="#1E293B" CornerRadius="12" Padding="12,4">
-                            <controls:SelectableTextBlock Text="{Binding Path=StateText, Mode=OneWay}" Foreground="#93C5FD"/>
+                        <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource PanelBorderBrush}" BorderThickness="1" CornerRadius="3" Padding="10,3">
+                            <controls:SelectableTextBlock Text="{Binding Path=StateText, Mode=OneWay}" Foreground="{DynamicResource AccentForegroundBrush}"/>
                         </Border>
                     </StackPanel>
                 </DockPanel>
@@ -141,9 +142,9 @@
                     <RowDefinition Height="{Binding ScriptListPaneRowHeight}"/>
                 </Grid.RowDefinitions>
 
-            <Border Grid.Row="0" Background="{StaticResource PanelBackground}" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="0,0,1,0" Visibility="{Binding IsProjectFilesPaneVisible, Converter={StaticResource BoolVisibility}}">
+            <Border Grid.Row="0" Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource PanelBorderBrush}" BorderThickness="0,0,1,0" Visibility="{Binding IsProjectFilesPaneVisible, Converter={StaticResource BoolVisibility}}">
                 <DockPanel>
-                    <Grid DockPanel.Dock="Top" Height="38" Background="#141D2E" Margin="0,0,0,6">
+                    <Grid DockPanel.Dock="Top" Height="38" Background="{DynamicResource HeaderBackgroundBrush}" Margin="0,0,0,6">
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="8,0,0,0">
                             <controls:SelectableTextBlock Text="项目文件" FontWeight="SemiBold" FontSize="13" Margin="0,0,4,0" VerticalAlignment="Center"/>
                             <Button Content="&#xE710;" Style="{StaticResource ProjectFileActionButton}" Command="{Binding NewCommand}" ToolTip="新建项目"/>
@@ -159,20 +160,20 @@
                                   Padding="8,0,8,8"
                                   MouseRightButtonDown="ProjectPaneRightClick">
                         <StackPanel>
-                            <controls:SelectableTextBlock Text="当前文件" Foreground="#64748B" FontSize="11" Margin="3,2,3,4"/>
+                            <controls:SelectableTextBlock Text="当前文件" Foreground="{DynamicResource TextSubtleBrush}" FontSize="11" Margin="3,2,3,4"/>
                             <Button Style="{StaticResource StepButtonStyle}"
                                     Command="{Binding OpenCommand}"
                                     Cursor="Hand"
                                     HorizontalContentAlignment="Stretch"
-                                    Background="#1D2A42"
-                                    BorderBrush="#3B82F6"
+                                    Background="{DynamicResource AccentSoftBrush}"
+                                    BorderBrush="{DynamicResource PrimaryBrush}"
                                     Padding="9,8"
                                     Margin="0,0,0,12"
                                     PreviewMouseRightButtonDown="ProjectCardRightClick"
                                     ToolTip="左键点击打开并切换项目，右键复制项目">
                                 <StackPanel IsHitTestVisible="False">
-                                    <TextBlock Text="{Binding Path=CurrentFileName, Mode=OneWay}" Foreground="#F8FAFC" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                                    <TextBlock Text="{Binding Path=CurrentPathText, Mode=OneWay}" Foreground="#94A3B8" FontSize="10" TextTrimming="CharacterEllipsis" Margin="0,3,0,0"/>
+                                    <TextBlock Text="{Binding Path=CurrentFileName, Mode=OneWay}" Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Text="{Binding Path=CurrentPathText, Mode=OneWay}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="10" TextTrimming="CharacterEllipsis" Margin="0,3,0,0"/>
                                 </StackPanel>
                             </Button>
                         </StackPanel>
@@ -182,9 +183,9 @@
 
             <GridSplitter Grid.Row="1" Style="{StaticResource HorizontalGridSplitter}" Visibility="{Binding IsBothLeftPanesVisible, Converter={StaticResource BoolVisibility}}"/>
 
-            <Border Grid.Row="2" Background="{StaticResource PanelBackground}" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="0,0,1,0" Visibility="{Binding IsScriptListPaneVisible, Converter={StaticResource BoolVisibility}}">
+            <Border Grid.Row="2" Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource PanelBorderBrush}" BorderThickness="0,0,1,0" Visibility="{Binding IsScriptListPaneVisible, Converter={StaticResource BoolVisibility}}">
                 <DockPanel>
-                    <Grid DockPanel.Dock="Top" Height="38" Background="#141D2E" Margin="0,0,0,6">
+                    <Grid DockPanel.Dock="Top" Height="38" Background="{DynamicResource HeaderBackgroundBrush}" Margin="0,0,0,6">
                         <controls:SelectableTextBlock Text="脚本列表" FontWeight="SemiBold" FontSize="13" Margin="12,0" VerticalAlignment="Center"/>
                         <Button Content="—" Style="{StaticResource PaneHeaderButton}" HorizontalAlignment="Right" Command="{Binding ToggleScriptListPaneCommand}" ToolTip="最小化脚本列表"/>
                         <Button Content="+" Style="{StaticResource PaneHeaderButton}" HorizontalAlignment="Right" Margin="4,5,38,5" Command="{Binding NewScriptCommand}" ToolTip="新建脚本"/>
@@ -211,15 +212,15 @@
                     <RowDefinition Height="{Binding StepsPaneHeight, Mode=TwoWay}" MinHeight="{Binding StepsPaneMinHeight}"/>
                 </Grid.RowDefinitions>
 
-                <Border Grid.Row="0" Background="#09101E">
-                    <wv2:WebView2 x:Name="EditorWebView" DefaultBackgroundColor="#09101E"/>
+                <Border Grid.Row="0" Background="{DynamicResource EditorCanvasBackgroundBrush}">
+                    <wv2:WebView2 x:Name="EditorWebView" DefaultBackgroundColor="#FAFAFA"/>
                 </Border>
 
                 <GridSplitter Grid.Row="1" Style="{StaticResource HorizontalGridSplitter}" Visibility="{Binding IsToolboxPaneVisible, Converter={StaticResource BoolVisibility}}"/>
 
-                <Border Grid.Row="2" Background="{StaticResource PanelBackground}" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="0,1,0,0" Visibility="{Binding IsToolboxPaneVisible, Converter={StaticResource BoolVisibility}}">
+                <Border Grid.Row="2" Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource PanelBorderBrush}" BorderThickness="0,1,0,0" Visibility="{Binding IsToolboxPaneVisible, Converter={StaticResource BoolVisibility}}">
                     <DockPanel>
-                        <Grid DockPanel.Dock="Top" Height="38" Background="#141D2E" Margin="0,0,0,6">
+                        <Grid DockPanel.Dock="Top" Height="38" Background="{DynamicResource HeaderBackgroundBrush}" Margin="0,0,0,6">
                             <controls:SelectableTextBlock Text="操作卡片" FontWeight="SemiBold" FontSize="13" Margin="12,0" VerticalAlignment="Center"/>
                             <Button Content="—" Style="{StaticResource PaneHeaderButton}" HorizontalAlignment="Right" Command="{Binding ToggleToolboxPaneCommand}" ToolTip="最小化操作卡片"/>
                         </Grid>
@@ -239,9 +240,9 @@
 
             <GridSplitter Grid.Row="0" Grid.Column="3" Grid.RowSpan="3" Style="{StaticResource VerticalGridSplitter}" Visibility="{Binding IsPropertiesPaneVisible, Converter={StaticResource BoolVisibility}}"/>
 
-            <Border Grid.Row="0" Grid.Column="4" Background="{StaticResource PanelBackground}" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="1,0,0,0" Visibility="{Binding IsPropertiesPaneVisible, Converter={StaticResource BoolVisibility}}">
+            <Border Grid.Row="0" Grid.Column="4" Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource PanelBorderBrush}" BorderThickness="1,0,0,0" Visibility="{Binding IsPropertiesPaneVisible, Converter={StaticResource BoolVisibility}}">
                 <DockPanel>
-                    <Grid DockPanel.Dock="Top" Height="38" Background="#141D2E" Margin="0,0,0,6">
+                    <Grid DockPanel.Dock="Top" Height="38" Background="{DynamicResource HeaderBackgroundBrush}" Margin="0,0,0,6">
                         <Grid Margin="12,0,4,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
@@ -250,72 +251,72 @@
                             <controls:SelectableTextBlock Grid.Column="0" Text="属性" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center"/>
                             <Grid Grid.Column="1" Margin="8,0,0,0">
                                 <DockPanel Visibility="{Binding IsScriptPropertiesVisible, Converter={StaticResource BoolVisibility}}">
-                                    <controls:SelectableTextBlock DockPanel.Dock="Left" Text="脚本 ID：" Foreground="#94A3B8" VerticalAlignment="Center"/>
-                                    <controls:SelectableTextBlock Text="{Binding ActiveScriptId, Mode=OneWay}" Foreground="#E2E8F0" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                    <controls:SelectableTextBlock DockPanel.Dock="Left" Text="脚本 ID：" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                                    <controls:SelectableTextBlock Text="{Binding ActiveScriptId, Mode=OneWay}" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
                                 </DockPanel>
                                 <DockPanel Visibility="{Binding HasSelectedNode, Converter={StaticResource BoolVisibility}}">
-                                    <controls:SelectableTextBlock DockPanel.Dock="Left" Text="动作 ID：" Foreground="#94A3B8" VerticalAlignment="Center"/>
-                                    <controls:SelectableTextBlock Text="{Binding SelectedNode.Id, Mode=OneWay}" Foreground="#E2E8F0" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                    <controls:SelectableTextBlock DockPanel.Dock="Left" Text="动作 ID：" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                                    <controls:SelectableTextBlock Text="{Binding SelectedNode.Id, Mode=OneWay}" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
                                 </DockPanel>
                             </Grid>
                         </Grid>
                         <Button Content="—" Style="{StaticResource PaneHeaderButton}" HorizontalAlignment="Right" Command="{Binding TogglePropertiesPaneCommand}" ToolTip="最小化属性面板"/>
                     </Grid>
-                    <controls:SelectableTextBlock Text="在画布中选择一个节点，或右键脚本查看脚本属性" Foreground="#64748B" HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="Wrap" Margin="20" Visibility="{Binding HasPropertySelection, Converter={StaticResource InverseBoolVisibility}}"/>
+                    <controls:SelectableTextBlock Text="在画布中选择一个节点，或右键脚本查看脚本属性" Foreground="{DynamicResource TextSubtleBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="Wrap" Margin="20" Visibility="{Binding HasPropertySelection, Converter={StaticResource InverseBoolVisibility}}"/>
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,0,8,8" IsEnabled="{Binding IsProjectEditingEnabled}" Visibility="{Binding IsScriptPropertiesVisible, Converter={StaticResource BoolVisibility}}">
                         <StackPanel>
-                            <controls:SelectableTextBlock Text="脚本名称" Foreground="#94A3B8" Margin="0,0,0,3"/>
+                            <controls:SelectableTextBlock Text="脚本名称" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,3"/>
                             <TextBox Text="{Binding ActiveScriptName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,12" ToolTip="脚本名称在项目内必须唯一"/>
-                            <controls:SelectableTextBlock Text="选择作用域" Foreground="#94A3B8"/>
+                            <controls:SelectableTextBlock Text="选择作用域" Foreground="{DynamicResource TextSecondaryBrush}"/>
                             <StackPanel Orientation="Horizontal" Margin="4,8,4,4">
-                                <RadioButton GroupName="WindowScopeMode" Content="整个屏幕" IsChecked="{Binding UseWholeScreen, Mode=TwoWay}" Foreground="#E2E8F0" Margin="0,0,18,0"/>
-                                <RadioButton GroupName="WindowScopeMode" Content="正则匹配窗口" IsChecked="{Binding ScriptWindowScopeEnabled, Mode=TwoWay}" Foreground="#E2E8F0"/>
+                                <RadioButton GroupName="WindowScopeMode" Content="整个屏幕" IsChecked="{Binding UseWholeScreen, Mode=TwoWay}" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,18,0"/>
+                                <RadioButton GroupName="WindowScopeMode" Content="正则匹配窗口" IsChecked="{Binding ScriptWindowScopeEnabled, Mode=TwoWay}" Foreground="{DynamicResource TextPrimaryBrush}"/>
                             </StackPanel>
                             <StackPanel Visibility="{Binding ScriptWindowScopeEnabled, Converter={StaticResource BoolVisibility}}">
-                                <controls:SelectableTextBlock Text="正则匹配" Foreground="#94A3B8" Margin="0,6,0,3"/>
+                                <controls:SelectableTextBlock Text="正则匹配" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,6,0,3"/>
                                 <TextBox Text="{Binding ScriptWindowMatchPattern, UpdateSourceTrigger=PropertyChanged}"/>
-                                <controls:SelectableTextBlock Text="规定要操作哪些窗口" Foreground="#64748B" FontSize="10" TextWrapping="Wrap" Margin="3,5,3,0"/>
-                                <controls:SelectableTextBlock Text="排除正则匹配" Foreground="#94A3B8" Margin="0,10,0,3"/>
+                                <controls:SelectableTextBlock Text="规定要操作哪些窗口" Foreground="{DynamicResource TextSubtleBrush}" FontSize="10" TextWrapping="Wrap" Margin="3,5,3,0"/>
+                                <controls:SelectableTextBlock Text="排除正则匹配" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,10,0,3"/>
                                 <TextBox Text="{Binding ScriptWindowExcludePattern, UpdateSourceTrigger=PropertyChanged}"/>
-                                <controls:SelectableTextBlock Text="从正则匹配结果中排除不需要的匹配目标，留空表示不排除" Foreground="#64748B" FontSize="10" TextWrapping="Wrap" Margin="3,5,3,0"/>
+                                <controls:SelectableTextBlock Text="从正则匹配结果中排除不需要的匹配目标，留空表示不排除" Foreground="{DynamicResource TextSubtleBrush}" FontSize="10" TextWrapping="Wrap" Margin="3,5,3,0"/>
                             </StackPanel>
-                            <controls:SelectableTextBlock Text="执行方式" Foreground="#94A3B8" Margin="0,10,0,3"/>
+                            <controls:SelectableTextBlock Text="执行方式" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,10,0,3"/>
                             <ComboBox ItemsSource="{Binding ScriptInteractionModes}"
                                       DisplayMemberPath="Label"
                                       SelectedValuePath="Value"
                                       SelectedValue="{Binding ScriptInteractionMode, Mode=TwoWay}"/>
                             <StackPanel Visibility="{Binding ScriptWindowScopeEnabled, Converter={StaticResource BoolVisibility}}" Margin="0,10,0,0">
-                                <controls:SelectableTextBlock Text="操作流程" Foreground="#94A3B8" Margin="0,0,0,3"/>
+                                <controls:SelectableTextBlock Text="操作流程" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,3"/>
                                 <ComboBox ItemsSource="{Binding OperationFlowModes}" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding ScriptOperationFlow, Mode=TwoWay}"/>
-                                <controls:SelectableTextBlock Text="{Binding ScriptOperationFlowDescription, Mode=OneWay}" Foreground="#64748B" FontSize="10" TextWrapping="Wrap" Margin="3,5,3,0"/>
+                                <controls:SelectableTextBlock Text="{Binding ScriptOperationFlowDescription, Mode=OneWay}" Foreground="{DynamicResource TextSubtleBrush}" FontSize="10" TextWrapping="Wrap" Margin="3,5,3,0"/>
                             </StackPanel>
-                            <controls:SelectableTextBlock Text="节点默认等待时间（毫秒）" Foreground="#94A3B8" Margin="0,16,0,3"/>
+                            <controls:SelectableTextBlock Text="节点默认等待时间（毫秒）" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,16,0,3"/>
                             <TextBox Text="{Binding ScriptDefaultNodeDelayMs, UpdateSourceTrigger=PropertyChanged}"/>
-                            <controls:SelectableTextBlock Text="设置为 0 表示关闭；显式等待节点仍使用自身等待时间。以上配置只对当前脚本生效。" Foreground="#64748B" TextWrapping="Wrap" Margin="3,6,3,0"/>
+                            <controls:SelectableTextBlock Text="设置为 0 表示关闭；显式等待节点仍使用自身等待时间。以上配置只对当前脚本生效。" Foreground="{DynamicResource TextSubtleBrush}" TextWrapping="Wrap" Margin="3,6,3,0"/>
                         </StackPanel>
                     </ScrollViewer>
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,0,8,8" IsEnabled="{Binding IsProjectEditingEnabled}" Visibility="{Binding HasDetectorConditionSelection, Converter={StaticResource BoolVisibility}}">
                         <StackPanel DataContext="{Binding SelectedNode}">
-                            <controls:SelectableTextBlock Text="{Binding Path=LogicLabel, Mode=OneWay}" FontWeight="SemiBold" Foreground="#FBBF24" Margin="3,4,3,2"/>
-                            <controls:SelectableTextBlock Text="节点名称" Foreground="#94A3B8" Margin="0,4,0,3"/>
+                            <controls:SelectableTextBlock Text="{Binding Path=LogicLabel, Mode=OneWay}" FontWeight="SemiBold" Foreground="{DynamicResource WarningForegroundBrush}" Margin="3,4,3,2"/>
+                            <controls:SelectableTextBlock Text="节点名称" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,4,0,3"/>
                             <TextBox Text="{Binding DisplayName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10"/>
-                            <controls:SelectableTextBlock Text="直接配置本节点的检测内容，命中后从 true 分支继续，否则从 false 分支继续。" Foreground="#94A3B8" FontSize="10" TextWrapping="Wrap" Margin="3,0,3,10"/>
+                            <controls:SelectableTextBlock Text="直接配置本节点的检测内容，命中后从 true 分支继续，否则从 false 分支继续。" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="10" TextWrapping="Wrap" Margin="3,0,3,10"/>
                               <StackPanel Visibility="{Binding HasImageSearchModeParameter, Converter={StaticResource BoolVisibility}}" Margin="0,8,0,2">
-                                  <controls:SelectableTextBlock Text="匹配范围" Foreground="#94A3B8" Margin="0,0,0,3" ToolTip="固定坐标模式只在指定区域内搜索；当前屏幕/窗口模式不使用坐标，直接搜索当前操作范围。"/>
+                                  <controls:SelectableTextBlock Text="匹配范围" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,3" ToolTip="固定坐标模式只在指定区域内搜索；当前屏幕/窗口模式不使用坐标，直接搜索当前操作范围。"/>
                                   <ComboBox SelectedValue="{Binding ImageSearchModeParameter.Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" SelectedValuePath="Tag">
                                       <ComboBoxItem Tag="fixed" Content="固定坐标"/>
                                       <ComboBoxItem Tag="current" Content="当前屏幕/窗口"/>
                                   </ComboBox>
                               </StackPanel>
                               <StackPanel Visibility="{Binding HasTextSearchModeParameter, Converter={StaticResource BoolVisibility}}" Margin="0,8,0,2">
-                                  <controls:SelectableTextBlock Text="匹配范围" Foreground="#94A3B8" Margin="0,0,0,3" ToolTip="固定坐标模式只在指定区域内识别；当前屏幕/窗口模式不使用坐标，直接识别当前操作范围。"/>
+                                  <controls:SelectableTextBlock Text="匹配范围" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,3" ToolTip="固定坐标模式只在指定区域内识别；当前屏幕/窗口模式不使用坐标，直接识别当前操作范围。"/>
                                   <ComboBox SelectedValue="{Binding TextSearchModeParameter.Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" SelectedValuePath="Tag">
                                       <ComboBoxItem Tag="fixed" Content="固定坐标"/>
                                       <ComboBoxItem Tag="current" Content="当前屏幕/窗口"/>
                                   </ComboBox>
                               </StackPanel>
                               <StackPanel Visibility="{Binding HasCoordinateParameters, Converter={StaticResource BoolVisibility}}">
-                                  <controls:SelectableTextBlock Text="坐标基准" Foreground="#94A3B8" Margin="0,0,0,3"/>
+                                  <controls:SelectableTextBlock Text="坐标基准" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,3"/>
                                 <ItemsControl ItemsSource="{Binding CoordinateParameters}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
@@ -329,14 +330,14 @@
                                  </ItemsControl>
                              </StackPanel>
                               <StackPanel Visibility="{Binding HasImageMatchEngineParameter, Converter={StaticResource BoolVisibility}}" Margin="0,8,0,2">
-                                  <controls:SelectableTextBlock Text="图像匹配模式" Foreground="#94A3B8" Margin="0,0,0,3" ToolTip="选择图判断使用自实现算法或 OpenCV 模板匹配"/>
+                                  <controls:SelectableTextBlock Text="图像匹配模式" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,3" ToolTip="选择图判断使用自实现算法或 OpenCV 模板匹配"/>
                                  <ComboBox SelectedValue="{Binding ImageMatchEngineParameter.Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" SelectedValuePath="Tag">
                                      <ComboBoxItem Tag="custom" Content="自实现"/>
                                      <ComboBoxItem Tag="opencv" Content="OpenCV"/>
                                   </ComboBox>
                               </StackPanel>
                               <StackPanel Visibility="{Binding HasOcrEngineParameter, Converter={StaticResource BoolVisibility}}" Margin="0,8,0,2">
-                                  <controls:SelectableTextBlock Text="文本识别引擎" Foreground="#94A3B8" Margin="0,0,0,3" ToolTip="本地 OCR 当前为占位实现；Gemini OCR 使用全局 Gemini 配置。"/>
+                                  <controls:SelectableTextBlock Text="文本识别引擎" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,3" ToolTip="本地 OCR 当前为占位实现；Gemini OCR 使用全局 Gemini 配置。"/>
                                   <ComboBox SelectedValue="{Binding OcrEngineParameter.Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" SelectedValuePath="Tag">
                                       <ComboBoxItem Tag="local" Content="本地 OCR（占位）"/>
                                       <ComboBoxItem Tag="gemini" Content="Gemini OCR"/>
@@ -344,16 +345,16 @@
                               </StackPanel>
                              <StackPanel Visibility="{Binding HasConfidenceParameter, Converter={StaticResource BoolVisibility}}" Margin="0,8,0,2">
                                 <DockPanel Margin="0,0,0,3">
-                                    <controls:SelectableTextBlock Text="{Binding ConfidenceLabel, Mode=OneWay}" Foreground="#94A3B8" ToolTip="{Binding ConfidenceHint, Mode=OneWay}"/>
-                                    <controls:SelectableTextBlock DockPanel.Dock="Right" Text="{Binding ConfidenceParameter.Value, Mode=OneWay, Converter={StaticResource PercentText}}" Foreground="#60A5FA" FontWeight="SemiBold" Margin="8,0,0,0"/>
+                                    <controls:SelectableTextBlock Text="{Binding ConfidenceLabel, Mode=OneWay}" Foreground="{DynamicResource TextSecondaryBrush}" ToolTip="{Binding ConfidenceHint, Mode=OneWay}"/>
+                                    <controls:SelectableTextBlock DockPanel.Dock="Right" Text="{Binding ConfidenceParameter.Value, Mode=OneWay, Converter={StaticResource PercentText}}" Foreground="{DynamicResource AccentForegroundBrush}" FontWeight="SemiBold" Margin="8,0,0,0"/>
                                 </DockPanel>
                                 <Slider Minimum="0" Maximum="100" TickFrequency="1" IsSnapToTickEnabled="True" SmallChange="1" LargeChange="5"
                                         Value="{Binding ConfidenceParameter.Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource StringPercent}}"
                                         ToolTip="{Binding ConfidenceHint, Mode=OneWay}"/>
-                                <controls:SelectableTextBlock Text="拖动滑块降低阈值可增强抗噪能力，但可能增加误判。" Foreground="#64748B" FontSize="10" TextWrapping="Wrap" Margin="3,2,3,0"/>
+                                <controls:SelectableTextBlock Text="拖动滑块降低阈值可增强抗噪能力，但可能增加误判。" Foreground="{DynamicResource TextSubtleBrush}" FontSize="10" TextWrapping="Wrap" Margin="3,2,3,0"/>
                             </StackPanel>
-                            <controls:SelectableTextBlock Text="数值参数" Foreground="#94A3B8" Margin="0,0,0,3"/>
-                            <Border BorderBrush="#334155" BorderThickness="1" CornerRadius="4" Padding="6" Margin="0,0,0,4">
+                            <controls:SelectableTextBlock Text="数值参数" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,3"/>
+                            <Border BorderBrush="{DynamicResource PanelBorderBrush}" BorderThickness="1" CornerRadius="4" Padding="6" Margin="0,0,0,4">
                                 <DockPanel>
                                     <Button DockPanel.Dock="Right" Content="{Binding DataContext.SelectedNode.CoordinatePickButtonLabel, RelativeSource={RelativeSource AncestorType=Window}}"
                                             Command="{Binding DataContext.PickCoordinateCommand, RelativeSource={RelativeSource AncestorType=Window}}"
@@ -366,7 +367,7 @@
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
                                                 <StackPanel Width="112" Margin="0,2,6,2">
-                                                    <controls:SelectableTextBlock Text="{Binding DisplayName, Mode=OneWay}" Foreground="#94A3B8" ToolTip="{Binding Description}"/>
+                                                    <controls:SelectableTextBlock Text="{Binding DisplayName, Mode=OneWay}" Foreground="{DynamicResource TextSecondaryBrush}" ToolTip="{Binding Description}"/>
                                                     <TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"/>
                                                 </StackPanel>
                                             </DataTemplate>
@@ -374,7 +375,7 @@
                                     </ItemsControl>
                                 </DockPanel>
                             </Border>
-                            <controls:SelectableTextBlock Text="文本参数" Foreground="#94A3B8" Margin="0,8,0,3"/>
+                            <controls:SelectableTextBlock Text="文本参数" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,8,0,3"/>
                             <ItemsControl ItemsSource="{Binding TextParameters}">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
@@ -382,22 +383,22 @@
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <StackPanel Width="280" Margin="0,3">
-                                            <controls:SelectableTextBlock Text="{Binding Path=DisplayName, Mode=OneWay}" Foreground="#94A3B8" ToolTip="{Binding Description}"/>
+                                            <controls:SelectableTextBlock Text="{Binding Path=DisplayName, Mode=OneWay}" Foreground="{DynamicResource TextSecondaryBrush}" ToolTip="{Binding Description}"/>
                                             <TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"/>
                                         </StackPanel>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
-                            <controls:SelectableTextBlock Text="命中输出 true，未命中输出 false。" Foreground="#64748B" FontSize="10" TextWrapping="Wrap" Margin="3,6,3,12"/>
+                            <controls:SelectableTextBlock Text="命中输出 true，未命中输出 false。" Foreground="{DynamicResource TextSubtleBrush}" FontSize="10" TextWrapping="Wrap" Margin="3,6,3,12"/>
                         </StackPanel>
                     </ScrollViewer>
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,0,8,8" IsEnabled="{Binding IsProjectEditingEnabled}" Visibility="{Binding IsRegularNodeSelection, Converter={StaticResource BoolVisibility}}">
                         <StackPanel DataContext="{Binding SelectedNode}">
-                            <controls:SelectableTextBlock Text="节点名称" Foreground="#94A3B8" Margin="0,0,0,3"/>
+                            <controls:SelectableTextBlock Text="节点名称" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,3"/>
                             <TextBox Text="{Binding DisplayName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,12"/>
-                            <controls:SelectableTextBlock Text="参数配置" Foreground="#94A3B8" Margin="0,12,0,4"/>
+                            <controls:SelectableTextBlock Text="参数配置" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,12,0,4"/>
                             <StackPanel Visibility="{Binding HasCoordinateParameters, Converter={StaticResource BoolVisibility}}">
-                                <controls:SelectableTextBlock Text="坐标基准" Foreground="#94A3B8" Margin="0,0,0,3"/>
+                                <controls:SelectableTextBlock Text="坐标基准" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,3"/>
                                 <ItemsControl ItemsSource="{Binding CoordinateParameters}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
@@ -411,8 +412,8 @@
                                 </ItemsControl>
                             </StackPanel>
                             <StackPanel Visibility="{Binding HasNumericParameters, Converter={StaticResource BoolVisibility}}">
-                                <controls:SelectableTextBlock Text="数值参数" Foreground="#94A3B8" Margin="0,0,0,3"/>
-                                <Border BorderBrush="#334155" BorderThickness="1" CornerRadius="4" Padding="6" Margin="0,0,0,4">
+                                <controls:SelectableTextBlock Text="数值参数" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,3"/>
+                                <Border BorderBrush="{DynamicResource PanelBorderBrush}" BorderThickness="1" CornerRadius="4" Padding="6" Margin="0,0,0,4">
                                     <DockPanel>
                                         <Button DockPanel.Dock="Right" Content="{Binding DataContext.SelectedNode.CoordinatePickButtonLabel, RelativeSource={RelativeSource AncestorType=Window}}"
                                                 Command="{Binding DataContext.PickCoordinateCommand, RelativeSource={RelativeSource AncestorType=Window}}"
@@ -425,7 +426,7 @@
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate>
                                                     <StackPanel Width="112" Margin="0,2,6,2">
-                                                        <controls:SelectableTextBlock Text="{Binding DisplayName, Mode=OneWay}" Foreground="#94A3B8" ToolTip="{Binding Description}"/>
+                                                        <controls:SelectableTextBlock Text="{Binding DisplayName, Mode=OneWay}" Foreground="{DynamicResource TextSecondaryBrush}" ToolTip="{Binding Description}"/>
                                                         <TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"/>
                                                     </StackPanel>
                                                 </DataTemplate>
@@ -435,7 +436,7 @@
                                 </Border>
                             </StackPanel>
                             <StackPanel Visibility="{Binding HasTextParameters, Converter={StaticResource BoolVisibility}}">
-                                <controls:SelectableTextBlock Text="文本参数" Foreground="#94A3B8" Margin="0,8,0,3"/>
+                                <controls:SelectableTextBlock Text="文本参数" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,8,0,3"/>
                                 <ItemsControl ItemsSource="{Binding TextParameters}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
@@ -461,7 +462,7 @@
                                                     <RowDefinition Height="Auto"/>
                                                     <RowDefinition Height="Auto"/>
                                                 </Grid.RowDefinitions>
-                                                <controls:SelectableTextBlock Text="{Binding Path=DisplayName, Mode=OneWay}" Foreground="#94A3B8" ToolTip="{Binding Description}"/>
+                                                <controls:SelectableTextBlock Text="{Binding Path=DisplayName, Mode=OneWay}" Foreground="{DynamicResource TextSecondaryBrush}" ToolTip="{Binding Description}"/>
                                                 <DockPanel Grid.Row="1">
                                                     <Button DockPanel.Dock="Right" Content="选择..."
                                                             Command="{Binding DataContext.SelectProgramPathCommand, RelativeSource={RelativeSource AncestorType=Window}}"
@@ -489,7 +490,7 @@
                                 </ItemsControl>
                             </StackPanel>
                             <StackPanel Visibility="{Binding HasChoiceParameters, Converter={StaticResource BoolVisibility}}">
-                                <controls:SelectableTextBlock Text="枚举参数" Foreground="#94A3B8" Margin="0,8,0,3"/>
+                                <controls:SelectableTextBlock Text="枚举参数" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,8,0,3"/>
                                 <ItemsControl ItemsSource="{Binding ChoiceParameters}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
@@ -497,7 +498,7 @@
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <StackPanel Width="136" Margin="0,3,6,3">
-                                                <controls:SelectableTextBlock Text="{Binding Path=DisplayName, Mode=OneWay}" Foreground="#94A3B8" ToolTip="{Binding Description}"/>
+                                                <controls:SelectableTextBlock Text="{Binding Path=DisplayName, Mode=OneWay}" Foreground="{DynamicResource TextSecondaryBrush}" ToolTip="{Binding Description}"/>
                                                 <ComboBox SelectedValue="{Binding Value, UpdateSourceTrigger=PropertyChanged}" SelectedValuePath="Tag">
                                                     <ComboBox.Style>
                                                         <Style TargetType="ComboBox">
@@ -606,22 +607,22 @@
                                 </ItemsControl>
                             </StackPanel>
                             <StackPanel Visibility="{Binding HasBooleanParameters, Converter={StaticResource BoolVisibility}}">
-                                <controls:SelectableTextBlock Text="开关参数" Foreground="#94A3B8" Margin="0,8,0,3"/>
+                                <controls:SelectableTextBlock Text="开关参数" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,8,0,3"/>
                                 <ItemsControl ItemsSource="{Binding BooleanParameters}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <CheckBox Content="{Binding DisplayName}" IsChecked="{Binding BooleanValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Foreground="#E2E8F0" Margin="0,3" ToolTip="{Binding Description}"/>
+                                            <CheckBox Content="{Binding DisplayName}" IsChecked="{Binding BooleanValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,3" ToolTip="{Binding Description}"/>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
                             </StackPanel>
                             <StackPanel Visibility="{Binding HasOtherParameters, Converter={StaticResource BoolVisibility}}">
-                                <controls:SelectableTextBlock Text="其他参数" Foreground="#94A3B8" Margin="0,8,0,3"/>
+                                <controls:SelectableTextBlock Text="其他参数" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,8,0,3"/>
                                 <ItemsControl ItemsSource="{Binding OtherParameters}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <StackPanel Margin="0,3">
-                                                <controls:SelectableTextBlock Text="{Binding Path=DisplayName, Mode=OneWay}" Foreground="#94A3B8" ToolTip="{Binding Description}"/>
+                                                <controls:SelectableTextBlock Text="{Binding Path=DisplayName, Mode=OneWay}" Foreground="{DynamicResource TextSecondaryBrush}" ToolTip="{Binding Description}"/>
                                                 <TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"/>
                                             </StackPanel>
                                         </DataTemplate>
@@ -635,7 +636,7 @@
 
             <GridSplitter Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="5" Style="{StaticResource HorizontalGridSplitter}" Visibility="{Binding IsOutputPaneVisible, Converter={StaticResource BoolVisibility}}"/>
 
-            <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="5" Background="#0F172A" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="0,1,0,0" Visibility="{Binding IsOutputPaneVisible, Converter={StaticResource BoolVisibility}}">
+            <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="5" Background="{DynamicResource HeaderBackgroundBrush}" BorderBrush="{DynamicResource PanelBorderBrush}" BorderThickness="0,1,0,0" Visibility="{Binding IsOutputPaneVisible, Converter={StaticResource BoolVisibility}}">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="38"/>
@@ -645,13 +646,13 @@
                         <controls:SelectableTextBlock Text="运行日志" FontWeight="SemiBold" VerticalAlignment="Center"/>
                         <Button Content="—" Style="{StaticResource PaneHeaderButton}" DockPanel.Dock="Right" Command="{Binding ToggleOutputPaneCommand}" ToolTip="最小化运行日志"/>
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,0">
-                            <controls:SelectableTextBlock Text="当前节点：" Foreground="#64748B"/>
+                            <controls:SelectableTextBlock Text="当前节点：" Foreground="{DynamicResource TextSubtleBrush}"/>
                             <controls:SelectableTextBlock Text="{Binding Path=CurrentNodeText, Mode=OneWay}" Margin="0,0,18,0"/>
-                            <controls:SelectableTextBlock Text="耗时：" Foreground="#64748B"/>
+                            <controls:SelectableTextBlock Text="耗时：" Foreground="{DynamicResource TextSubtleBrush}"/>
                             <controls:SelectableTextBlock Text="{Binding Path=ElapsedText, Mode=OneWay}"/>
                         </StackPanel>
                     </DockPanel>
-                    <ListBox Grid.Row="1" ItemsSource="{Binding Logs}" Background="#090F1B" Foreground="#CBD5E1" BorderThickness="0" Padding="10,4" FontFamily="Consolas" FontSize="12">
+                    <ListBox Grid.Row="1" ItemsSource="{Binding Logs}" Background="{DynamicResource LogBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderThickness="0" Padding="10,4" FontFamily="Consolas" FontSize="12">
                         <ListBox.ItemTemplate>
                             <DataTemplate>
                                 <controls:SelectableTextBlock Text="{Binding Path=DisplayText, Mode=OneWay}" TextWrapping="Wrap"/>

@@ -1104,6 +1104,7 @@ public sealed class MainViewModel : ObservableObject
         ApplyPaneVisibility();
         ApplyStepLayout();
         ApplyTheme();
+        await _editor.SendAsync("set_theme", new { theme = Settings.Theme });
         await _settingsStorage.SaveAsync(Settings, CancellationToken.None);
     }
 
@@ -1747,8 +1748,69 @@ public sealed class MainViewModel : ObservableObject
     private void ApplyTheme()
     {
         var light = string.Equals(Settings.Theme, "light", StringComparison.OrdinalIgnoreCase);
-        Application.Current.Resources["AppBackground"] = new System.Windows.Media.SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(light ? "#F1F5F9" : "#0B1120"));
-        Application.Current.Resources["PanelBackground"] = new System.Windows.Media.SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(light ? "#E2E8F0" : "#111827"));
+        var palette = light
+            ? new Dictionary<string, string>
+            {
+                ["AppBackground"] = "#F3F3F3",
+                ["PanelBackground"] = "#FFFFFF",
+                ["PanelBorderBrush"] = "#D6D6D6",
+                ["PrimaryBrush"] = "#0078D4",
+                ["TextPrimaryBrush"] = "#202020",
+                ["TextSecondaryBrush"] = "#5F5F5F",
+                ["TextSubtleBrush"] = "#737373",
+                ["HeaderBackgroundBrush"] = "#F3F3F3",
+                ["CardBackgroundBrush"] = "#FFFFFF",
+                ["ControlBackgroundBrush"] = "#FFFFFF",
+                ["ControlBorderBrush"] = "#A6A6A6",
+                ["HoverBackgroundBrush"] = "#E5F1FB",
+                ["AccentSoftBrush"] = "#EAF4FC",
+                ["AccentForegroundBrush"] = "#005A9E",
+                ["DangerBackgroundBrush"] = "#FDE7E7",
+                ["DangerForegroundBrush"] = "#A4262C",
+                ["DangerBorderBrush"] = "#D98C8C",
+                ["DangerPressedBrush"] = "#F2D1D1",
+                ["SuccessBackgroundBrush"] = "#E9F5E9",
+                ["SuccessForegroundBrush"] = "#107C10",
+                ["SuccessBorderBrush"] = "#A8D8A8",
+                ["WarningForegroundBrush"] = "#806000",
+                ["WarningBorderBrush"] = "#D6B64C",
+                ["EditorCanvasBackgroundBrush"] = "#FAFAFA",
+                ["LogBackgroundBrush"] = "#F7F7F7"
+            }
+            : new Dictionary<string, string>
+            {
+                ["AppBackground"] = "#1F1F1F",
+                ["PanelBackground"] = "#252525",
+                ["PanelBorderBrush"] = "#3E3E3E",
+                ["PrimaryBrush"] = "#60CDFF",
+                ["TextPrimaryBrush"] = "#F4F4F4",
+                ["TextSecondaryBrush"] = "#C8C8C8",
+                ["TextSubtleBrush"] = "#A0A0A0",
+                ["HeaderBackgroundBrush"] = "#2A2A2A",
+                ["CardBackgroundBrush"] = "#303030",
+                ["ControlBackgroundBrush"] = "#2B2B2B",
+                ["ControlBorderBrush"] = "#737373",
+                ["HoverBackgroundBrush"] = "#3A3A3A",
+                ["AccentSoftBrush"] = "#193A56",
+                ["AccentForegroundBrush"] = "#7CC7FF",
+                ["DangerBackgroundBrush"] = "#4A2626",
+                ["DangerForegroundBrush"] = "#FFB4AB",
+                ["DangerBorderBrush"] = "#8E4E4E",
+                ["DangerPressedBrush"] = "#6A3333",
+                ["SuccessBackgroundBrush"] = "#203B24",
+                ["SuccessForegroundBrush"] = "#8BDC90",
+                ["SuccessBorderBrush"] = "#447C48",
+                ["WarningForegroundBrush"] = "#F5D87A",
+                ["WarningBorderBrush"] = "#8F7532",
+                ["EditorCanvasBackgroundBrush"] = "#1C1C1C",
+                ["LogBackgroundBrush"] = "#222222"
+            };
+
+        foreach (var (key, value) in palette)
+        {
+            var color = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(value);
+            Application.Current.Resources[key] = new System.Windows.Media.SolidColorBrush(color);
+        }
     }
 
     private sealed record EditorOperationResponse(bool Success, string? Error);

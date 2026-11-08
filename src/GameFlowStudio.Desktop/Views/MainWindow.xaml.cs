@@ -27,6 +27,7 @@ public partial class MainWindow : Window
             Width = Math.Max(MinWidth, _viewModel.Settings.WindowWidth); Height = Math.Max(MinHeight, _viewModel.Settings.WindowHeight);
             if (_viewModel.Settings.WindowLeft.HasValue && _viewModel.Settings.WindowTop.HasValue) { Left = _viewModel.Settings.WindowLeft.Value; Top = _viewModel.Settings.WindowTop.Value; }
             await _editor.InitializeAsync(EditorWebView);
+            await _editor.SendAsync("set_theme", new { theme = _viewModel.Settings.Theme });
             if (!string.IsNullOrWhiteSpace(StartupProjectPath))
                 await _viewModel.LoadStartupProjectAsync(StartupProjectPath);
         }
