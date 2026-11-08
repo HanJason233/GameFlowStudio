@@ -176,7 +176,7 @@
                         <Border Style="{StaticResource HelpCardStyle}">
                             <StackPanel>
                                 <TextBlock Style="{StaticResource CardTitleStyle}" Text="2. 添加并连接步骤"/>
-                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 点击下方“操作卡片”中的按钮，把操作节点添加到当前画布。"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 点击左侧“操作卡片”面板中的按钮，把操作节点添加到当前画布。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 将节点按“开始 → 操作或判断 → 结束”的顺序连接。判断节点需要分别连接“是”和“否”分支。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 选中节点后，在右侧“属性”面板填写按键、坐标、窗口标题、等待时间等参数。"/>
                             </StackPanel>
@@ -493,9 +493,9 @@
 
                         <Border Style="{StaticResource HelpCardStyle}">
                             <StackPanel>
-                                <TextBlock Style="{StaticResource CardTitleStyle}" Text="顶部界面按钮"/>
-                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• “项目、脚本、操作卡片、属性、日志”用于显示或隐藏对应面板。"/>
-                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 面板之间的分隔条可以拖动，调整项目列表、脚本列表、属性和日志所占空间。"/>
+                                <TextBlock Style="{StaticResource CardTitleStyle}" Text="左侧导航与面板"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 左侧的项目、脚本、操作卡片图标用于切换左侧栏内容；属性和日志图标用于显示或隐藏各自面板。"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 拖动左侧栏、属性面板和运行日志旁的分隔条，可调整它们占用的空间。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 录制或运行期间，与项目和脚本有关的编辑操作会暂时禁用，结束后自动恢复。"/>
                             </StackPanel>
                         </Border>
@@ -505,9 +505,9 @@
                                 <TextBlock Style="{StaticResource CardTitleStyle}" Text="全局设置"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 默认项目目录：新建、打开和保存项目时优先使用的文件夹。"/>
                                 <TextBlock Style="{StaticResource BulletTextStyle}" Text="• Gemini OCR API 密钥：供文本判断的 Gemini OCR 模式使用。"/>
-                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 启动可见模块：决定软件下次启动时默认显示哪些面板。"/>
-                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 操作卡片“竖向 / 横向”：只改变下方分类的排列方式，不改变画布流程方向，也不等于整理画布。"/>
-                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 软件采用 Windows 10 浅色风格，面板可通过顶部按钮调整显示。"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 启动左侧栏：决定软件下次启动时默认显示项目文件、脚本列表或操作卡片。"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 操作卡片“竖向 / 横向”：只改变左侧栏中分类的排列方式，不改变画布流程方向，也不等于整理画布。"/>
+                                <TextBlock Style="{StaticResource BulletTextStyle}" Text="• 软件采用 Windows 10 浅色风格，面板可通过左侧图标调整显示。"/>
                             </StackPanel>
                         </Border>
                     </StackPanel>

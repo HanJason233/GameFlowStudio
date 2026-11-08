@@ -26,21 +26,24 @@
             <TabItem Header="界面布局">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8,12,8,8">
                     <StackPanel>
-                        <controls:SelectableTextBlock Text="启动时展示模块"/>
+                        <controls:SelectableTextBlock Text="启动时的左侧栏"/>
                         <StackPanel Margin="4,6,0,0">
-                            <CheckBox Content="项目文件" IsChecked="{Binding IsProjectFilesPaneVisible, Mode=TwoWay}"/>
-                            <CheckBox Content="脚本列表" IsChecked="{Binding IsScriptListPaneVisible, Mode=TwoWay}" Margin="0,6,0,0"/>
-                            <CheckBox Content="操作卡片" IsChecked="{Binding IsToolboxPaneVisible, Mode=TwoWay}" Margin="0,6,0,0"/>
-                            <CheckBox Content="属性" IsChecked="{Binding IsPropertiesPaneVisible, Mode=TwoWay}" Margin="0,6,0,0"/>
+                            <RadioButton GroupName="StartupSidebarPanel" Content="项目文件" IsChecked="{Binding IsProjectFilesPaneVisible, Mode=TwoWay}"/>
+                            <RadioButton GroupName="StartupSidebarPanel" Content="脚本列表" IsChecked="{Binding IsScriptListPaneVisible, Mode=TwoWay}" Margin="0,6,0,0"/>
+                            <RadioButton GroupName="StartupSidebarPanel" Content="操作卡片" IsChecked="{Binding IsToolboxPaneVisible, Mode=TwoWay}" Margin="0,6,0,0"/>
+                        </StackPanel>
+                        <controls:SelectableTextBlock Text="左侧栏启动时显示一个面板，可通过左侧图标随时切换。" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="3,6,3,0"/>
+                        <controls:SelectableTextBlock Text="启动时同时显示" Margin="0,12,0,0"/>
+                        <StackPanel Margin="4,6,0,0">
+                            <CheckBox Content="属性" IsChecked="{Binding IsPropertiesPaneVisible, Mode=TwoWay}"/>
                             <CheckBox Content="运行日志" IsChecked="{Binding IsOutputPaneVisible, Mode=TwoWay}" Margin="0,6,0,0"/>
                         </StackPanel>
-                        <controls:SelectableTextBlock Text="脚本流程图始终展示；勾选的模块会在软件打开时显示，未勾选的模块默认最小化。" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="3,6,3,0"/>
                         <controls:SelectableTextBlock Text="操作卡片分类布局" Margin="0,16,0,0"/>
                         <ComboBox SelectedValue="{Binding StepCategoryLayout}" SelectedValuePath="Tag">
                             <ComboBoxItem Tag="vertical" Content="竖向（分类上下排列）"/>
                             <ComboBoxItem Tag="horizontal" Content="横向（分类左右排列）"/>
                         </ComboBox>
-                        <controls:SelectableTextBlock Text="设置对所有项目生效；操作卡片模块位于节点编辑区下方，可拖动分隔线调整高度。" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="3,5,3,0"/>
+                        <controls:SelectableTextBlock Text="设置对所有项目生效；分类布局只影响左侧操作卡片面板中的分类排列。" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="3,5,3,0"/>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>

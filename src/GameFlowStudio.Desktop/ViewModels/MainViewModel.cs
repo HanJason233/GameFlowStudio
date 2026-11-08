@@ -80,8 +80,6 @@ public sealed class MainViewModel : ObservableObject
     private GridLength _lastToolboxPaneWidth = new(220);
     private GridLength _lastPropertiesPaneWidth = new(320);
     private GridLength _lastOutputPaneHeight = new(220);
-    private GridLength _stepsPaneHeight = new(220);
-    private GridLength _lastStepsPaneHeight = new(220);
     private GridLength _projectFilesPaneWidth = new(210);
     private GridLength _scriptListPaneWidth = new(220);
     private GridLength _lastProjectFilesPaneWidth = new(210);
@@ -275,26 +273,28 @@ public sealed class MainViewModel : ObservableObject
             if (Set(ref _scriptDefaultNodeDelayMs, normalized)) { ActiveScript.DefaultNodeDelayMs = normalized; MarkScriptSettingsChanged(); }
         }
     }
-    public GridLength ToolboxPaneWidth { get => _toolboxPaneWidth; set => Set(ref _toolboxPaneWidth, value); }
+    public GridLength ToolboxPaneWidth { get => _toolboxPaneWidth; set { if (Set(ref _toolboxPaneWidth, value)) Raise(nameof(LeftSidebarWidth)); } }
     public GridLength PropertiesPaneWidth { get => _propertiesPaneWidth; set => Set(ref _propertiesPaneWidth, value); }
     public GridLength OutputPaneHeight { get => _outputPaneHeight; set => Set(ref _outputPaneHeight, value); }
-    public GridLength StepsPaneHeight { get => _stepsPaneHeight; set => Set(ref _stepsPaneHeight, value); }
     public GridLength ProjectFilesPaneWidth { get => _projectFilesPaneWidth; set { if (Set(ref _projectFilesPaneWidth, value)) Raise(nameof(LeftSidebarWidth)); } }
     public GridLength ScriptListPaneWidth { get => _scriptListPaneWidth; set { if (Set(ref _scriptListPaneWidth, value)) Raise(nameof(LeftSidebarWidth)); } }
     public GridLength LeftSidebarWidth
     {
-        get
+        get => ActiveNavigationItem switch
         {
-            if (IsProjectFilesPaneVisible && IsScriptListPaneVisible)
-                return new GridLength(Math.Max(ProjectFilesPaneWidth.Value, ScriptListPaneWidth.Value));
-            if (IsProjectFilesPaneVisible) return ProjectFilesPaneWidth;
-            if (IsScriptListPaneVisible) return ScriptListPaneWidth;
-            return new GridLength(0);
-        }
+            "project" => ProjectFilesPaneWidth,
+            "scripts" => ScriptListPaneWidth,
+            "toolbox" => ToolboxPaneWidth,
+            _ => new GridLength(0)
+        };
         set
         {
-            if (IsProjectFilesPaneVisible) ProjectFilesPaneWidth = value;
-            if (IsScriptListPaneVisible) ScriptListPaneWidth = value;
+            switch (ActiveNavigationItem)
+            {
+                case "project": ProjectFilesPaneWidth = value; break;
+                case "scripts": ScriptListPaneWidth = value; break;
+                case "toolbox": ToolboxPaneWidth = value; break;
+            }
         }
     }
     public bool IsProjectFilesPaneVisible
@@ -304,7 +304,6 @@ public sealed class MainViewModel : ObservableObject
         {
             if (!Set(ref _isProjectFilesPaneVisible, value)) return;
             RaiseLeftSidebarLayout();
-            Raise(nameof(ProjectFilesPaneMinWidth));
         }
     }
     public bool IsScriptListPaneVisible
@@ -314,12 +313,11 @@ public sealed class MainViewModel : ObservableObject
         {
             if (!Set(ref _isScriptListPaneVisible, value)) return;
             RaiseLeftSidebarLayout();
-            Raise(nameof(ScriptListPaneMinWidth));
         }
     }
-    public bool IsToolboxPaneVisible { get => _isToolboxPaneVisible; private set { if (Set(ref _isToolboxPaneVisible, value)) { Raise(nameof(ToolboxPaneMinWidth)); Raise(nameof(StepsPaneMinHeight)); } } }
-    public bool IsPropertiesPaneVisible { get => _isPropertiesPaneVisible; private set { if (Set(ref _isPropertiesPaneVisible, value)) Raise(nameof(PropertiesPaneMinWidth)); } }
-    public bool IsOutputPaneVisible { get => _isOutputPaneVisible; private set { if (Set(ref _isOutputPaneVisible, value)) Raise(nameof(OutputPaneMinHeight)); } }
+    public bool IsToolboxPaneVisible { get => _isToolboxPaneVisible; private set { if (Set(ref _isToolboxPaneVisible, value)) RaiseLeftSidebarLayout(); } }
+    public bool IsPropertiesPaneVisible { get => _isPropertiesPaneVisible; private set { if (Set(ref _isPropertiesPaneVisible, value)) { Raise(nameof(PropertiesPaneMinWidth)); Raise(nameof(IsPropertiesNavigationActive)); } } }
+    public bool IsOutputPaneVisible { get => _isOutputPaneVisible; private set { if (Set(ref _isOutputPaneVisible, value)) { Raise(nameof(OutputPaneMinHeight)); Raise(nameof(IsOutputNavigationActive)); } } }
     public string ActiveNavigationItem
     {
         get => _activeNavigationItem;
@@ -329,28 +327,19 @@ public sealed class MainViewModel : ObservableObject
             Raise(nameof(IsProjectFilesNavigationActive));
             Raise(nameof(IsScriptListNavigationActive));
             Raise(nameof(IsToolboxNavigationActive));
-            Raise(nameof(IsPropertiesNavigationActive));
-            Raise(nameof(IsOutputNavigationActive));
+            RaiseLeftSidebarLayout();
         }
     }
     public bool IsProjectFilesNavigationActive => ActiveNavigationItem == "project";
     public bool IsScriptListNavigationActive => ActiveNavigationItem == "scripts";
     public bool IsToolboxNavigationActive => ActiveNavigationItem == "toolbox";
-    public bool IsPropertiesNavigationActive => ActiveNavigationItem == "properties";
-    public bool IsOutputNavigationActive => ActiveNavigationItem == "output";
+    public bool IsPropertiesNavigationActive => IsPropertiesPaneVisible;
+    public bool IsOutputNavigationActive => IsOutputPaneVisible;
     public bool IsHorizontalStepLayout { get => _isHorizontalStepLayout; private set => Set(ref _isHorizontalStepLayout, value); }
-    public double ToolboxPaneMinWidth => IsToolboxPaneVisible ? 170 : 0;
     public double PropertiesPaneMinWidth => IsPropertiesPaneVisible ? 220 : 0;
     public double OutputPaneMinHeight => IsOutputPaneVisible ? 120 : 0;
-    public double StepsPaneMinHeight => IsToolboxPaneVisible ? 170 : 0;
-    public double ProjectFilesPaneMinWidth => IsProjectFilesPaneVisible ? 180 : 0;
-    public double ScriptListPaneMinWidth => IsScriptListPaneVisible ? 190 : 0;
-    public double LeftSidebarMinWidth => IsProjectFilesPaneVisible || IsScriptListPaneVisible ? 190 : 0;
-    public bool IsLeftSidebarVisible => IsProjectFilesPaneVisible || IsScriptListPaneVisible;
-    public bool IsBothLeftPanesVisible => IsProjectFilesPaneVisible && IsScriptListPaneVisible;
-    public GridLength ProjectFilesPaneRowHeight => IsProjectFilesPaneVisible ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
-    public GridLength ScriptListPaneRowHeight => IsScriptListPaneVisible ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
-    public GridLength LeftPaneSplitterHeight => IsBothLeftPanesVisible ? new GridLength(5) : new GridLength(0);
+    public double LeftSidebarMinWidth => IsLeftSidebarVisible ? 190 : 0;
+    public bool IsLeftSidebarVisible => IsProjectFilesPaneVisible || IsScriptListPaneVisible || IsToolboxPaneVisible;
     public ICommand NewCommand { get; private set; } = null!; public ICommand OpenCommand { get; private set; } = null!; public ICommand SaveCommand { get; private set; } = null!;
     public ICommand SaveAsCommand { get; private set; } = null!; public ICommand OpenSampleCommand { get; private set; } = null!; public ICommand RunCommand { get; private set; } = null!;
     public ICommand RuntimeLaunchCommand { get; private set; } = null!;
@@ -379,7 +368,6 @@ public sealed class MainViewModel : ObservableObject
     {
         Settings = await _settingsStorage.LoadAsync(CancellationToken.None);
         ApplyPaneLayout();
-        ActiveNavigationItem = FirstVisibleNavigationItem();
         ApplyStepLayout();
         ProjectName = _project.Project.Name;
         if (_editor.IsReady) await _editor.SendAsync("initialize_editor", CreateEditorSnapshot(ActiveScript));
@@ -1122,7 +1110,6 @@ public sealed class MainViewModel : ObservableObject
         CapturePaneLayout();
         if (!_dialogs.EditSettings(Settings)) return;
         ApplyPaneVisibility();
-        UpdateActiveNavigationItem();
         ApplyStepLayout();
         await _settingsStorage.SaveAsync(Settings, CancellationToken.None);
     }
@@ -1555,7 +1542,6 @@ public sealed class MainViewModel : ObservableObject
         _lastToolboxPaneWidth = new GridLength(ClampPaneSize(Settings.ToolboxPaneWidth, 220, 170, 480));
         _lastPropertiesPaneWidth = new GridLength(ClampPaneSize(Settings.PropertiesPaneWidth, 320, 220, 560));
         _lastOutputPaneHeight = new GridLength(ClampPaneSize(Settings.OutputPaneHeight, 220, 120, 520));
-        _lastStepsPaneHeight = new GridLength(220);
         _lastProjectFilesPaneWidth = new GridLength(210);
         _lastScriptListPaneWidth = new GridLength(220);
         ApplyPaneVisibility();
@@ -1566,25 +1552,23 @@ public sealed class MainViewModel : ObservableObject
         Raise(nameof(LeftSidebarWidth));
         Raise(nameof(LeftSidebarMinWidth));
         Raise(nameof(IsLeftSidebarVisible));
-        Raise(nameof(IsBothLeftPanesVisible));
-        Raise(nameof(ProjectFilesPaneRowHeight));
-        Raise(nameof(ScriptListPaneRowHeight));
-        Raise(nameof(LeftPaneSplitterHeight));
     }
 
     private void ApplyPaneVisibility()
     {
-        IsProjectFilesPaneVisible = Settings.IsProjectFilesPaneVisible;
-        IsScriptListPaneVisible = Settings.IsScriptListPaneVisible;
-        IsToolboxPaneVisible = Settings.IsToolboxPaneVisible;
+        var startupSidebarPanel = Settings.IsProjectFilesPaneVisible
+            ? "project"
+            : Settings.IsScriptListPaneVisible
+                ? "scripts"
+                : Settings.IsToolboxPaneVisible ? "toolbox" : string.Empty;
+        SetSidebarPanel(startupSidebarPanel);
         IsPropertiesPaneVisible = Settings.IsPropertiesPaneVisible;
         IsOutputPaneVisible = Settings.IsOutputPaneVisible;
-        ToolboxPaneWidth = IsToolboxPaneVisible ? _lastToolboxPaneWidth : new GridLength(0);
         PropertiesPaneWidth = IsPropertiesPaneVisible ? _lastPropertiesPaneWidth : new GridLength(0);
         OutputPaneHeight = IsOutputPaneVisible ? _lastOutputPaneHeight : new GridLength(0);
-        StepsPaneHeight = IsToolboxPaneVisible ? _lastStepsPaneHeight : new GridLength(0);
-        ProjectFilesPaneWidth = IsProjectFilesPaneVisible ? _lastProjectFilesPaneWidth : new GridLength(0);
-        ScriptListPaneWidth = IsScriptListPaneVisible ? _lastScriptListPaneWidth : new GridLength(0);
+        Settings.IsProjectFilesPaneVisible = IsProjectFilesPaneVisible;
+        Settings.IsScriptListPaneVisible = IsScriptListPaneVisible;
+        Settings.IsToolboxPaneVisible = IsToolboxPaneVisible;
     }
 
     private void ApplyStepLayout() =>
@@ -1609,57 +1593,32 @@ public sealed class MainViewModel : ObservableObject
 
     private void NavigatePane(object? parameter)
     {
-        if (parameter is not string pane || pane is not ("project" or "scripts" or "toolbox" or "properties" or "output"))
-            return;
+        if (parameter is not string pane) return;
 
-        if (ActiveNavigationItem == pane && IsNavigationPaneVisible(pane))
+        if (pane is "project" or "scripts" or "toolbox")
         {
-            ToggleNavigationPane(pane);
-            UpdateActiveNavigationItem();
+            SetSidebarPanel(pane);
+            CapturePaneLayout();
+            PersistSettings();
             return;
         }
 
-        if (!IsNavigationPaneVisible(pane))
-            ToggleNavigationPane(pane);
+        if (pane == "properties") TogglePropertiesPane();
+        else if (pane == "output") ToggleOutputPane();
+    }
+
+    private void SetSidebarPanel(string pane)
+    {
+        if (pane is not ("" or "project" or "scripts" or "toolbox")) return;
+
+        // 左侧活动栏一次只显示一个内容面板。
+        IsProjectFilesPaneVisible = pane == "project";
+        IsScriptListPaneVisible = pane == "scripts";
+        IsToolboxPaneVisible = pane == "toolbox";
+        ProjectFilesPaneWidth = IsProjectFilesPaneVisible ? _lastProjectFilesPaneWidth : new GridLength(0);
+        ScriptListPaneWidth = IsScriptListPaneVisible ? _lastScriptListPaneWidth : new GridLength(0);
+        ToolboxPaneWidth = IsToolboxPaneVisible ? _lastToolboxPaneWidth : new GridLength(0);
         ActiveNavigationItem = pane;
-    }
-
-    private bool IsNavigationPaneVisible(string pane) => pane switch
-    {
-        "project" => IsProjectFilesPaneVisible,
-        "scripts" => IsScriptListPaneVisible,
-        "toolbox" => IsToolboxPaneVisible,
-        "properties" => IsPropertiesPaneVisible,
-        "output" => IsOutputPaneVisible,
-        _ => false
-    };
-
-    private void ToggleNavigationPane(string pane)
-    {
-        switch (pane)
-        {
-            case "project": ToggleProjectFilesPane(); break;
-            case "scripts": ToggleScriptListPane(); break;
-            case "toolbox": ToggleToolboxPane(); break;
-            case "properties": TogglePropertiesPane(); break;
-            case "output": ToggleOutputPane(); break;
-        }
-    }
-
-    private string FirstVisibleNavigationItem()
-    {
-        if (IsProjectFilesPaneVisible) return "project";
-        if (IsScriptListPaneVisible) return "scripts";
-        if (IsToolboxPaneVisible) return "toolbox";
-        if (IsPropertiesPaneVisible) return "properties";
-        if (IsOutputPaneVisible) return "output";
-        return string.Empty;
-    }
-
-    private void UpdateActiveNavigationItem()
-    {
-        if (!IsNavigationPaneVisible(ActiveNavigationItem))
-            ActiveNavigationItem = FirstVisibleNavigationItem();
     }
 
     private void ToggleProjectFilesPane()
@@ -1667,15 +1626,10 @@ public sealed class MainViewModel : ObservableObject
         if (IsProjectFilesPaneVisible)
         {
             if (ProjectFilesPaneWidth.Value > 0) _lastProjectFilesPaneWidth = ProjectFilesPaneWidth;
-            ProjectFilesPaneWidth = new GridLength(0);
-            IsProjectFilesPaneVisible = false;
+            SetSidebarPanel(string.Empty);
         }
-        else
-        {
-            ProjectFilesPaneWidth = _lastProjectFilesPaneWidth;
-            IsProjectFilesPaneVisible = true;
-        }
-        CapturePaneLayout(); PersistSettings(); UpdateActiveNavigationItem();
+        else SetSidebarPanel("project");
+        CapturePaneLayout(); PersistSettings();
     }
 
     private void ToggleScriptListPane()
@@ -1683,31 +1637,21 @@ public sealed class MainViewModel : ObservableObject
         if (IsScriptListPaneVisible)
         {
             if (ScriptListPaneWidth.Value > 0) _lastScriptListPaneWidth = ScriptListPaneWidth;
-            ScriptListPaneWidth = new GridLength(0);
-            IsScriptListPaneVisible = false;
+            SetSidebarPanel(string.Empty);
         }
-        else
-        {
-            ScriptListPaneWidth = _lastScriptListPaneWidth;
-            IsScriptListPaneVisible = true;
-        }
-        CapturePaneLayout(); PersistSettings(); UpdateActiveNavigationItem();
+        else SetSidebarPanel("scripts");
+        CapturePaneLayout(); PersistSettings();
     }
 
     private void ToggleToolboxPane()
     {
         if (IsToolboxPaneVisible)
         {
-            if (StepsPaneHeight.Value > 0) _lastStepsPaneHeight = StepsPaneHeight;
-            StepsPaneHeight = new GridLength(0);
-            IsToolboxPaneVisible = false;
+            if (ToolboxPaneWidth.Value > 0) _lastToolboxPaneWidth = ToolboxPaneWidth;
+            SetSidebarPanel(string.Empty);
         }
-        else
-        {
-            StepsPaneHeight = _lastStepsPaneHeight;
-            IsToolboxPaneVisible = true;
-        }
-        CapturePaneLayout(); PersistSettings(); UpdateActiveNavigationItem();
+        else SetSidebarPanel("toolbox");
+        CapturePaneLayout(); PersistSettings();
     }
 
     private void TogglePropertiesPane()
@@ -1723,7 +1667,7 @@ public sealed class MainViewModel : ObservableObject
             PropertiesPaneWidth = _lastPropertiesPaneWidth;
             IsPropertiesPaneVisible = true;
         }
-        CapturePaneLayout(); PersistSettings(); UpdateActiveNavigationItem();
+        CapturePaneLayout(); PersistSettings();
     }
 
     private void ToggleOutputPane()
@@ -1739,7 +1683,7 @@ public sealed class MainViewModel : ObservableObject
             OutputPaneHeight = _lastOutputPaneHeight;
             IsOutputPaneVisible = true;
         }
-        CapturePaneLayout(); PersistSettings(); UpdateActiveNavigationItem();
+        CapturePaneLayout(); PersistSettings();
     }
 
     private static double ClampPaneSize(double value, double fallback, double minimum, double maximum) =>

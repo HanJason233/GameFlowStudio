@@ -200,13 +200,7 @@
             </Grid.ColumnDefinitions>
 
             <Grid Grid.Row="0" Grid.Column="0">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="{Binding ProjectFilesPaneRowHeight}"/>
-                    <RowDefinition Height="{Binding LeftPaneSplitterHeight}"/>
-                    <RowDefinition Height="{Binding ScriptListPaneRowHeight}"/>
-                </Grid.RowDefinitions>
-
-            <Border Grid.Row="0" Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource PanelBorderBrush}" BorderThickness="0,0,1,0" Visibility="{Binding IsProjectFilesPaneVisible, Converter={StaticResource BoolVisibility}}">
+            <Border Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource PanelBorderBrush}" BorderThickness="0,0,1,0" Visibility="{Binding IsProjectFilesPaneVisible, Converter={StaticResource BoolVisibility}}">
                 <DockPanel>
                     <Grid DockPanel.Dock="Top" Height="38" Background="{DynamicResource HeaderBackgroundBrush}" Margin="0,0,0,6">
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="8,0,0,0">
@@ -245,9 +239,7 @@
                 </DockPanel>
             </Border>
 
-            <GridSplitter Grid.Row="1" Style="{StaticResource HorizontalGridSplitter}" Visibility="{Binding IsBothLeftPanesVisible, Converter={StaticResource BoolVisibility}}"/>
-
-            <Border Grid.Row="2" Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource PanelBorderBrush}" BorderThickness="0,0,1,0" Visibility="{Binding IsScriptListPaneVisible, Converter={StaticResource BoolVisibility}}">
+            <Border Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource PanelBorderBrush}" BorderThickness="0,0,1,0" Visibility="{Binding IsScriptListPaneVisible, Converter={StaticResource BoolVisibility}}">
                 <DockPanel>
                     <Grid DockPanel.Dock="Top" Height="38" Background="{DynamicResource HeaderBackgroundBrush}" Margin="0,0,0,6">
                         <controls:SelectableTextBlock Text="脚本列表" FontWeight="SemiBold" FontSize="13" Margin="12,0" VerticalAlignment="Center"/>
@@ -265,42 +257,32 @@
                     </ScrollViewer>
                 </DockPanel>
             </Border>
+
+            <Border Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource PanelBorderBrush}" BorderThickness="0,0,1,0" Visibility="{Binding IsToolboxPaneVisible, Converter={StaticResource BoolVisibility}}">
+                <DockPanel>
+                    <Grid DockPanel.Dock="Top" Height="38" Background="{DynamicResource HeaderBackgroundBrush}" Margin="0,0,0,6">
+                        <controls:SelectableTextBlock Text="操作卡片" FontWeight="SemiBold" FontSize="13" Margin="12,0" VerticalAlignment="Center"/>
+                        <Button Content="—" Style="{StaticResource PaneHeaderButton}" HorizontalAlignment="Right" Command="{Binding ToggleToolboxPaneCommand}" ToolTip="收起操作卡片"/>
+                    </Grid>
+                    <ItemsControl ItemsSource="{Binding ToolboxGroups}" ItemTemplate="{StaticResource StepCategoryTemplate}" Padding="8,0,8,8" Visibility="{Binding IsHorizontalStepLayout, Converter={StaticResource InverseBoolVisibility}}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate><StackPanel Orientation="Vertical"/></ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+                    <ItemsControl ItemsSource="{Binding ToolboxGroups}" ItemTemplate="{StaticResource StepCategoryTemplate}" Padding="8,0,8,8" Visibility="{Binding IsHorizontalStepLayout, Converter={StaticResource BoolVisibility}}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate><WrapPanel Orientation="Horizontal"/></ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+                </DockPanel>
+            </Border>
             </Grid>
 
             <GridSplitter Grid.Row="0" Grid.Column="1" Grid.RowSpan="3" Style="{StaticResource VerticalGridSplitter}" Visibility="{Binding IsLeftSidebarVisible, Converter={StaticResource BoolVisibility}}"/>
 
-            <Grid Grid.Row="0" Grid.Column="2">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="*" MinHeight="260"/>
-                    <RowDefinition Height="5"/>
-                    <RowDefinition Height="{Binding StepsPaneHeight, Mode=TwoWay}" MinHeight="{Binding StepsPaneMinHeight}"/>
-                </Grid.RowDefinitions>
-
-                <Border Grid.Row="0" Background="{DynamicResource EditorCanvasBackgroundBrush}">
-                    <wv2:WebView2 x:Name="EditorWebView" DefaultBackgroundColor="#FAFAFA"/>
-                </Border>
-
-                <GridSplitter Grid.Row="1" Style="{StaticResource HorizontalGridSplitter}" Visibility="{Binding IsToolboxPaneVisible, Converter={StaticResource BoolVisibility}}"/>
-
-                <Border Grid.Row="2" Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource PanelBorderBrush}" BorderThickness="0,1,0,0" Visibility="{Binding IsToolboxPaneVisible, Converter={StaticResource BoolVisibility}}">
-                    <DockPanel>
-                        <Grid DockPanel.Dock="Top" Height="38" Background="{DynamicResource HeaderBackgroundBrush}" Margin="0,0,0,6">
-                            <controls:SelectableTextBlock Text="操作卡片" FontWeight="SemiBold" FontSize="13" Margin="12,0" VerticalAlignment="Center"/>
-                            <Button Content="—" Style="{StaticResource PaneHeaderButton}" HorizontalAlignment="Right" Command="{Binding ToggleToolboxPaneCommand}" ToolTip="最小化操作卡片"/>
-                        </Grid>
-                        <ItemsControl ItemsSource="{Binding ToolboxGroups}" ItemTemplate="{StaticResource StepCategoryTemplate}" Padding="8,0,8,8" Visibility="{Binding IsHorizontalStepLayout, Converter={StaticResource InverseBoolVisibility}}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate><WrapPanel Orientation="Horizontal"/></ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                        </ItemsControl>
-                        <ItemsControl ItemsSource="{Binding ToolboxGroups}" ItemTemplate="{StaticResource StepCategoryTemplate}" Padding="8,0,8,8" Visibility="{Binding IsHorizontalStepLayout, Converter={StaticResource BoolVisibility}}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate><WrapPanel Orientation="Horizontal"/></ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                        </ItemsControl>
-                    </DockPanel>
-                </Border>
-            </Grid>
+            <Border Grid.Row="0" Grid.Column="2" Background="{DynamicResource EditorCanvasBackgroundBrush}">
+                <wv2:WebView2 x:Name="EditorWebView" DefaultBackgroundColor="#FAFAFA"/>
+            </Border>
 
             <GridSplitter Grid.Row="0" Grid.Column="3" Grid.RowSpan="3" Style="{StaticResource VerticalGridSplitter}" Visibility="{Binding IsPropertiesPaneVisible, Converter={StaticResource BoolVisibility}}"/>
 
