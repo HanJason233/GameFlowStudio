@@ -23,6 +23,9 @@ public sealed class RuntimeProcessIntegrationTests
         Directory.CreateDirectory(Path.GetDirectoryName(projectPath)!);
         await new ProjectStorageService(NullLogger<ProjectStorageService>.Instance)
             .SaveAsync(CreateStartEndProject(), projectPath, CancellationToken.None);
+        var standaloneProjectPath = Path.Combine(Path.GetDirectoryName(projectPath)!, "standalone.gflow");
+        await new ProjectStorageService(NullLogger<ProjectStorageService>.Instance)
+            .SaveAsync(CreateStartEndProject(0), standaloneProjectPath, CancellationToken.None);
 
         var workerPath = Environment.GetEnvironmentVariable("GAMEFLOWSTUDIO_RUNTIME_PATH");
         if (string.IsNullOrWhiteSpace(workerPath))
@@ -30,6 +33,17 @@ public sealed class RuntimeProcessIntegrationTests
         else
             workerPath = Path.GetFullPath(workerPath);
         Assert.True(File.Exists(workerPath), $"Runtime worker was not copied to test output: {workerPath}");
+        using (var standalone = StartRuntime(workerPath, "--project", standaloneProjectPath, "--script", "1", "--run"))
+        {
+            var outputTask = standalone.StandardOutput.ReadToEndAsync();
+            var errorTask = standalone.StandardError.ReadToEndAsync();
+            await standalone.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(15));
+            var output = await outputTask;
+            var error = await errorTask;
+            Assert.True(standalone.ExitCode == 0, $"Standalone exited with code {standalone.ExitCode}: {error}");
+            Assert.Contains("Loaded", output);
+            Assert.Contains("Completed", output);
+        }
         var startInfo = new ProcessStartInfo
         {
             FileName = workerPath,
@@ -46,6 +60,45 @@ public sealed class RuntimeProcessIntegrationTests
 
         try
         {
+            await using (var badTokenPipe = new NamedPipeClientStream(".", pipeName, PipeDirection.InOut, PipeOptions.Asynchronous))
+            {
+                await badTokenPipe.ConnectAsync(15000);
+                await using var badTokenChannel = new PipeMessageChannel(badTokenPipe);
+                badTokenChannel.Start();
+                await Assert.ThrowsAsync<RemoteCommandException>(() => badTokenChannel.RequestAsync<InitializeResponse>(
+                    RuntimeCommands.Initialize,
+                    new InitializeRequest("wrong-token", ProtocolConstants.CurrentVersion, Environment.ProcessId),
+                    TimeSpan.FromSeconds(5)));
+            }
+
+            await using (var badVersionPipe = new NamedPipeClientStream(".", pipeName, PipeDirection.InOut, PipeOptions.Asynchronous))
+            {
+                await badVersionPipe.ConnectAsync(15000);
+                await using var badVersionChannel = new PipeMessageChannel(badVersionPipe);
+                badVersionChannel.Start();
+                await AssertPipeRequestRejectedAsync(() => badVersionChannel.RequestAsync<InitializeResponse>(
+                    RuntimeCommands.Initialize,
+                    new InitializeRequest(token, "0.9", Environment.ProcessId),
+                    TimeSpan.FromSeconds(5)));
+            }
+
+            await using (var unauthenticatedPipe = new NamedPipeClientStream(".", pipeName, PipeDirection.InOut, PipeOptions.Asynchronous))
+            {
+                await unauthenticatedPipe.ConnectAsync(15000);
+                await using var unauthenticatedChannel = new PipeMessageChannel(unauthenticatedPipe);
+                unauthenticatedChannel.Start();
+                await Assert.ThrowsAsync<RemoteCommandException>(() => unauthenticatedChannel.RequestAsync<RuntimeStatusResponse>(
+                    RuntimeCommands.GetStatus, null, TimeSpan.FromSeconds(5)));
+            }
+
+            await using (var idlePipe = new NamedPipeClientStream(".", pipeName, PipeDirection.InOut, PipeOptions.Asynchronous))
+            {
+                await idlePipe.ConnectAsync(15000);
+                var buffer = new byte[1];
+                var read = await idlePipe.ReadAsync(buffer.AsMemory()).AsTask().WaitAsync(TimeSpan.FromSeconds(7));
+                Assert.Equal(0, read);
+            }
+
             var pipe = new NamedPipeClientStream(".", pipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
             await pipe.ConnectAsync(15000);
             channel = new PipeMessageChannel(pipe);
@@ -95,6 +148,16 @@ public sealed class RuntimeProcessIntegrationTests
             var runtimePid = initialized.RuntimeProcessId;
             await channel.DisposeAsync();
             channel = null;
+
+            await using (var reconnectWithoutAuthPipe = new NamedPipeClientStream(".", pipeName, PipeDirection.InOut, PipeOptions.Asynchronous))
+            {
+                await reconnectWithoutAuthPipe.ConnectAsync(15000);
+                await using var reconnectWithoutAuth = new PipeMessageChannel(reconnectWithoutAuthPipe);
+                reconnectWithoutAuth.Start();
+                await Assert.ThrowsAsync<RemoteCommandException>(() => reconnectWithoutAuth.RequestAsync<RuntimeStatusResponse>(
+                    RuntimeCommands.GetStatus, null, TimeSpan.FromSeconds(5)));
+            }
+
             var reconnectPipe = new NamedPipeClientStream(".", pipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
             await reconnectPipe.ConnectAsync(15000);
             channel = new PipeMessageChannel(reconnectPipe);
@@ -112,12 +175,40 @@ public sealed class RuntimeProcessIntegrationTests
             var resumed = await channel.RequestAsync<RuntimeStatusResponse>(RuntimeCommands.ResumeRun, null, TimeSpan.FromSeconds(10));
             Assert.NotNull(resumed);
             Assert.Equal(nameof(WorkflowExecutionState.Running), resumed.State);
-            var runCompleted = await completed.Task.WaitAsync(TimeSpan.FromSeconds(15));
-            Assert.Equal(runId, runCompleted.RunId);
+            var beforeDisconnect = await channel.RequestAsync<RuntimeRunSnapshot>(RuntimeCommands.GetRunSnapshot, null, TimeSpan.FromSeconds(10));
+            Assert.NotNull(beforeDisconnect);
+            var sequenceBeforeRunFinishes = beforeDisconnect.Sequence;
+            await channel.DisposeAsync();
+            channel = null;
+            await Task.Delay(TimeSpan.FromMilliseconds(6500));
 
-            var status = await channel.RequestAsync<RuntimeStatusResponse>(RuntimeCommands.GetStatus, null, TimeSpan.FromSeconds(10));
-            Assert.NotNull(status);
-            Assert.Equal(nameof(WorkflowExecutionState.Completed), status.State);
+            var completedPipe = new NamedPipeClientStream(".", pipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
+            await completedPipe.ConnectAsync(15000);
+            channel = new PipeMessageChannel(completedPipe);
+            channel.MessageReceived += eventHandler;
+            channel.Start();
+            _ = await channel.RequestAsync<InitializeResponse>(RuntimeCommands.Initialize,
+                new InitializeRequest(token, ProtocolConstants.CurrentVersion, Environment.ProcessId), TimeSpan.FromSeconds(10));
+            RuntimeRunSnapshot? recoveredSnapshot = null;
+            RuntimeEventsResponse? missedEvents = null;
+            var recoveryDeadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+            while (DateTime.UtcNow < recoveryDeadline)
+            {
+                recoveredSnapshot = await channel.RequestAsync<RuntimeRunSnapshot>(RuntimeCommands.GetRunSnapshot, null, TimeSpan.FromSeconds(10));
+                if (recoveredSnapshot?.State == nameof(WorkflowExecutionState.Completed)) break;
+                await Task.Delay(100);
+            }
+            Assert.NotNull(recoveredSnapshot);
+            Assert.Equal(nameof(WorkflowExecutionState.Completed), recoveredSnapshot.State);
+            Assert.Contains(recoveredSnapshot.Nodes, node => node.NodeId == "wait" && node.State == "Completed");
+            Assert.NotEmpty(recoveredSnapshot.Logs);
+            missedEvents = await channel.RequestAsync<RuntimeEventsResponse>(RuntimeCommands.GetEvents,
+                new GetEventsRequest(sequenceBeforeRunFinishes), TimeSpan.FromSeconds(10));
+            Assert.NotNull(missedEvents);
+            Assert.False(missedEvents.HistoryTruncated);
+            Assert.Contains(missedEvents.Events, item => item.Type == RuntimeEvents.NodeCompleted && item.Payload.RunId == runId);
+            Assert.Contains(missedEvents.Events, item => item.Type == RuntimeEvents.RunCompleted && item.Payload.RunId == runId);
+            Assert.All(missedEvents.Events.Zip(missedEvents.Events.Skip(1)), pair => Assert.Equal(pair.First.Sequence + 1, pair.Second.Sequence));
 
             currentRunId = Guid.NewGuid().ToString("N");
             waitStarted = new TaskCompletionSource<RuntimeEventPayload>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -155,7 +246,35 @@ public sealed class RuntimeProcessIntegrationTests
         }
     }
 
-    private static AutomationProject CreateStartEndProject()
+    private static Process StartRuntime(string workerPath, params string[] arguments)
+    {
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = workerPath,
+            WorkingDirectory = AppContext.BaseDirectory,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true
+        };
+        foreach (var argument in arguments) startInfo.ArgumentList.Add(argument);
+        return Process.Start(startInfo) ?? throw new InvalidOperationException("Runtime process failed to start.");
+    }
+
+    private static async Task AssertPipeRequestRejectedAsync<T>(Func<Task<T?>> request)
+    {
+        try
+        {
+            _ = await request();
+            Assert.Fail("The Runtime accepted a request that must be rejected.");
+        }
+        catch (Exception exception) when (exception is RemoteCommandException or IOException or TaskCanceledException)
+        {
+            // Unauthorized and incompatible pre-authentication clients are rejected and closed.
+        }
+    }
+
+    private static AutomationProject CreateStartEndProject(int waitDurationMs = 5000)
     {
         var script = new AutomationScript { Id = "1", Name = "IPC integration run", DefaultNodeDelayMs = 0 };
         script.Nodes.Add(new WorkflowNode
@@ -173,7 +292,7 @@ public sealed class RuntimeProcessIntegrationTests
                 DisplayName = "Wait",
                 Parameters = new Dictionary<string, JsonElement>(StringComparer.Ordinal)
                 {
-                    ["durationMs"] = JsonSerializer.SerializeToElement(5000)
+                    ["durationMs"] = JsonSerializer.SerializeToElement(waitDurationMs)
                 }
             }
         });

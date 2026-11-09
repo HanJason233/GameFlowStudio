@@ -17,6 +17,8 @@ namespace GameFlowStudio.Desktop;
 public partial class App : Application
 {
     private IHost? _host;
+    private readonly object _hostShutdownSync = new();
+    private Task? _hostShutdownTask;
     private string? _temporaryEditorProjectPath;
     protected override async void OnStartup(StartupEventArgs e)
     {
@@ -68,6 +70,7 @@ public partial class App : Application
                 catch (IOException) { }
                 catch (UnauthorizedAccessException) { }
                 MessageBox.Show(exception.Message, "纯运行启动失败", MessageBoxButton.OK, MessageBoxImage.Error);
+                await ShutdownHostAsync();
                 Shutdown(1);
                 return;
             }
@@ -85,20 +88,44 @@ public partial class App : Application
         MainWindow = window; window.Show();
     }
 
-    protected override async void OnExit(ExitEventArgs e)
+    public Task ShutdownHostAsync()
     {
-        if (_host is not null)
+        lock (_hostShutdownSync)
+            return _hostShutdownTask ??= ShutdownHostCoreAsync();
+    }
+
+    private async Task ShutdownHostCoreAsync()
+    {
+        var host = _host;
+        _host = null;
+        if (host is not null)
         {
-            if (_host.Services.GetService<RuntimeProcessManager>() is { } runtime)
-                await runtime.ShutdownAsync();
-            await _host.StopAsync();
-            _host.Dispose();
+            var logger = host.Services.GetService<ILogger<App>>();
+            try { await host.StopAsync().ConfigureAwait(false); }
+            catch (Exception exception) { logger?.LogError(exception, "Desktop host failed to stop cleanly"); }
+            try
+            {
+                if (host is IAsyncDisposable asyncHost) await asyncHost.DisposeAsync().ConfigureAwait(false);
+                else host.Dispose();
+            }
+            catch (Exception exception) { logger?.LogError(exception, "Desktop host failed to release its resources"); }
         }
         if (_temporaryEditorProjectPath is not null)
         {
             try { File.Delete(_temporaryEditorProjectPath); }
             catch (IOException) { }
             catch (UnauthorizedAccessException) { }
+            _temporaryEditorProjectPath = null;
+        }
+    }
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        if (_host is not null)
+        {
+            var logger = _host.Services.GetService<ILogger<App>>();
+            logger?.LogWarning("Application exit reached before asynchronous window shutdown completed; starting best-effort cleanup.");
+            _ = ShutdownHostAsync();
         }
         base.OnExit(e);
     }

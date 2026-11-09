@@ -59,8 +59,8 @@ Recording still locks the editor, captures input in Desktop, and appends the res
 - Runtime is a normal user-session process, not a Windows Service.
 - Desktop generates a random pipe name and 256-bit handshake token for its worker. The token is checked with a fixed-time comparison.
 - The server creates a single-instance named pipe with `PipeOptions.CurrentUserOnly`; other Windows users cannot connect.
-- Runtime remains alive across a temporary pipe disconnect so a task is not cancelled just because UI communication was interrupted. Desktop reconnects, renegotiates, and requests `get_status` and logs.
-- Runtime crashes do not terminate Desktop. The manager reports the lost run and restarts the worker for the next request.
+- Runtime remains alive across a temporary pipe disconnect so a task is not cancelled just because UI communication was interrupted. Each connection authenticates independently. Desktop reconnects, retrieves a full run snapshot, and replays journaled events after its sequence; if the event journal has wrapped, it replaces local state from a fresh snapshot.
+- Runtime crashes do not terminate Desktop. The manager reports the interrupted run and starts a replacement owned worker. Three consecutive heartbeat timeouts also trigger a controlled restart; one timeout does not.
 - On orderly Desktop exit, Runtime receives `shutdown` and stops the active task. If Desktop disappears, Runtime gives the parent five minutes to return, then requests a graceful stop for an active orphaned task and exits after the connection grace period. A managed worker that never completes its initial handshake exits after one minute.
 - The manager waits for graceful worker exit and terminates only its owned worker if it does not exit within three seconds of the shutdown request.
 

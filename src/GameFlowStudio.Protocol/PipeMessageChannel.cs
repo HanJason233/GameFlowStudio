@@ -27,10 +27,14 @@ public sealed class PipeMessageChannel : IAsyncDisposable
         _readerTask = ReadLoopAsync(_closed.Token);
     }
 
-    public async Task<T?> RequestAsync<T>(string type, object? payload, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+    public Task<T?> RequestAsync<T>(string type, object? payload, TimeSpan? timeout = null, CancellationToken cancellationToken = default) =>
+        RequestAsync<T>(ProtocolMessage.Command(type, payload), timeout, cancellationToken);
+
+    public async Task<T?> RequestAsync<T>(ProtocolMessage request, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(request);
+        if (request.Kind != MessageKind.Command) throw new ArgumentException("Only command messages can be sent as requests.", nameof(request));
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _isClosed) != 0, this);
-        var request = ProtocolMessage.Command(type, payload);
         var completion = new TaskCompletionSource<ProtocolMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
         if (!_pending.TryAdd(request.MessageId, completion)) throw new InvalidOperationException("Duplicate protocol message id.");
         try
@@ -42,7 +46,7 @@ public sealed class PipeMessageChannel : IAsyncDisposable
             try { response = await completion.Task.WaitAsync(timeoutSource.Token).ConfigureAwait(false); }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested && !_closed.IsCancellationRequested)
             {
-                throw new TimeoutException($"Runtime 命令 {type} 等待响应超时。");
+                throw new TimeoutException($"Runtime 命令 {request.Type} 等待响应超时。");
             }
 
             var result = response.Payload.Deserialize<RpcResponse>(ProtocolJson.Options)

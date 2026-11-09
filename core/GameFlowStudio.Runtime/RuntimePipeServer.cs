@@ -1,5 +1,7 @@
-using System.IO.Pipes;
 using System.Diagnostics;
+using System.IO;
+using System.IO.Pipes;
+using System.Threading.Channels;
 using GameFlowStudio.Protocol;
 using Microsoft.Extensions.Logging;
 
@@ -38,6 +40,7 @@ public sealed class RuntimePipeServer(
                     if (await ShouldShutdownAsOrphanAsync().ConfigureAwait(false)) break;
                     continue;
                 }
+
                 _lastDisconnectedAt = null;
                 await ServeConnectionAsync(pipe, cancellationToken).ConfigureAwait(false);
                 if (!dispatcher.ShutdownRequested) _lastDisconnectedAt = DateTimeOffset.UtcNow;
@@ -48,21 +51,93 @@ public sealed class RuntimePipeServer(
                 logger.LogWarning(exception, "Runtime named pipe connection ended");
             }
         }
-        if (dispatcher.ShutdownRequested) shutdown();
-        else if (exitWhenOrphaned && !cancellationToken.IsCancellationRequested) shutdown();
+        if (dispatcher.ShutdownRequested || (exitWhenOrphaned && !cancellationToken.IsCancellationRequested)) shutdown();
     }
 
     private async Task ServeConnectionAsync(Stream pipe, CancellationToken cancellationToken)
     {
         await using var channel = new PipeMessageChannel(pipe);
-        var closed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        channel.MessageReceived += message => _ = HandleMessageAsync(channel, message, closed, cancellationToken);
-        channel.Closed += _ => closed.TrySetResult();
-        dispatcher.Attach(channel);
+        var commands = Channel.CreateBounded<ProtocolMessage>(new BoundedChannelOptions(128)
+        {
+            FullMode = BoundedChannelFullMode.Wait,
+            SingleReader = true,
+            SingleWriter = false,
+            AllowSynchronousContinuations = false
+        });
+        var authenticated = false;
+        var attached = false;
+        using var authenticationTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        authenticationTimeout.CancelAfter(TimeSpan.FromSeconds(5));
+
+        channel.MessageReceived += message =>
+        {
+            if (!commands.Writer.TryWrite(message))
+            {
+                logger.LogWarning("Runtime pipe command queue was full; closing the connection.");
+                _ = channel.DisposeAsync();
+            }
+        };
+        channel.Closed += exception =>
+        {
+            if (exception is not null) logger.LogDebug(exception, "Runtime pipe client disconnected");
+            commands.Writer.TryComplete();
+        };
         channel.Start();
-        try { await closed.Task.WaitAsync(cancellationToken).ConfigureAwait(false); }
+
+        try
+        {
+            while (!cancellationToken.IsCancellationRequested && channel.IsConnected && !dispatcher.ShutdownRequested)
+            {
+                if (!authenticated && authenticationTimeout.IsCancellationRequested)
+                {
+                    logger.LogWarning("Runtime pipe client did not authenticate within five seconds.");
+                    break;
+                }
+                ProtocolMessage message;
+                try
+                {
+                    var readToken = authenticated ? cancellationToken : authenticationTimeout.Token;
+                    message = await commands.Reader.ReadAsync(readToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested && !authenticated)
+                {
+                    logger.LogWarning("Runtime pipe client did not authenticate within five seconds.");
+                    break;
+                }
+                catch (ChannelClosedException) { break; }
+
+                try
+                {
+                    var result = await dispatcher.DispatchAsync(message, cancellationToken, authenticated).ConfigureAwait(false);
+                    if (!authenticated && message.Type == RuntimeCommands.Initialize)
+                    {
+                        authenticated = true;
+                        authenticationTimeout.Cancel();
+                        dispatcher.Attach(channel);
+                        attached = true;
+                    }
+                    await channel.RespondAsync(message, result, cancellationToken: cancellationToken).ConfigureAwait(false);
+                    if (attached && message.Type == RuntimeCommands.Initialize)
+                        await dispatcher.PublishWorkerReadyAsync(cancellationToken).ConfigureAwait(false);
+                    if (dispatcher.ShutdownRequested) break;
+                }
+                catch (Exception exception)
+                {
+                    logger.LogWarning(exception, "Runtime command {Command} failed", message.Type);
+                    try { await channel.RespondAsync(message, error: exception.Message, cancellationToken: cancellationToken).ConfigureAwait(false); }
+                    catch (Exception responseException) when (responseException is IOException or ObjectDisposedException or OperationCanceledException) { }
+                    // 未认证管道仅保留至五秒握手期限，保证客户端能读取拒绝响应；认证初始化失败时立即关闭。
+                    if (!authenticated && message.Type == RuntimeCommands.Initialize) break;
+                }
+            }
+        }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
-        finally { dispatcher.Detach(channel); }
+        finally
+        {
+            commands.Writer.TryComplete();
+            if (attached) dispatcher.Detach(channel);
+        }
+
         if (dispatcher.ShutdownRequested) shutdown();
     }
 
@@ -94,22 +169,5 @@ public sealed class RuntimePipeServer(
         try { using var process = Process.GetProcessById(processId); return !process.HasExited; }
         catch (ArgumentException) { return false; }
         catch (InvalidOperationException) { return false; }
-    }
-
-    private async Task HandleMessageAsync(PipeMessageChannel channel, ProtocolMessage message, TaskCompletionSource closed, CancellationToken cancellationToken)
-    {
-        if (message.Kind != MessageKind.Command) return;
-        try
-        {
-            var response = await dispatcher.DispatchAsync(message, cancellationToken).ConfigureAwait(false);
-            await channel.RespondAsync(message, response, cancellationToken: cancellationToken).ConfigureAwait(false);
-            if (dispatcher.ShutdownRequested) closed.TrySetResult();
-        }
-        catch (Exception exception)
-        {
-            logger.LogWarning(exception, "Runtime command {Command} failed", message.Type);
-            try { await channel.RespondAsync(message, error: exception.Message, cancellationToken: cancellationToken).ConfigureAwait(false); }
-            catch (IOException) { }
-        }
     }
 }

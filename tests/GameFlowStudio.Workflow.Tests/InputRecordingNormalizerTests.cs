@@ -1,4 +1,4 @@
-using GameFlowStudio.Automation.Input;
+using GameFlowStudio.Desktop.Interaction;
 using GameFlowStudio.Contracts.Enums;
 using GameFlowStudio.Contracts.Recording;
 

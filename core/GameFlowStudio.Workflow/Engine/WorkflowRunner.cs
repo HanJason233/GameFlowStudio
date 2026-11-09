@@ -287,8 +287,8 @@ public sealed class WorkflowRunner : IWorkflowRunner
                 track.Graph.Script.Id,
                 current,
                 track.NextGlobalNodeOccurrence(track.Graph.Script.Id, current.Id),
-                () => ExecuteNodeAsync(workflow, current, track.Context, token)).ConfigureAwait(false)
-            : await ExecuteNodeAsync(workflow, current, track.Context, token).ConfigureAwait(false);
+                () => ExecuteNodeAsync(workflow, track.Graph.Script, current, track.Context, token)).ConfigureAwait(false)
+            : await ExecuteNodeAsync(workflow, track.Graph.Script, current, track.Context, token).ConfigureAwait(false);
         if (current.Type == Contracts.Nodes.NodeTypes.End) return true;
 
         ScriptExecutionGraph nextGraph;
@@ -442,11 +442,11 @@ public sealed class WorkflowRunner : IWorkflowRunner
         InitializeWindowScope(script.WindowScope, context, windowHandles);
     }
 
-    private async Task<NodeExecutionResult> ExecuteNodeAsync(AutomationProject workflow, WorkflowNode node, WorkflowExecutionContext context, CancellationToken token)
+    private async Task<NodeExecutionResult> ExecuteNodeAsync(AutomationProject workflow, AutomationScript script, WorkflowNode node, WorkflowExecutionContext context, CancellationToken token)
     {
         var timer = Stopwatch.StartNew();
         var startedWindow = GetCurrentWindowInfo(context);
-        Raise(NodeStarted, new(node, windowHandle: startedWindow?.Handle, windowTitle: startedWindow?.Title));
+        Raise(NodeStarted, new(node, windowHandle: startedWindow?.Handle, windowTitle: startedWindow?.Title, scriptId: script.Id));
         try
         {
             if (RequiresContextWindowActivation(node, context.ScriptInteractionMode)) ActivateContextWindow(context);
@@ -454,7 +454,7 @@ public sealed class WorkflowRunner : IWorkflowRunner
             timer.Stop();
             if (!result.Success) throw new InvalidOperationException(result.ErrorMessage ?? "节点执行失败。");
             var completedWindow = GetCurrentWindowInfo(context);
-            Raise(NodeCompleted, new(node, timer.ElapsedMilliseconds, windowHandle: completedWindow?.Handle, windowTitle: completedWindow?.Title));
+            Raise(NodeCompleted, new(node, timer.ElapsedMilliseconds, windowHandle: completedWindow?.Handle, windowTitle: completedWindow?.Title, scriptId: script.Id));
             context.Log(Log(workflow, node, WorkflowLogLevel.Information, "节点执行成功。", timer.ElapsedMilliseconds));
             return result;
         }
@@ -462,7 +462,7 @@ public sealed class WorkflowRunner : IWorkflowRunner
         {
             timer.Stop();
             var failedWindow = GetCurrentWindowInfo(context);
-            Raise(NodeFailed, new(node, timer.ElapsedMilliseconds, ex.Message, failedWindow?.Handle, failedWindow?.Title));
+            Raise(NodeFailed, new(node, timer.ElapsedMilliseconds, ex.Message, failedWindow?.Handle, failedWindow?.Title, script.Id));
             context.Log(Log(workflow, node, WorkflowLogLevel.Error, ex.Message, timer.ElapsedMilliseconds, ex));
             throw;
         }

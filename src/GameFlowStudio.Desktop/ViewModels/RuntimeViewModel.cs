@@ -14,6 +14,7 @@ public sealed class RuntimeScriptItem(RuntimeScriptInfo script) : ObservableObje
 {
     public string Id { get; } = script.Id;
     public string Name { get; } = script.Name;
+    public int NodeCount { get; } = script.NodeCount;
     public string Description { get; } = $"{script.NodeCount} 个节点";
 }
 
@@ -35,7 +36,7 @@ public sealed class RuntimeViewModel : ObservableObject, IDisposable
     private int _completedNodes;
     private int _totalNodes = 1;
     private string? _runId;
-    private readonly HashSet<string> _completedNodeIds = new(StringComparer.Ordinal);
+    private long _lastEventSequence;
     private Task? _runTask;
     private int _disposed;
     private WorkflowExecutionState _state;
@@ -48,6 +49,7 @@ public sealed class RuntimeViewModel : ObservableObject, IDisposable
         StopCommand = new RelayCommand(_ => _ = StopAsync(), _ => IsWorkflowActive);
         _runtime.RuntimeEventReceived += OnRuntimeEvent;
         _runtime.StatusRecovered += OnStatusRecovered;
+        _runtime.RunSnapshotRecovered += OnRunSnapshotRecovered;
         _runtime.ConnectionLost += OnConnectionLost;
     }
 
@@ -58,6 +60,7 @@ public sealed class RuntimeViewModel : ObservableObject, IDisposable
         set
         {
             if (!Set(ref _selectedScript, value) || value is null || IsWorkflowActive) return;
+            _totalNodes = Math.Max(1, value.NodeCount);
             ResetProgress();
         }
     }
@@ -90,12 +93,12 @@ public sealed class RuntimeViewModel : ObservableObject, IDisposable
         {
             Scripts.Clear();
             foreach (var script in project.Scripts) Scripts.Add(new(script));
-            _totalNodes = Math.Max(1, project.Scripts.Sum(script => script.NodeCount));
             _initialized = true;
             Raise(nameof(IsSelectionEnabled));
             SelectedScript = Scripts.FirstOrDefault(item => item.Id == scriptId)
                 ?? Scripts.FirstOrDefault(item => item.Id == project.ActiveScriptId)
                 ?? Scripts[0];
+            _totalNodes = Math.Max(1, SelectedScript.NodeCount);
             ResetProgress();
         });
         var status = await _runtime.GetStatusAsync(cancellationToken).ConfigureAwait(false);
@@ -164,7 +167,14 @@ public sealed class RuntimeViewModel : ObservableObject, IDisposable
 
     public async Task StopForCloseAsync()
     {
-        if (IsWorkflowActive) await StopAsync().ConfigureAwait(false);
+        if (!IsWorkflowActive) return;
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        try { await _runtime.StopRunAsync(timeout.Token).ConfigureAwait(false); }
+        catch (Exception exception)
+        {
+            _logger.LogWarning(exception, "Runtime did not stop before the pure-run window closed");
+            OnUi(() => ErrorText = exception.Message);
+        }
     }
 
     private void OnRuntimeEvent(ProtocolMessage message)
@@ -174,12 +184,18 @@ public sealed class RuntimeViewModel : ObservableObject, IDisposable
         try { payload = message.Payload.Deserialize<RuntimeEventPayload>(ProtocolJson.Options); }
         catch (Exception exception) { _logger.LogWarning(exception, "无法解析 Runtime 事件 {EventType}", message.Type); return; }
         if (payload is null) return;
-        if (_runId is not null && payload.RunId is not null && payload.RunId != _runId) return;
-        OnUi(() => ApplyRuntimeEvent(message.Type, payload));
+        OnUi(() => ApplyRuntimeEvent(message.Type, payload, message.Sequence));
     }
 
-    private void ApplyRuntimeEvent(string eventType, RuntimeEventPayload payload)
+    private void ApplyRuntimeEvent(string eventType, RuntimeEventPayload payload, long envelopeSequence)
     {
+        var sequence = envelopeSequence > 0 ? envelopeSequence : payload.Sequence;
+        if (sequence > 0)
+        {
+            if (sequence <= _lastEventSequence) return;
+            _lastEventSequence = sequence;
+        }
+        if (_runId is not null && payload.RunId is not null && payload.RunId != _runId) return;
         switch (eventType)
         {
             case RuntimeEvents.StateChanged:
@@ -191,14 +207,10 @@ public sealed class RuntimeViewModel : ObservableObject, IDisposable
                 break;
             case RuntimeEvents.NodeCompleted:
                 UpdateWindow(payload);
-                if (payload.NodeId is { } id && _completedNodeIds.Add(id)) _completedNodes++;
-                var shown = Math.Min(_completedNodes, _totalNodes);
-                if (_state != WorkflowExecutionState.Completed && shown >= _totalNodes) shown = Math.Max(0, _totalNodes - 1);
-                ProgressValue = Math.Clamp(shown * 100d / _totalNodes, 0, 99);
-                ProgressText = $"{shown} / {_totalNodes}";
                 break;
             case RuntimeEvents.ProgressChanged when payload.CompletedNodes is { } completed:
-                _completedNodes = Math.Min(completed, _totalNodes);
+                _completedNodes = Math.Max(0, completed);
+                _totalNodes = Math.Max(1, payload.TotalNodes ?? _totalNodes);
                 ProgressValue = Math.Clamp(payload.ProgressPercent ?? (_completedNodes * 100d / _totalNodes), 0, 100);
                 ProgressText = $"{_completedNodes} / {_totalNodes}";
                 break;
@@ -208,12 +220,10 @@ public sealed class RuntimeViewModel : ObservableObject, IDisposable
                 break;
             case RuntimeEvents.RunCompleted:
                 ProgressValue = 100;
-                ProgressText = $"{_totalNodes} / {_totalNodes}";
-                _runId = null;
+                ProgressText = $"{_completedNodes} / {_totalNodes}";
                 break;
             case RuntimeEvents.RunFailed:
                 ErrorText = payload.Error ?? "工作流执行失败。";
-                _runId = null;
                 break;
         }
     }
@@ -231,6 +241,24 @@ public sealed class RuntimeViewModel : ObservableObject, IDisposable
         if (status.CurrentNodeId is { } nodeId) CurrentNodeText = status.CurrentNodeName ?? nodeId;
     });
 
+    private void OnRunSnapshotRecovered(RuntimeRunSnapshot snapshot) => OnUi(() =>
+    {
+        var wasRunning = IsWorkflowActive;
+        var interrupted = wasRunning && _runId is not null && snapshot.RunId != _runId
+            && snapshot.State is nameof(WorkflowExecutionState.Idle) or nameof(WorkflowExecutionState.Completed) or nameof(WorkflowExecutionState.Failed);
+        _lastEventSequence = snapshot.Sequence;
+        _completedNodes = snapshot.CompletedNodes;
+        _totalNodes = Math.Max(1, snapshot.TotalNodes);
+        ProgressValue = Math.Clamp(snapshot.ProgressPercent, 0, 100);
+        ProgressText = $"{_completedNodes} / {_totalNodes}";
+        CurrentNodeText = snapshot.CurrentNodeName ?? snapshot.CurrentNodeId ?? "—";
+        if (interrupted) ErrorText = "Runtime 已重启，本次运行已中断；为避免重复桌面操作，不会自动重放。";
+        _runId = snapshot.RunId;
+        if (Enum.TryParse<WorkflowExecutionState>(snapshot.State, out var state)) SetState(state);
+        if (_runId is not null && state == WorkflowExecutionState.Failed)
+            ErrorText = snapshot.Nodes.FirstOrDefault(node => node.State == "Failed")?.Error ?? "工作流运行失败。";
+    });
+
     private void OnConnectionLost(Exception? exception)
     {
         if (exception is not null) _logger.LogWarning(exception, "Runtime IPC 连接已断开，正在尝试重连");
@@ -245,7 +273,6 @@ public sealed class RuntimeViewModel : ObservableObject, IDisposable
             ProgressValue = 100;
             ProgressText = $"{_totalNodes} / {_totalNodes}";
         }
-        if (state is WorkflowExecutionState.Idle or WorkflowExecutionState.Completed) _runId = null;
         Raise(nameof(IsWorkflowActive));
         Raise(nameof(IsSelectionEnabled));
         Raise(nameof(RunSwitchText));
@@ -254,7 +281,6 @@ public sealed class RuntimeViewModel : ObservableObject, IDisposable
 
     private void ResetProgress()
     {
-        _completedNodeIds.Clear();
         _completedNodes = 0;
         ProgressValue = 0;
         ProgressText = $"0 / {_totalNodes}";
@@ -292,6 +318,7 @@ public sealed class RuntimeViewModel : ObservableObject, IDisposable
         if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
         _runtime.RuntimeEventReceived -= OnRuntimeEvent;
         _runtime.StatusRecovered -= OnStatusRecovered;
+        _runtime.RunSnapshotRecovered -= OnRunSnapshotRecovered;
         _runtime.ConnectionLost -= OnConnectionLost;
         GC.SuppressFinalize(this);
     }

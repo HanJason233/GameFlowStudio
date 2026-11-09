@@ -1,4 +1,4 @@
-using GameFlowStudio.Automation.Input;
+using GameFlowStudio.Desktop.Interaction;
 using GameFlowStudio.Contracts.Recording;
 
 namespace GameFlowStudio.Workflow.Tests;

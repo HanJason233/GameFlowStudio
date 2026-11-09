@@ -5,7 +5,7 @@ namespace GameFlowStudio.Protocol;
 
 public static class ProtocolConstants
 {
-    public const string CurrentVersion = "1.0";
+    public const string CurrentVersion = "1.1";
     public const int MaximumMessageBytes = 16 * 1024 * 1024;
 }
 

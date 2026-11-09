@@ -1,0 +1,116 @@
+name: Windows CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-test-package:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+          cache-dependency-path: src/GameFlowStudio.Editor/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: src/GameFlowStudio.Editor
+        run: npm ci --no-audit --no-fund
+
+      - name: Frontend lint
+        working-directory: src/GameFlowStudio.Editor
+        run: npm run lint
+
+      - name: Frontend tests
+        working-directory: src/GameFlowStudio.Editor
+        run: npm test
+
+      - name: Frontend build
+        working-directory: src/GameFlowStudio.Editor
+        run: npm run build
+
+      - name: .NET Release build
+        run: dotnet build GameFlowStudio.sln -c Release
+
+      - name: .NET unit and Runtime integration tests
+        run: dotnet test GameFlowStudio.sln -c Release --no-build
+
+      - name: Publish win-x64 app
+        shell: pwsh
+        run: >-
+          dotnet publish src/GameFlowStudio.Desktop/GameFlowStudio.Desktop.csproj
+          -c Release -r win-x64 --self-contained true
+          -p:PublishReadyToRun=false
+          -o "${{ runner.temp }}\GameFlowStudio-publish"
+
+      - name: Read app version
+        shell: pwsh
+        run: |
+          $version = dotnet msbuild src/GameFlowStudio.Desktop/GameFlowStudio.Desktop.csproj -nologo -getProperty:Version
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to read the Desktop version.' }
+          $version = $version.Trim()
+          if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "Unexpected Desktop version: $version" }
+          "GAMEFLOWSTUDIO_APP_VERSION=$version" >> $env:GITHUB_ENV
+
+      - name: Build installer
+        shell: pwsh
+        run: >-
+          dotnet build installer/GameFlowStudio.Installer.wixproj
+          -c Release -p:AppVersion=${{ env.GAMEFLOWSTUDIO_APP_VERSION }}
+          -p:PublishDir="${{ runner.temp }}\GameFlowStudio-publish"
+          -p:OutputPath="${{ runner.temp }}\GameFlowStudio-installer"
+
+      - name: Verify published files
+        shell: pwsh
+        run: |
+          $publish = Join-Path $env:RUNNER_TEMP 'GameFlowStudio-publish'
+          $installer = Join-Path $env:RUNNER_TEMP 'GameFlowStudio-installer'
+          $required = @(
+            'GameFlowStudio.Desktop.exe',
+            'GameFlowStudio.Desktop.deps.json',
+            'GameFlowStudio.Desktop.runtimeconfig.json',
+            'EditorAssets/index.html',
+            'Runtime/GameFlowStudio.Runtime.exe',
+            'Runtime/GameFlowStudio.Runtime.dll',
+            'Runtime/GameFlowStudio.Runtime.deps.json',
+            'Runtime/GameFlowStudio.Runtime.runtimeconfig.json'
+          )
+          foreach ($relativePath in $required) {
+            $path = Join-Path $publish $relativePath
+            if (!(Test-Path -LiteralPath $path -PathType Leaf)) {
+              throw "Published output is missing required file: $relativePath"
+            }
+            if ((Get-Item -LiteralPath $path).Length -le 0) {
+              throw "Published output contains an empty required file: $relativePath"
+            }
+          }
+          if (!(Get-ChildItem -LiteralPath (Join-Path $publish 'EditorAssets/assets') -Filter '*.js' -File)) {
+            throw 'Published editor JavaScript bundle is missing.'
+          }
+          if (!(Get-ChildItem -LiteralPath (Join-Path $publish 'EditorAssets/assets') -Filter '*.css' -File)) {
+            throw 'Published editor stylesheet is missing.'
+          }
+          $msi = Get-ChildItem -LiteralPath $installer -Filter '*.msi' -File | Select-Object -First 1
+          if ($null -eq $msi -or $msi.Length -le 0) {
+            throw 'Installer build did not produce a non-empty MSI.'
+          }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GameFlowStudio-win-x64
+          path: |
+            ${{ runner.temp }}/GameFlowStudio-publish/**
+            ${{ runner.temp }}/GameFlowStudio-installer/*.msi
+          if-no-files-found: error

@@ -41,7 +41,7 @@ public sealed class MainViewModel : ObservableObject
     private readonly IInputRecordingService _inputRecorder;
     private readonly ILogger<MainViewModel> _logger;
     private readonly object _settingsSaveSync = new();
-    private readonly ConcurrentDictionary<string, byte> _failedExecutionNodes = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<(string ScriptId, string NodeId), byte> _failedExecutionNodes = new();
     private Task _settingsSaveChain = Task.CompletedTask;
     private AutomationProject _project = ProjectFactory.CreateNew();
     private string _activeScriptId = string.Empty;
@@ -80,6 +80,7 @@ public sealed class MainViewModel : ObservableObject
     private long _lastRuntimeLogSequence;
     private long _lastRuntimeEventSequence;
     private string? _lastRuntimeEventRunId;
+    private readonly HashSet<long> _runtimeLogSequences = [];
     private GridLength _toolboxPaneWidth = new(220);
     private GridLength _propertiesPaneWidth = new(320);
     private GridLength _outputPaneHeight = new(220);
@@ -395,13 +396,22 @@ public sealed class MainViewModel : ObservableObject
         if (!_runtimeLaunchInProgress
             && (_isRecordingStarting || _isRecordingFinalizing || _isProjectOperationInProgress))
             return false;
+        return true;
+    }
+
+    public async Task PrepareForCloseAsync()
+    {
         StopActiveRecording();
-        StopActiveWorkflow();
+        if (IsWorkflowActive())
+        {
+            using var stopTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            try { await _runtime.StopRunAsync(stopTimeout.Token); }
+            catch (Exception exception) { _logger.LogWarning(exception, "Runtime did not acknowledge stop before Desktop closed"); }
+        }
         CaptureWindowSettings();
         CapturePaneLayout();
         PersistSettings();
-        WaitForPendingSettingsSaves();
-        return true;
+        await WaitForPendingSettingsSavesAsync();
     }
 
     private async void OnEditorMessage(object? sender, EditorMessage message)
@@ -782,6 +792,9 @@ public sealed class MainViewModel : ObservableObject
             await _runtimeLauncher.LaunchAsync(project, _currentPath, CancellationToken.None);
             _runtimeLaunchInProgress = true;
             DeleteRuntimeSnapshot();
+            await PrepareForCloseAsync();
+            if (Application.Current is App app)
+                await app.ShutdownHostAsync();
             Application.Current?.Shutdown();
         }
         catch (Exception exception)
@@ -1438,6 +1451,7 @@ public sealed class MainViewModel : ObservableObject
         _editor.MessageReceived += OnEditorMessage;
         _runtime.RuntimeEventReceived += OnRuntimeEventReceived;
         _runtime.StatusRecovered += OnRuntimeStatusRecovered;
+        _runtime.RunSnapshotRecovered += OnRuntimeRunSnapshotRecovered;
         _runtime.ConnectionLost += OnRuntimeConnectionLost;
         _inputRecorder.ActionRecorded += OnRecordedAction;
         _inputRecorder.StopRequested += OnRecordingStopRequested;
@@ -1474,6 +1488,59 @@ public sealed class MainViewModel : ObservableObject
         _ = RestoreRuntimeLogsAsync();
     }
 
+    private void OnRuntimeRunSnapshotRecovered(RuntimeRunSnapshot snapshot)
+    {
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher is null) return;
+        _ = dispatcher.BeginInvoke(() => ApplyRuntimeSnapshot(snapshot));
+    }
+
+    private void ApplyRuntimeSnapshot(RuntimeRunSnapshot snapshot)
+    {
+        var wasRunning = _runtimeState is WorkflowExecutionState.Running or WorkflowExecutionState.Paused or WorkflowExecutionState.Stopping;
+        var interrupted = wasRunning && _activeRunId is not null
+            && !string.Equals(snapshot.RunId, _activeRunId, StringComparison.Ordinal)
+            && snapshot.State is nameof(WorkflowExecutionState.Idle) or nameof(WorkflowExecutionState.Completed) or nameof(WorkflowExecutionState.Failed);
+
+        _lastRuntimeEventRunId = snapshot.RunId;
+        _lastRuntimeEventSequence = snapshot.Sequence;
+        CurrentNodeText = snapshot.CurrentNodeName ?? snapshot.CurrentNodeId ?? "—";
+        _failedExecutionNodes.Clear();
+        ObserveTask(_editor.SendAsync("clear_execution_state"), "清除旧的节点运行状态失败");
+        foreach (var node in snapshot.Nodes.Where(node => string.Equals(node.ScriptId, _activeScriptId, StringComparison.Ordinal)))
+        {
+            var key = (node.ScriptId, node.NodeId);
+            switch (node.State)
+            {
+                case "Running":
+                    ObserveTask(_editor.SendAsync("highlight_node", new { nodeId = node.NodeId }), "恢复运行节点状态失败");
+                    break;
+                case "Completed":
+                    ObserveTask(_editor.SendAsync("mark_node_success", new { nodeId = node.NodeId }), "恢复成功节点状态失败");
+                    break;
+                case "Failed":
+                    _failedExecutionNodes.TryAdd(key, 0);
+                    ObserveTask(_editor.SendAsync("mark_node_error", new { nodeId = node.NodeId }), "恢复失败节点状态失败");
+                    break;
+            }
+        }
+        foreach (var log in snapshot.Logs) AppendRuntimeLog(log);
+
+        if (interrupted)
+        {
+            _runCompletion?.TrySetException(new IOException("Runtime restarted while this workflow was active; the run was interrupted."));
+            _logger.LogError("Runtime restarted while run {RunId} was active; automatic replay was skipped.", _activeRunId);
+        }
+        if (Enum.TryParse<WorkflowExecutionState>(snapshot.State, out var state)) ApplyRuntimeState(state);
+        if (_runCompletion is not null && snapshot.RunId == _activeRunId)
+        {
+            if (state == WorkflowExecutionState.Failed)
+                _runCompletion.TrySetException(new InvalidOperationException(snapshot.Nodes.FirstOrDefault(node => node.State == "Failed")?.Error ?? "Runtime run failed."));
+            else if (state is WorkflowExecutionState.Idle or WorkflowExecutionState.Completed)
+                _runCompletion.TrySetResult(new RuntimeEventPayload { RunId = snapshot.RunId, State = snapshot.State });
+        }
+    }
+
     private void OnRuntimeConnectionLost(Exception? exception)
     {
         if (exception is not null) _logger.LogWarning(exception, "Runtime IPC 连接已断开，正在尝试重新连接");
@@ -1485,21 +1552,21 @@ public sealed class MainViewModel : ObservableObject
         try { payload = message.Payload.Deserialize<RuntimeEventPayload>(ProtocolJson.Options); }
         catch (Exception exception) { _logger.LogWarning(exception, "无法解析 Runtime 事件 {EventType}", message.Type); return; }
         if (payload is null) return;
-        Application.Current?.Dispatcher.BeginInvoke(() => ApplyRuntimeEvent(message.Type, payload));
+        Application.Current?.Dispatcher.BeginInvoke(() => ApplyRuntimeEvent(message.Type, payload, message.Sequence));
     }
 
-    private void ApplyRuntimeEvent(string eventType, RuntimeEventPayload payload)
+    private void ApplyRuntimeEvent(string eventType, RuntimeEventPayload payload, long envelopeSequence)
     {
+        var sequence = envelopeSequence > 0 ? envelopeSequence : payload.Sequence;
+        if (sequence > 0)
+        {
+            if (sequence <= _lastRuntimeEventSequence) return;
+            _lastRuntimeEventSequence = sequence;
+        }
         if (payload.RunId is not null)
         {
             if (_activeRunId is not null && !string.Equals(payload.RunId, _activeRunId, StringComparison.Ordinal)) return;
-            if (!string.Equals(_lastRuntimeEventRunId, payload.RunId, StringComparison.Ordinal))
-            {
-                _lastRuntimeEventRunId = payload.RunId;
-                _lastRuntimeEventSequence = 0;
-            }
-            if (payload.Sequence > 0 && payload.Sequence <= _lastRuntimeEventSequence) return;
-            _lastRuntimeEventSequence = Math.Max(_lastRuntimeEventSequence, payload.Sequence);
+            _lastRuntimeEventRunId = payload.RunId;
         }
         switch (eventType)
         {
@@ -1509,27 +1576,31 @@ public sealed class MainViewModel : ObservableObject
             case RuntimeEvents.NodeStarted:
                 if (payload.NodeId is { } startedId)
                 {
-                    if (_failedExecutionNodes.ContainsKey(startedId)) break;
+                    var key = (payload.ScriptId ?? _activeScriptId, startedId);
+                    if (_failedExecutionNodes.ContainsKey(key)) break;
                     CurrentNodeText = payload.NodeName ?? startedId;
-                    ObserveTask(_editor.SendAsync("highlight_node", new { nodeId = startedId }), "同步节点运行状态失败");
+                    if (string.Equals(key.Item1, _activeScriptId, StringComparison.Ordinal))
+                        ObserveTask(_editor.SendAsync("highlight_node", new { nodeId = startedId }), "同步节点运行状态失败");
                 }
                 break;
             case RuntimeEvents.NodeCompleted:
-                if (payload.NodeId is { } completedId && !_failedExecutionNodes.ContainsKey(completedId))
+                var completedKey = (payload.ScriptId ?? _activeScriptId, payload.NodeId ?? string.Empty);
+                if (payload.NodeId is { } completedId && !_failedExecutionNodes.ContainsKey(completedKey)
+                    && string.Equals(completedKey.Item1, _activeScriptId, StringComparison.Ordinal))
                     ObserveTask(_editor.SendAsync("mark_node_success", new { nodeId = completedId }), "同步节点成功状态失败");
                 break;
             case RuntimeEvents.NodeFailed:
                 if (payload.NodeId is { } failedId)
                 {
-                    _failedExecutionNodes.TryAdd(failedId, 0);
-                    ObserveTask(_editor.SendAsync("mark_node_error", new { nodeId = failedId }), "同步节点失败状态失败");
+                    var failedKey = (payload.ScriptId ?? _activeScriptId, failedId);
+                    _failedExecutionNodes.TryAdd(failedKey, 0);
+                    if (string.Equals(failedKey.Item1, _activeScriptId, StringComparison.Ordinal))
+                        ObserveTask(_editor.SendAsync("mark_node_error", new { nodeId = failedId }), "同步节点失败状态失败");
                 }
                 if (payload.Error is { Length: > 0 } nodeError) _logger.LogError("节点执行失败：{Error}", nodeError);
                 break;
             case RuntimeEvents.LogReceived when payload.Log is { } log:
-                _lastRuntimeLogSequence = Math.Max(_lastRuntimeLogSequence, log.Sequence);
-                Logs.Add(new DisplayLogEntry(log.Timestamp, ParseLogLevel(log.Level), log.Category, log.Message, log.Exception));
-                while (Logs.Count > 1000) Logs.RemoveAt(0);
+                AppendRuntimeLog(log);
                 break;
             case RuntimeEvents.RunCompleted:
                 _runCompletion?.TrySetResult(payload);
@@ -1559,11 +1630,7 @@ public sealed class MainViewModel : ObservableObject
             await Application.Current.Dispatcher.InvokeAsync(() =>
             {
                 foreach (var entry in entries)
-                {
-                    _lastRuntimeLogSequence = Math.Max(_lastRuntimeLogSequence, entry.Sequence);
-                    Logs.Add(new DisplayLogEntry(entry.Timestamp, ParseLogLevel(entry.Level), entry.Category, entry.Message, entry.Exception));
-                }
-                while (Logs.Count > 1000) Logs.RemoveAt(0);
+                    AppendRuntimeLog(entry);
             });
         }
         catch (Exception exception) { _logger.LogDebug(exception, "重连后恢复 Runtime 日志失败"); }
@@ -1571,6 +1638,14 @@ public sealed class MainViewModel : ObservableObject
 
     private static LogLevel ParseLogLevel(string level) =>
         Enum.TryParse<LogLevel>(level, out var parsed) ? parsed : LogLevel.Information;
+
+    private void AppendRuntimeLog(RuntimeLogInfo entry)
+    {
+        if (!_runtimeLogSequences.Add(entry.Sequence)) return;
+        _lastRuntimeLogSequence = Math.Max(_lastRuntimeLogSequence, entry.Sequence);
+        Logs.Add(new DisplayLogEntry(entry.Timestamp, ParseLogLevel(entry.Level), entry.Category, entry.Message, entry.Exception));
+        while (Logs.Count > 1000) Logs.RemoveAt(0);
+    }
 
     private void OnRecordedAction(object? sender, RecordedInputActionEventArgs args)
     {
@@ -1617,11 +1692,6 @@ public sealed class MainViewModel : ObservableObject
     {
         try { await task; }
         catch (Exception exception) { _logger.LogError(exception, "{Operation}", operation); }
-    }
-
-    private void StopActiveWorkflow()
-    {
-        if (IsWorkflowActive()) _runtime.StopRunAsync().GetAwaiter().GetResult();
     }
 
     private void StopActiveRecording()
@@ -1799,7 +1869,7 @@ public sealed class MainViewModel : ObservableObject
             _settingsSaveChain = Task.WhenAll(_settingsSaveChain, save);
     }
 
-    private void WaitForPendingSettingsSaves()
+    private async Task WaitForPendingSettingsSavesAsync()
     {
         Task pending;
         lock (_settingsSaveSync)
@@ -1807,7 +1877,7 @@ public sealed class MainViewModel : ObservableObject
 
         try
         {
-            pending.GetAwaiter().GetResult();
+            await pending;
         }
         catch (Exception exception)
         {

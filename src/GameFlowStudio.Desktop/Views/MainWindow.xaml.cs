@@ -11,6 +11,8 @@ public partial class MainWindow : Window
 {
     private readonly MainViewModel _viewModel;
     private readonly IEditorBridge _editor;
+    private bool _closePreparationStarted;
+    private bool _allowClose;
     public string? StartupProjectPath { get; set; }
 
     public MainWindow(MainViewModel viewModel, IEditorBridge editor)
@@ -79,5 +81,27 @@ public partial class MainWindow : Window
         menu.IsOpen = true;
     }
 
-    private void OnClosing(object? sender, CancelEventArgs e) { if (!_viewModel.CanClose()) e.Cancel = true; }
+    private async void OnClosing(object? sender, CancelEventArgs e)
+    {
+        if (_allowClose) return;
+        e.Cancel = true;
+        if (_closePreparationStarted || !_viewModel.CanClose()) return;
+
+        _closePreparationStarted = true;
+        IsEnabled = false;
+        try
+        {
+            await _viewModel.PrepareForCloseAsync();
+            if (Application.Current is App app)
+                await app.ShutdownHostAsync();
+            _allowClose = true;
+            Close();
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(exception.Message, "关闭前保存状态失败", MessageBoxButton.OK, MessageBoxImage.Error);
+            _closePreparationStarted = false;
+            IsEnabled = true;
+        }
+    }
 }

@@ -9,9 +9,10 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\GameFlowStudio.Contracts\GameFlowStudio.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\GameFlowStudio.Desktop\GameFlowStudio.Desktop.csproj" />
     <ProjectReference Include="..\..\src\GameFlowStudio.Protocol\GameFlowStudio.Protocol.csproj" />
     <ProjectReference Include="..\..\src\GameFlowStudio.Storage\GameFlowStudio.Storage.csproj" />
-    <ProjectReference Include="..\..\core\GameFlowStudio.Runtime\GameFlowStudio.Runtime.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\core\GameFlowStudio.Runtime\GameFlowStudio.Runtime.csproj" />
   </ItemGroup>
   <PropertyGroup>
     <TargetFramework>net10.0-windows</TargetFramework>

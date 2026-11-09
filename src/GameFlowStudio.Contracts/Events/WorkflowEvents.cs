@@ -9,9 +9,11 @@ public sealed class NodeExecutionEventArgs(
     long? elapsedMilliseconds = null,
     string? error = null,
     nint? windowHandle = null,
-    string? windowTitle = null) : EventArgs
+    string? windowTitle = null,
+    string? scriptId = null) : EventArgs
 {
     public WorkflowNode Node { get; } = node;
+    public string? ScriptId { get; } = scriptId;
     public long? ElapsedMilliseconds { get; } = elapsedMilliseconds;
     public string? Error { get; } = error;
     public nint? WindowHandle { get; } = windowHandle;

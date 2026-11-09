@@ -28,4 +28,9 @@
     <ProjectReference Include="..\..\core\GameFlowStudio.Workflow\GameFlowStudio.Workflow.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="..\..\src\GameFlowStudio.Desktop\Interaction\InputRecordingNormalizer.cs" Link="DesktopInteraction\InputRecordingNormalizer.cs" />
+    <Compile Include="..\..\src\GameFlowStudio.Desktop\Interaction\WindowInputRecordingRules.cs" Link="DesktopInteraction\WindowInputRecordingRules.cs" />
+  </ItemGroup>
+
 </Project>

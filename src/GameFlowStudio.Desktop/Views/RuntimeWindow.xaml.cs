@@ -14,6 +14,7 @@ public partial class RuntimeWindow : Window
     private string? _editorProjectPath;
     private bool _isClosing;
     private bool _keepProjectFile;
+    private bool _allowClose;
 
     public RuntimeWindow(RuntimeViewModel viewModel)
     {
@@ -69,10 +70,15 @@ public partial class RuntimeWindow : Window
 
     private async void OnClosing(object? sender, CancelEventArgs e)
     {
-        if (_isClosing || !_viewModel.IsWorkflowActive) return;
+        if (_allowClose) return;
         e.Cancel = true;
+        if (_isClosing) return;
         _isClosing = true;
-        await _viewModel.StopForCloseAsync();
+        if (_viewModel.IsWorkflowActive)
+            await _viewModel.StopForCloseAsync();
+        if (Application.Current is App app)
+            await app.ShutdownHostAsync();
+        _allowClose = true;
         Close();
     }
 

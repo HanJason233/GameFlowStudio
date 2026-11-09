@@ -23,7 +23,15 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Content Include="EditorAssets\**\*" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\GameFlowStudio.Editor\dist\**\*"
+             Link="EditorAssets\%(RecursiveDir)%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest"
+             Condition="Exists('..\GameFlowStudio.Editor\dist\index.html')" />
+    <Content Include="EditorAssets\**\*"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest"
+             Condition="!Exists('..\GameFlowStudio.Editor\dist\index.html')" />
     <Content Include="..\..\samples\basic-example.gflow" Link="samples\basic-example.gflow" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
@@ -48,5 +56,10 @@
       <RuntimeWorkerPublishFiles Include="$(RuntimeWorkerPublishDir)**\*" />
     </ItemGroup>
     <Copy SourceFiles="@(RuntimeWorkerPublishFiles)" DestinationFiles="@(RuntimeWorkerPublishFiles->'$(PublishDir)Runtime\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+  </Target>
+
+  <Target Name="ValidateEditorAssetsForPublish" BeforeTargets="Publish">
+    <Error Condition="!Exists('EditorAssets\index.html') and !Exists('..\GameFlowStudio.Editor\dist\index.html')"
+           Text="Editor assets are missing. Run npm ci and npm run build in src/GameFlowStudio.Editor before publishing Desktop." />
   </Target>
 </Project>
