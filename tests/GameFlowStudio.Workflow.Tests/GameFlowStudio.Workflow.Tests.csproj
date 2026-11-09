@@ -23,9 +23,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\GameFlowStudio.Automation\GameFlowStudio.Automation.csproj" />
+    <ProjectReference Include="..\..\core\GameFlowStudio.Automation\GameFlowStudio.Automation.csproj" />
     <ProjectReference Include="..\..\src\GameFlowStudio.Contracts\GameFlowStudio.Contracts.csproj" />
-    <ProjectReference Include="..\..\src\GameFlowStudio.Workflow\GameFlowStudio.Workflow.csproj" />
+    <ProjectReference Include="..\..\core\GameFlowStudio.Workflow\GameFlowStudio.Workflow.csproj" />
   </ItemGroup>
 
 </Project>

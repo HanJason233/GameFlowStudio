@@ -7,7 +7,7 @@ using GameFlowStudio.Contracts.Services;
 using GameFlowStudio.Contracts.Workflows;
 using GameFlowStudio.Workflow.Engine;
 using GameFlowStudio.Workflow.Executors;
-using GameFlowStudio.Workflow.Recording;
+using GameFlowStudio.Contracts.Recording;
 using GameFlowStudio.Workflow.Validation;
 using Microsoft.Extensions.Logging.Abstractions;
 

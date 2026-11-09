@@ -6,10 +6,10 @@ using GameFlowStudio.Contracts.Enums;
 using GameFlowStudio.Contracts.Events;
 using GameFlowStudio.Contracts.Nodes;
 using GameFlowStudio.Contracts.Results;
+using GameFlowStudio.Contracts.Recording;
 using GameFlowStudio.Contracts.Services;
 using GameFlowStudio.Contracts.Workflows;
 using GameFlowStudio.Workflow.Executors;
-using GameFlowStudio.Workflow.Recording;
 using GameFlowStudio.Workflow.Synchronization;
 using Microsoft.Extensions.Logging;
 

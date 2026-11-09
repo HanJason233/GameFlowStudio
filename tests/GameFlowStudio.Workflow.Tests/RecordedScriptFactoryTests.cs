@@ -2,7 +2,6 @@ using GameFlowStudio.Contracts.Enums;
 using GameFlowStudio.Contracts.Nodes;
 using GameFlowStudio.Contracts.Recording;
 using GameFlowStudio.Contracts.Workflows;
-using GameFlowStudio.Workflow.Recording;
 using GameFlowStudio.Workflow.Validation;
 
 namespace GameFlowStudio.Workflow.Tests;

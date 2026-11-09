@@ -8,15 +8,15 @@ using System.Text.Json;
 using System.Windows;
 using System.Windows.Input;
 using GameFlowStudio.Contracts.Enums;
-using GameFlowStudio.Contracts.Events;
 using GameFlowStudio.Contracts.Nodes;
 using GameFlowStudio.Contracts.Recording;
 using GameFlowStudio.Contracts.Results;
 using GameFlowStudio.Contracts.Services;
 using GameFlowStudio.Contracts.Workflows;
 using GameFlowStudio.Desktop.Services;
-using GameFlowStudio.Infrastructure.Logging;
-using GameFlowStudio.Workflow.Recording;
+using GameFlowStudio.Desktop.Logging;
+using GameFlowStudio.Desktop.Interaction;
+using GameFlowStudio.Protocol;
 using Microsoft.Extensions.Logging;
 using ScriptInteractionModeValue = GameFlowStudio.Contracts.Enums.ScriptInteractionMode;
 
@@ -25,8 +25,7 @@ namespace GameFlowStudio.Desktop.ViewModels;
 public sealed class MainViewModel : ObservableObject
 {
     private readonly IEditorBridge _editor;
-    private readonly IWorkflowRunner _runner;
-    private readonly IWorkflowValidator _validator;
+    private readonly RuntimeProcessManager _runtime;
     private readonly IProjectStorageService _storage;
     private readonly ISettingsStorageService _settingsStorage;
     private readonly IFileDialogService _dialogs;
@@ -36,13 +35,13 @@ public sealed class MainViewModel : ObservableObject
     private readonly IImageCaptureService _imageCapture;
     private readonly ICoordinatePickModeService _coordinatePickMode;
     private readonly IWindowSelectionService _windowSelection;
-    private readonly IWindowAutomationService _windows;
+    private readonly IWindowPickerService _windows;
     private readonly IRelativeCoordinatePickerService _relativeCoordinatePicker;
-    private readonly IRuntimeProcessLauncher _runtimeLauncher;
+    private readonly IPureRunWindowLauncher _runtimeLauncher;
     private readonly IInputRecordingService _inputRecorder;
     private readonly ILogger<MainViewModel> _logger;
     private readonly object _settingsSaveSync = new();
-    private readonly ConcurrentDictionary<WorkflowNode, byte> _failedExecutionNodes = new();
+    private readonly ConcurrentDictionary<string, byte> _failedExecutionNodes = new(StringComparer.Ordinal);
     private Task _settingsSaveChain = Task.CompletedTask;
     private AutomationProject _project = ProjectFactory.CreateNew();
     private string _activeScriptId = string.Empty;
@@ -74,6 +73,13 @@ public sealed class MainViewModel : ObservableObject
     private SelectedNodeViewModel? _selectedNode;
     private bool _suppressSelectedNodeUpdates;
     private readonly Stopwatch _executionTimer = new();
+    private WorkflowExecutionState _runtimeState = WorkflowExecutionState.Idle;
+    private string? _activeRunId;
+    private TaskCompletionSource<RuntimeEventPayload>? _runCompletion;
+    private string? _runtimeSnapshotPath;
+    private long _lastRuntimeLogSequence;
+    private long _lastRuntimeEventSequence;
+    private string? _lastRuntimeEventRunId;
     private GridLength _toolboxPaneWidth = new(220);
     private GridLength _propertiesPaneWidth = new(320);
     private GridLength _outputPaneHeight = new(220);
@@ -99,16 +105,16 @@ public sealed class MainViewModel : ObservableObject
     private string _activeScriptName = string.Empty;
     private int _scriptDefaultNodeDelayMs = AutomationScript.DefaultNodeDelayMilliseconds;
 
-    public MainViewModel(IEditorBridge editor, IWorkflowRunner runner, IWorkflowValidator validator, IProjectStorageService storage,
+    public MainViewModel(IEditorBridge editor, RuntimeProcessManager runtime, IProjectStorageService storage,
         ISettingsStorageService settingsStorage, IFileDialogService dialogs, ICoordinatePickerService coordinatePicker,
         IColorPickerService colorPicker,
         IRectanglePickerService rectanglePicker, IImageCaptureService imageCapture,
         ICoordinatePickModeService coordinatePickMode,
-        IWindowSelectionService windowSelection, IWindowAutomationService windows, IRelativeCoordinatePickerService relativeCoordinatePicker,
-        IRuntimeProcessLauncher runtimeLauncher, IInputRecordingService inputRecorder,
+        IWindowSelectionService windowSelection, IWindowPickerService windows, IRelativeCoordinatePickerService relativeCoordinatePicker,
+        IPureRunWindowLauncher runtimeLauncher, IInputRecordingService inputRecorder,
         GameFlowLogProvider logProvider, ILogger<MainViewModel> logger)
     {
-        _editor = editor; _runner = runner; _validator = validator; _storage = storage; _settingsStorage = settingsStorage;
+        _editor = editor; _runtime = runtime; _storage = storage; _settingsStorage = settingsStorage;
         _dialogs = dialogs; _coordinatePicker = coordinatePicker; _colorPicker = colorPicker; _rectanglePicker = rectanglePicker; _imageCapture = imageCapture;
         _coordinatePickMode = coordinatePickMode; _windowSelection = windowSelection; _windows = windows; _relativeCoordinatePicker = relativeCoordinatePicker; _runtimeLauncher = runtimeLauncher; _inputRecorder = inputRecorder; _logger = logger;
         ToolboxGroups = NodeCatalog.Groups;
@@ -749,10 +755,14 @@ public sealed class MainViewModel : ObservableObject
             _failedExecutionNodes.Clear();
             await _editor.SendAsync("clear_execution_state");
             if (!await ValidateForRunAsync(project)) return;
-            await ExecuteWorkflowAsync(project);
+            await ExecuteWorkflowAsync(project, Guid.NewGuid().ToString("N"));
         }
         catch (Exception ex) { ReportOperationError(ex, "运行失败"); }
-        finally { await FinishRunAsync(); }
+        finally
+        {
+            DeleteRuntimeSnapshot();
+            await FinishRunAsync();
+        }
     }
 
     private async Task LaunchRuntimeAsync()
@@ -771,12 +781,15 @@ public sealed class MainViewModel : ObservableObject
             }
             await _runtimeLauncher.LaunchAsync(project, _currentPath, CancellationToken.None);
             _runtimeLaunchInProgress = true;
+            DeleteRuntimeSnapshot();
             Application.Current?.Shutdown();
         }
         catch (Exception exception)
         {
+            DeleteRuntimeSnapshot();
             ReportOperationError(exception, "启动纯运行窗口失败");
         }
+        finally { DeleteRuntimeSnapshot(); }
     }
 
     private async Task AddNodeAsync(ToolboxItem? item)
@@ -1311,29 +1324,6 @@ public sealed class MainViewModel : ObservableObject
         return name;
     }
 
-    private void OnNodeStarted(NodeExecutionEventArgs e) => Application.Current.Dispatcher.Invoke(() =>
-    {
-        // 某个并行轨道失败后，其他已排队轨道的迟到“开始”事件不能把错误状态改回运行中。
-        if (_failedExecutionNodes.ContainsKey(e.Node)) return;
-        CurrentNodeText = e.Node.Data.DisplayName;
-        ObserveTask(_editor.SendAsync("highlight_node", new { nodeId = e.Node.Id }), "同步节点运行状态失败");
-    });
-
-    private void OnNodeCompleted(NodeExecutionEventArgs e) => Application.Current.Dispatcher.Invoke(() =>
-    {
-        // 后台并行时，同一节点可能由多个窗口轨道分别完成或失败。
-        // 一旦任一轨道失败，本轮运行中不再允许其他轨道的成功状态覆盖红色错误状态。
-        if (_failedExecutionNodes.ContainsKey(e.Node)) return;
-        ObserveTask(_editor.SendAsync("mark_node_success", new { nodeId = e.Node.Id }), "同步节点成功状态失败");
-    });
-
-    private void OnNodeFailed(NodeExecutionEventArgs e)
-    {
-        _failedExecutionNodes.TryAdd(e.Node, 0);
-        Application.Current.Dispatcher.Invoke(() =>
-            ObserveTask(_editor.SendAsync("mark_node_error", new { nodeId = e.Node.Id }), "同步节点失败状态失败"));
-    }
-
     private void RaiseCommandStates()
     {
         if (_deferCommandStateNotifications) return;
@@ -1360,9 +1350,9 @@ public sealed class MainViewModel : ObservableObject
         RuntimeLaunchCommand = CreateAsyncCommand(_ => ExecuteProjectOperationAsync(LaunchRuntimeAsync), _ => IsProjectEditingEnabled);
         StartRecordingCommand = CreateAsyncCommand(_ => ExecuteProjectOperationAsync(StartRecordingAsync), _ => IsProjectEditingEnabled);
         StopRecordingCommand = CreateAsyncCommand(_ => StopRecordingAsync(), _ => _inputRecorder.IsRecording && !_isRecordingFinalizing);
-        PauseCommand = CreateAsyncCommand(_ => _runner.PauseAsync(), _ => _runner.State == WorkflowExecutionState.Running);
-        ResumeCommand = CreateAsyncCommand(_ => _runner.ResumeAsync(), _ => _runner.State == WorkflowExecutionState.Paused);
-        StopCommand = CreateAsyncCommand(_ => _runner.StopAsync(), _ => IsWorkflowActive());
+        PauseCommand = CreateAsyncCommand(_ => _runtime.PauseRunAsync(), _ => _runtimeState == WorkflowExecutionState.Running);
+        ResumeCommand = CreateAsyncCommand(_ => _runtime.ResumeRunAsync(), _ => _runtimeState == WorkflowExecutionState.Paused);
+        StopCommand = CreateAsyncCommand(_ => _runtime.StopRunAsync(), _ => IsWorkflowActive());
         AddNodeCommand = CreateAsyncCommand(item => ExecuteProjectOperationAsync(() => AddNodeAsync(item as ToolboxItem)), _ => IsProjectEditingEnabled);
         PickCoordinateCommand = CreateAsyncCommand(_ => ExecuteProjectOperationAsync(PickCoordinateAsync), _ => IsProjectEditingEnabled && SelectedNode?.CanPickCoordinate == true);
         SelectProgramPathCommand = CreateAsyncCommand(_ => ExecuteProjectOperationAsync(SelectProgramPathAsync), _ => IsProjectEditingEnabled && SelectedNode?.CanPickProgramPath == true);
@@ -1446,10 +1436,9 @@ public sealed class MainViewModel : ObservableObject
     private void SubscribeToEvents(GameFlowLogProvider logProvider)
     {
         _editor.MessageReceived += OnEditorMessage;
-        _runner.NodeStarted += (_, args) => OnNodeStarted(args);
-        _runner.NodeCompleted += (_, args) => OnNodeCompleted(args);
-        _runner.NodeFailed += (_, args) => OnNodeFailed(args);
-        _runner.StateChanged += OnWorkflowStateChanged;
+        _runtime.RuntimeEventReceived += OnRuntimeEventReceived;
+        _runtime.StatusRecovered += OnRuntimeStatusRecovered;
+        _runtime.ConnectionLost += OnRuntimeConnectionLost;
         _inputRecorder.ActionRecorded += OnRecordedAction;
         _inputRecorder.StopRequested += OnRecordingStopRequested;
         logProvider.EntryAdded += OnLogEntryAdded;
@@ -1460,14 +1449,128 @@ public sealed class MainViewModel : ObservableObject
         foreach (var entry in logProvider.Entries) Logs.Add(entry);
     }
 
-    private void OnWorkflowStateChanged(object? sender, WorkflowStateChangedEventArgs args) =>
-        Application.Current.Dispatcher.Invoke(() =>
+    private void OnRuntimeStatusRecovered(RuntimeStatusResponse status)
+    {
+        var wasRunning = _runtimeState is WorkflowExecutionState.Running or WorkflowExecutionState.Paused or WorkflowExecutionState.Stopping;
+        var interrupted = wasRunning && _activeRunId is not null
+            && !string.Equals(status.RunId, _activeRunId, StringComparison.Ordinal)
+            && status.State is nameof(WorkflowExecutionState.Idle) or nameof(WorkflowExecutionState.Completed) or nameof(WorkflowExecutionState.Failed);
+        if (Enum.TryParse<WorkflowExecutionState>(status.State, out var state))
         {
-            StateText = StateLabel(args.Current);
-            Raise(nameof(IsProjectEditingEnabled));
-            Raise(nameof(IsEditorInteractionEnabled));
-            RaiseCommandStates();
-        });
+            Application.Current?.Dispatcher.Invoke(() =>
+            {
+                if (interrupted)
+                {
+                    _runtimeState = state;
+                    StateText = StateLabel(state);
+                    Raise(nameof(IsProjectEditingEnabled));
+                    Raise(nameof(IsEditorInteractionEnabled));
+                    RaiseCommandStates();
+                    _runCompletion?.TrySetException(new IOException("Runtime 连接中断后发现本次运行已结束，运行状态可能未完整同步。"));
+                }
+                else ApplyRuntimeState(state);
+            });
+        }
+        _ = RestoreRuntimeLogsAsync();
+    }
+
+    private void OnRuntimeConnectionLost(Exception? exception)
+    {
+        if (exception is not null) _logger.LogWarning(exception, "Runtime IPC 连接已断开，正在尝试重新连接");
+    }
+
+    private void OnRuntimeEventReceived(ProtocolMessage message)
+    {
+        RuntimeEventPayload? payload;
+        try { payload = message.Payload.Deserialize<RuntimeEventPayload>(ProtocolJson.Options); }
+        catch (Exception exception) { _logger.LogWarning(exception, "无法解析 Runtime 事件 {EventType}", message.Type); return; }
+        if (payload is null) return;
+        Application.Current?.Dispatcher.BeginInvoke(() => ApplyRuntimeEvent(message.Type, payload));
+    }
+
+    private void ApplyRuntimeEvent(string eventType, RuntimeEventPayload payload)
+    {
+        if (payload.RunId is not null)
+        {
+            if (_activeRunId is not null && !string.Equals(payload.RunId, _activeRunId, StringComparison.Ordinal)) return;
+            if (!string.Equals(_lastRuntimeEventRunId, payload.RunId, StringComparison.Ordinal))
+            {
+                _lastRuntimeEventRunId = payload.RunId;
+                _lastRuntimeEventSequence = 0;
+            }
+            if (payload.Sequence > 0 && payload.Sequence <= _lastRuntimeEventSequence) return;
+            _lastRuntimeEventSequence = Math.Max(_lastRuntimeEventSequence, payload.Sequence);
+        }
+        switch (eventType)
+        {
+            case RuntimeEvents.StateChanged:
+                if (Enum.TryParse<WorkflowExecutionState>(payload.State, out var state)) ApplyRuntimeState(state);
+                break;
+            case RuntimeEvents.NodeStarted:
+                if (payload.NodeId is { } startedId)
+                {
+                    if (_failedExecutionNodes.ContainsKey(startedId)) break;
+                    CurrentNodeText = payload.NodeName ?? startedId;
+                    ObserveTask(_editor.SendAsync("highlight_node", new { nodeId = startedId }), "同步节点运行状态失败");
+                }
+                break;
+            case RuntimeEvents.NodeCompleted:
+                if (payload.NodeId is { } completedId && !_failedExecutionNodes.ContainsKey(completedId))
+                    ObserveTask(_editor.SendAsync("mark_node_success", new { nodeId = completedId }), "同步节点成功状态失败");
+                break;
+            case RuntimeEvents.NodeFailed:
+                if (payload.NodeId is { } failedId)
+                {
+                    _failedExecutionNodes.TryAdd(failedId, 0);
+                    ObserveTask(_editor.SendAsync("mark_node_error", new { nodeId = failedId }), "同步节点失败状态失败");
+                }
+                if (payload.Error is { Length: > 0 } nodeError) _logger.LogError("节点执行失败：{Error}", nodeError);
+                break;
+            case RuntimeEvents.LogReceived when payload.Log is { } log:
+                _lastRuntimeLogSequence = Math.Max(_lastRuntimeLogSequence, log.Sequence);
+                Logs.Add(new DisplayLogEntry(log.Timestamp, ParseLogLevel(log.Level), log.Category, log.Message, log.Exception));
+                while (Logs.Count > 1000) Logs.RemoveAt(0);
+                break;
+            case RuntimeEvents.RunCompleted:
+                _runCompletion?.TrySetResult(payload);
+                break;
+            case RuntimeEvents.RunFailed:
+                _runCompletion?.TrySetException(new InvalidOperationException(payload.Error ?? "Runtime 执行失败。"));
+                break;
+        }
+    }
+
+    private void ApplyRuntimeState(WorkflowExecutionState state)
+    {
+        _runtimeState = state;
+        StateText = StateLabel(state);
+        if (state is WorkflowExecutionState.Idle or WorkflowExecutionState.Completed)
+            _runCompletion?.TrySetResult(new RuntimeEventPayload { RunId = _activeRunId, State = state.ToString() });
+        Raise(nameof(IsProjectEditingEnabled));
+        Raise(nameof(IsEditorInteractionEnabled));
+        RaiseCommandStates();
+    }
+
+    private async Task RestoreRuntimeLogsAsync()
+    {
+        try
+        {
+            var entries = await _runtime.GetLogsAsync(_lastRuntimeLogSequence);
+            await Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                foreach (var entry in entries)
+                {
+                    _lastRuntimeLogSequence = Math.Max(_lastRuntimeLogSequence, entry.Sequence);
+                    Logs.Add(new DisplayLogEntry(entry.Timestamp, ParseLogLevel(entry.Level), entry.Category, entry.Message, entry.Exception));
+                }
+                while (Logs.Count > 1000) Logs.RemoveAt(0);
+            });
+        }
+        catch (Exception exception) { _logger.LogDebug(exception, "重连后恢复 Runtime 日志失败"); }
+    }
+
+    private static LogLevel ParseLogLevel(string level) =>
+        Enum.TryParse<LogLevel>(level, out var parsed) ? parsed : LogLevel.Information;
 
     private void OnRecordedAction(object? sender, RecordedInputActionEventArgs args)
     {
@@ -1518,7 +1621,7 @@ public sealed class MainViewModel : ObservableObject
 
     private void StopActiveWorkflow()
     {
-        if (IsWorkflowActive()) _runner.StopAsync().GetAwaiter().GetResult();
+        if (IsWorkflowActive()) _runtime.StopRunAsync().GetAwaiter().GetResult();
     }
 
     private void StopActiveRecording()
@@ -1528,7 +1631,7 @@ public sealed class MainViewModel : ObservableObject
         catch (Exception exception) { _logger.LogError(exception, "关闭前停止操作录制失败"); }
     }
 
-    private bool IsWorkflowActive() => _runner.State is WorkflowExecutionState.Running or WorkflowExecutionState.Paused or WorkflowExecutionState.Stopping;
+    private bool IsWorkflowActive() => _runtimeState is WorkflowExecutionState.Running or WorkflowExecutionState.Paused or WorkflowExecutionState.Stopping;
 
     private void CaptureWindowSettings()
     {
@@ -1733,7 +1836,13 @@ public sealed class MainViewModel : ObservableObject
 
     private async Task<bool> ValidateForRunAsync(AutomationProject project)
     {
-        var validation = _validator.Validate(project);
+        DeleteRuntimeSnapshot();
+        var directory = Path.Combine(Path.GetTempPath(), "GameFlowStudio", "runtime-snapshots");
+        Directory.CreateDirectory(directory);
+        _runtimeSnapshotPath = Path.Combine(directory, $"run-{Guid.NewGuid():N}.gflow");
+        await _storage.SaveAsync(project, _runtimeSnapshotPath, CancellationToken.None);
+        _ = await _runtime.LoadProjectAsync(_runtimeSnapshotPath, project.ActiveScriptId);
+        var validation = await _runtime.ValidateAsync(project.ActiveScriptId);
         if (validation.IsValid) return true;
         foreach (var error in validation.Errors)
         {
@@ -1744,18 +1853,35 @@ public sealed class MainViewModel : ObservableObject
         return false;
     }
 
-    private async Task ExecuteWorkflowAsync(AutomationProject project)
+    private async Task ExecuteWorkflowAsync(AutomationProject project, string runId)
     {
         await SetEditorReadOnlyAsync(true);
         _executionTimer.Restart();
-        await _runner.RunAsync(project, CancellationToken.None);
+        _activeRunId = runId;
+        _runCompletion = new TaskCompletionSource<RuntimeEventPayload>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var accepted = await _runtime.StartRunAsync(runId, project.ActiveScriptId);
+        if (!accepted.Accepted) throw new InvalidOperationException("Runtime 拒绝开始工作流。");
+        ApplyRuntimeState(WorkflowExecutionState.Running);
+        await _runCompletion.Task;
     }
 
     private async Task FinishRunAsync()
     {
         _executionTimer.Stop(); ElapsedText = $"{_executionTimer.ElapsedMilliseconds} ms";
+        _activeRunId = null;
+        _runCompletion = null;
         await SetEditorReadOnlyAsync(false);
         RaiseCommandStates();
+    }
+
+    private void DeleteRuntimeSnapshot()
+    {
+        if (_runtimeSnapshotPath is null) return;
+        try { File.Delete(_runtimeSnapshotPath); }
+        catch (IOException exception) { _logger.LogDebug(exception, "删除 Runtime 项目快照失败"); }
+        catch (UnauthorizedAccessException exception) { _logger.LogDebug(exception, "删除 Runtime 项目快照失败"); }
+        _runtime.ForgetProjectSnapshot(_runtimeSnapshotPath);
+        _runtimeSnapshotPath = null;
     }
 
     private void ReportOperationError(Exception exception, string operation)

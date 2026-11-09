@@ -1,4 +1,4 @@
-using GameFlowStudio.Automation.Coordinates;
+﻿using GameFlowStudio.Desktop.Interaction;
 using GameFlowStudio.Contracts.Results;
 using GameFlowStudio.Contracts.Services;
 using GameFlowStudio.Desktop.Views;
@@ -44,3 +44,4 @@ public sealed class RectanglePickerService(
         return await completeSelection(result).ConfigureAwait(true);
     }
 }
+

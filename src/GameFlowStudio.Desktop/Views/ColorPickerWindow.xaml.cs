@@ -4,9 +4,8 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
-using GameFlowStudio.Automation.Coordinates;
-using GameFlowStudio.Automation.Windows;
 using GameFlowStudio.Contracts.Results;
+using GameFlowStudio.Desktop.Interaction;
 using GameFlowStudio.Contracts.Services;
 using GameFlowStudio.Desktop.Services;
 

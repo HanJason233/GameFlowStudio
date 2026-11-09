@@ -1,6 +1,7 @@
 using System.Windows;
 using GameFlowStudio.Contracts.Results;
 using GameFlowStudio.Contracts.Services;
+using GameFlowStudio.Desktop.Interaction;
 using GameFlowStudio.Desktop.Views;
 
 namespace GameFlowStudio.Desktop.Services;
@@ -10,7 +11,7 @@ public interface IWindowSelectionService
     WindowInfo? SelectWindow();
 }
 
-public sealed class WindowSelectionService(IWindowAutomationService windows) : IWindowSelectionService
+public sealed class WindowSelectionService(IWindowPickerService windows) : IWindowSelectionService
 {
     public WindowInfo? SelectWindow()
     {

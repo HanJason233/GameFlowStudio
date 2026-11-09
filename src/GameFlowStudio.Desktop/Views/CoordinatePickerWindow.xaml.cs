@@ -2,8 +2,8 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Threading;
-using GameFlowStudio.Automation.Coordinates;
 using GameFlowStudio.Contracts.Results;
+using GameFlowStudio.Desktop.Interaction;
 using GameFlowStudio.Contracts.Services;
 
 namespace GameFlowStudio.Desktop.Views;

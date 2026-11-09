@@ -126,6 +126,7 @@ npm.cmd run build
 cd ..\..
 dotnet restore GameFlowStudio.sln
 dotnet test GameFlowStudio.sln -c Release
+dotnet build GameFlowStudio.sln -c Debug
 dotnet build GameFlowStudio.sln -c Release
 ```
 
@@ -140,15 +141,16 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\build\Publish-Installer.ps
 ## 项目结构
 
 ```text
-src/        C# 核心、Windows 自动化、WPF 桌面端和 React 可视化编辑器
-tests/      .NET 单元测试
+src/        Desktop、React 编辑器、共享 Contracts、Storage 和 Named Pipe Protocol
+core/       Workflow、Automation、Infrastructure 和独立 Runtime 执行进程
+tests/      .NET 单元测试及真实独立 Runtime/Named Pipe 集成测试
 installer/  WiX Windows 安装包工程
 build/      发布和打包脚本
 docs/       架构、通信协议和工作流格式文档
 samples/    示例自动化流程
 ```
 
-更多信息： [架构设计](docs/architecture.md) · [编辑器通信协议](docs/editor-communication.md) · [工作流格式](docs/workflow-schema.md)
+更多信息： [架构设计](docs/architecture.md) · [Runtime IPC 协议](docs/ipc-protocol.md) · [Runtime 生命周期](docs/runtime.md) · [编辑器通信协议](docs/editor-communication.md) · [工作流格式](docs/workflow-schema.md)
 
 ## 当前限制
 

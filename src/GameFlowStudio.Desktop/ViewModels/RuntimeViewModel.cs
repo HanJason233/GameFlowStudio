@@ -1,32 +1,29 @@
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Input;
 using GameFlowStudio.Contracts.Enums;
-using GameFlowStudio.Contracts.Events;
-using GameFlowStudio.Contracts.Services;
-using GameFlowStudio.Contracts.Workflows;
+using GameFlowStudio.Desktop.Services;
+using GameFlowStudio.Protocol;
 using Microsoft.Extensions.Logging;
 
 namespace GameFlowStudio.Desktop.ViewModels;
 
-public sealed class RuntimeScriptItem(AutomationScript script) : ObservableObject
+public sealed class RuntimeScriptItem(RuntimeScriptInfo script) : ObservableObject
 {
-    public AutomationScript Script { get; } = script;
-    public string Id => Script.Id;
-    public string Name => Script.Name;
-    public string Description => $"{Script.Nodes.Count} 个节点";
+    public string Id { get; } = script.Id;
+    public string Name { get; } = script.Name;
+    public string Description { get; } = $"{script.NodeCount} 个节点";
 }
 
-/// <summary>纯运行悬浮窗的轻量状态模型，不依赖 WebView2 编辑器。</summary>
+/// <summary>Pure-run window UI. All loading, validation and execution stay in the separate Runtime worker.</summary>
 public sealed class RuntimeViewModel : ObservableObject, IDisposable
 {
-    private readonly IWorkflowRunner _runner;
-    private readonly IWorkflowValidator _validator;
-    private readonly IProjectStorageService _storage;
+    private readonly RuntimeProcessManager _runtime;
     private readonly ILogger<RuntimeViewModel> _logger;
-    private AutomationProject _project = new();
     private RuntimeScriptItem? _selectedScript;
+    private string? _projectPath;
     private string _stateText = "未运行";
     private string _currentNodeText = "—";
     private string _currentWindowTitle = "未绑定窗口";
@@ -36,26 +33,22 @@ public sealed class RuntimeViewModel : ObservableObject, IDisposable
     private double _progressValue;
     private bool _initialized;
     private int _completedNodes;
-    private readonly HashSet<WorkflowNode> _completedNodeSet = [];
     private int _totalNodes = 1;
+    private string? _runId;
+    private readonly HashSet<string> _completedNodeIds = new(StringComparer.Ordinal);
     private Task? _runTask;
     private int _disposed;
+    private WorkflowExecutionState _state;
 
-    public RuntimeViewModel(
-        IWorkflowRunner runner,
-        IWorkflowValidator validator,
-        IProjectStorageService storage,
-        ILogger<RuntimeViewModel> logger)
+    public RuntimeViewModel(RuntimeProcessManager runtime, ILogger<RuntimeViewModel> logger)
     {
-        _runner = runner;
-        _validator = validator;
-        _storage = storage;
+        _runtime = runtime;
         _logger = logger;
         ToggleRuntimeCommand = new RelayCommand(_ => ToggleRuntime());
         StopCommand = new RelayCommand(_ => _ = StopAsync(), _ => IsWorkflowActive);
-        _runner.NodeStarted += OnNodeStarted;
-        _runner.NodeCompleted += OnNodeCompleted;
-        _runner.StateChanged += OnStateChanged;
+        _runtime.RuntimeEventReceived += OnRuntimeEvent;
+        _runtime.StatusRecovered += OnStatusRecovered;
+        _runtime.ConnectionLost += OnConnectionLost;
     }
 
     public ObservableCollection<RuntimeScriptItem> Scripts { get; } = [];
@@ -65,7 +58,6 @@ public sealed class RuntimeViewModel : ObservableObject, IDisposable
         set
         {
             if (!Set(ref _selectedScript, value) || value is null || IsWorkflowActive) return;
-            _project.SetActiveScript(value.Script);
             ResetProgress();
         }
     }
@@ -76,9 +68,9 @@ public sealed class RuntimeViewModel : ObservableObject, IDisposable
     public string ProgressText { get => _progressText; private set => Set(ref _progressText, value); }
     public string ErrorText { get => _errorText; private set => Set(ref _errorText, value); }
     public double ProgressValue { get => _progressValue; private set => Set(ref _progressValue, value); }
-    public bool IsWorkflowActive => _runner.State is WorkflowExecutionState.Running or WorkflowExecutionState.Paused or WorkflowExecutionState.Stopping;
+    public bool IsWorkflowActive => _state is WorkflowExecutionState.Running or WorkflowExecutionState.Paused or WorkflowExecutionState.Stopping;
     public bool IsSelectionEnabled => _initialized && !IsWorkflowActive;
-    public string RunSwitchText => _runner.State switch
+    public string RunSwitchText => _state switch
     {
         WorkflowExecutionState.Running => "暂停",
         WorkflowExecutionState.Paused => "继续运行",
@@ -90,22 +82,24 @@ public sealed class RuntimeViewModel : ObservableObject, IDisposable
 
     public async Task InitializeAsync(string projectPath, string? scriptId, CancellationToken cancellationToken = default)
     {
-        var project = await _storage.LoadAsync(projectPath, cancellationToken).ConfigureAwait(false);
+        _projectPath = Path.GetFullPath(projectPath);
+        var project = await _runtime.LoadProjectAsync(_projectPath, scriptId, cancellationToken).ConfigureAwait(false);
         if (project.Scripts.Count == 0) throw new InvalidDataException("项目中没有可运行的脚本。");
 
         OnUi(() =>
         {
-            _project = project;
             Scripts.Clear();
-            foreach (var script in project.Scripts)
-                Scripts.Add(new(script));
-
-            var selected = Scripts.FirstOrDefault(item => item.Id == scriptId) ?? Scripts[0];
+            foreach (var script in project.Scripts) Scripts.Add(new(script));
+            _totalNodes = Math.Max(1, project.Scripts.Sum(script => script.NodeCount));
             _initialized = true;
             Raise(nameof(IsSelectionEnabled));
-            SelectedScript = selected;
+            SelectedScript = Scripts.FirstOrDefault(item => item.Id == scriptId)
+                ?? Scripts.FirstOrDefault(item => item.Id == project.ActiveScriptId)
+                ?? Scripts[0];
             ResetProgress();
         });
+        var status = await _runtime.GetStatusAsync(cancellationToken).ConfigureAwait(false);
+        OnStatusRecovered(status);
     }
 
     public bool IsReady => _initialized;
@@ -113,105 +107,155 @@ public sealed class RuntimeViewModel : ObservableObject, IDisposable
     private void ToggleRuntime()
     {
         if (!_initialized) return;
-        if (_runner.State is WorkflowExecutionState.Running or WorkflowExecutionState.Paused)
+        if (_state is WorkflowExecutionState.Running or WorkflowExecutionState.Paused)
         {
             _ = PauseOrResumeAsync();
             return;
         }
-        if (_runner.State == WorkflowExecutionState.Stopping) return;
-
-        if (_runTask is { IsCompleted: false }) return;
+        if (_state == WorkflowExecutionState.Stopping || _runTask is { IsCompleted: false }) return;
         _runTask = RunSelectedAsync();
     }
 
     private async Task RunSelectedAsync()
     {
+        if (SelectedScript is null || string.IsNullOrWhiteSpace(_projectPath)) return;
         ErrorText = string.Empty;
         ResetProgress();
-        var validation = _validator.Validate(_project);
-        if (!validation.IsValid)
-        {
-            ErrorText = validation.Errors[0].Message;
-            StateText = "验证失败";
-            return;
-        }
-
         try
         {
-            await _runner.RunAsync(_project, CancellationToken.None).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) when (_runner.State == WorkflowExecutionState.Idle)
-        {
-            // 停止运行是正常流程。
+            if (!File.Exists(_projectPath)) throw new FileNotFoundException("纯运行项目快照已不存在。", _projectPath);
+            var validation = await _runtime.ValidateAsync(SelectedScript.Id).ConfigureAwait(false);
+            if (!validation.IsValid)
+            {
+                OnUi(() =>
+                {
+                    ErrorText = validation.Errors.FirstOrDefault()?.Message ?? "工作流验证失败。";
+                    SetState(WorkflowExecutionState.Failed);
+                });
+                return;
+            }
+
+            _runId = Guid.NewGuid().ToString("N");
+            var accepted = await _runtime.StartRunAsync(_runId, SelectedScript.Id).ConfigureAwait(false);
+            if (!accepted.Accepted) throw new InvalidOperationException("Runtime 拒绝开始工作流。");
         }
         catch (Exception exception)
         {
             _logger.LogError(exception, "纯运行脚本失败");
             OnUi(() => ErrorText = exception.Message);
         }
-        finally
-        {
-            OnUi(() =>
-            {
-                RaiseRuntimeCommands();
-            });
-        }
     }
 
     private async Task PauseOrResumeAsync()
     {
-        if (_runner.State == WorkflowExecutionState.Paused) await _runner.ResumeAsync();
-        else if (_runner.State == WorkflowExecutionState.Running) await _runner.PauseAsync();
+        try
+        {
+            if (_state == WorkflowExecutionState.Paused) await _runtime.ResumeRunAsync().ConfigureAwait(false);
+            else if (_state == WorkflowExecutionState.Running) await _runtime.PauseRunAsync().ConfigureAwait(false);
+        }
+        catch (Exception exception) { OnUi(() => ErrorText = exception.Message); }
     }
 
     private async Task StopAsync()
     {
-        await _runner.StopAsync();
+        try { await _runtime.StopRunAsync().ConfigureAwait(false); }
+        catch (Exception exception) { OnUi(() => ErrorText = exception.Message); }
     }
 
     public async Task StopForCloseAsync()
     {
-        if (IsWorkflowActive) await StopAsync();
+        if (IsWorkflowActive) await StopAsync().ConfigureAwait(false);
     }
 
-    private void OnNodeStarted(object? sender, NodeExecutionEventArgs args) => OnUi(() =>
+    private void OnRuntimeEvent(ProtocolMessage message)
     {
-        CurrentNodeText = args.Node.Data.DisplayName;
-        UpdateCurrentWindow(args);
+        if (message.Kind != MessageKind.Event) return;
+        RuntimeEventPayload? payload;
+        try { payload = message.Payload.Deserialize<RuntimeEventPayload>(ProtocolJson.Options); }
+        catch (Exception exception) { _logger.LogWarning(exception, "无法解析 Runtime 事件 {EventType}", message.Type); return; }
+        if (payload is null) return;
+        if (_runId is not null && payload.RunId is not null && payload.RunId != _runId) return;
+        OnUi(() => ApplyRuntimeEvent(message.Type, payload));
+    }
+
+    private void ApplyRuntimeEvent(string eventType, RuntimeEventPayload payload)
+    {
+        switch (eventType)
+        {
+            case RuntimeEvents.StateChanged:
+                if (Enum.TryParse<WorkflowExecutionState>(payload.State, out var state)) SetState(state);
+                break;
+            case RuntimeEvents.NodeStarted:
+                CurrentNodeText = payload.NodeName ?? "—";
+                UpdateWindow(payload);
+                break;
+            case RuntimeEvents.NodeCompleted:
+                UpdateWindow(payload);
+                if (payload.NodeId is { } id && _completedNodeIds.Add(id)) _completedNodes++;
+                var shown = Math.Min(_completedNodes, _totalNodes);
+                if (_state != WorkflowExecutionState.Completed && shown >= _totalNodes) shown = Math.Max(0, _totalNodes - 1);
+                ProgressValue = Math.Clamp(shown * 100d / _totalNodes, 0, 99);
+                ProgressText = $"{shown} / {_totalNodes}";
+                break;
+            case RuntimeEvents.ProgressChanged when payload.CompletedNodes is { } completed:
+                _completedNodes = Math.Min(completed, _totalNodes);
+                ProgressValue = Math.Clamp(payload.ProgressPercent ?? (_completedNodes * 100d / _totalNodes), 0, 100);
+                ProgressText = $"{_completedNodes} / {_totalNodes}";
+                break;
+            case RuntimeEvents.NodeFailed:
+                UpdateWindow(payload);
+                ErrorText = payload.Error ?? "节点执行失败。";
+                break;
+            case RuntimeEvents.RunCompleted:
+                ProgressValue = 100;
+                ProgressText = $"{_totalNodes} / {_totalNodes}";
+                _runId = null;
+                break;
+            case RuntimeEvents.RunFailed:
+                ErrorText = payload.Error ?? "工作流执行失败。";
+                _runId = null;
+                break;
+        }
+    }
+
+    private void OnStatusRecovered(RuntimeStatusResponse status) => OnUi(() =>
+    {
+        var wasRunning = _state is WorkflowExecutionState.Running or WorkflowExecutionState.Paused or WorkflowExecutionState.Stopping;
+        if (wasRunning && _runId is not null && status.RunId != _runId
+            && status.State is nameof(WorkflowExecutionState.Idle) or nameof(WorkflowExecutionState.Completed) or nameof(WorkflowExecutionState.Failed))
+        {
+            ErrorText = "Runtime 连接中断后，本次运行已结束。";
+            _runId = null;
+        }
+        if (Enum.TryParse<WorkflowExecutionState>(status.State, out var state)) SetState(state);
+        if (status.CurrentNodeId is { } nodeId) CurrentNodeText = status.CurrentNodeName ?? nodeId;
     });
 
-    private void OnNodeCompleted(object? sender, NodeExecutionEventArgs args) => OnUi(() =>
+    private void OnConnectionLost(Exception? exception)
     {
-        UpdateCurrentWindow(args);
-        // 后台并行会为同一节点发布多条轨道完成事件，进度只按流程节点计数一次。
-        if (!_completedNodeSet.Add(args.Node)) return;
-        _completedNodes = _completedNodeSet.Count;
-        var displayedCompleted = Math.Min(_completedNodes, _totalNodes);
-        if (_runner.State != WorkflowExecutionState.Completed && displayedCompleted >= _totalNodes)
-            displayedCompleted = Math.Max(0, _totalNodes - 1);
-        ProgressValue = Math.Clamp(displayedCompleted * 100d / _totalNodes, 0, 99);
-        ProgressText = $"{displayedCompleted} / {_totalNodes}";
-    });
+        if (exception is not null) _logger.LogWarning(exception, "Runtime IPC 连接已断开，正在尝试重连");
+    }
 
-    private void OnStateChanged(object? sender, WorkflowStateChangedEventArgs args) => OnUi(() =>
+    private void SetState(WorkflowExecutionState state)
     {
-        StateText = StateLabel(args.Current);
-        if (args.Current == WorkflowExecutionState.Completed)
+        _state = state;
+        StateText = StateLabel(state);
+        if (state == WorkflowExecutionState.Completed)
         {
             ProgressValue = 100;
             ProgressText = $"{_totalNodes} / {_totalNodes}";
         }
+        if (state is WorkflowExecutionState.Idle or WorkflowExecutionState.Completed) _runId = null;
         Raise(nameof(IsWorkflowActive));
         Raise(nameof(IsSelectionEnabled));
         Raise(nameof(RunSwitchText));
-        RaiseRuntimeCommands();
-    });
+        (StopCommand as RelayCommand)?.RaiseCanExecuteChanged();
+    }
 
     private void ResetProgress()
     {
-        _completedNodeSet.Clear();
+        _completedNodeIds.Clear();
         _completedNodes = 0;
-        _totalNodes = Math.Max(1, _project.Scripts.Sum(script => script.Nodes.Count));
         ProgressValue = 0;
         ProgressText = $"0 / {_totalNodes}";
         CurrentNodeText = "—";
@@ -220,15 +264,10 @@ public sealed class RuntimeViewModel : ObservableObject, IDisposable
         ErrorText = string.Empty;
     }
 
-    private void UpdateCurrentWindow(NodeExecutionEventArgs args)
+    private void UpdateWindow(RuntimeEventPayload args)
     {
         CurrentWindowTitle = string.IsNullOrWhiteSpace(args.WindowTitle) ? "未绑定窗口" : args.WindowTitle;
-        CurrentWindowHandleText = args.WindowHandle is { } handle ? $"0x{handle.ToInt64():X}" : "—";
-    }
-
-    private void RaiseRuntimeCommands()
-    {
-        (StopCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        CurrentWindowHandleText = args.WindowHandle is { } handle ? $"0x{handle:X}" : "—";
     }
 
     private void OnUi(Action action)
@@ -251,9 +290,9 @@ public sealed class RuntimeViewModel : ObservableObject, IDisposable
     public void Dispose()
     {
         if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
-        _runner.NodeStarted -= OnNodeStarted;
-        _runner.NodeCompleted -= OnNodeCompleted;
-        _runner.StateChanged -= OnStateChanged;
+        _runtime.RuntimeEventReceived -= OnRuntimeEvent;
+        _runtime.StatusRecovered -= OnStatusRecovered;
+        _runtime.ConnectionLost -= OnConnectionLost;
         GC.SuppressFinalize(this);
     }
 }

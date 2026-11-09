@@ -1,11 +1,9 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-
+<Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <ProjectReference Include="..\GameFlowStudio.Contracts\GameFlowStudio.Contracts.csproj" />
-    <ProjectReference Include="..\GameFlowStudio.Workflow\GameFlowStudio.Workflow.csproj" />
-    <ProjectReference Include="..\GameFlowStudio.Automation\GameFlowStudio.Automation.csproj" />
     <ProjectReference Include="..\GameFlowStudio.Storage\GameFlowStudio.Storage.csproj" />
-    <ProjectReference Include="..\GameFlowStudio.Infrastructure\GameFlowStudio.Infrastructure.csproj" />
+    <ProjectReference Include="..\GameFlowStudio.Protocol\GameFlowStudio.Protocol.csproj" />
+    <ProjectReference Include="..\..\core\GameFlowStudio.Runtime\GameFlowStudio.Runtime.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
 
   <ItemGroup>
@@ -29,4 +27,26 @@
     <Content Include="..\..\samples\basic-example.gflow" Link="samples\basic-example.gflow" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <Target Name="CopyRuntimeWorkerToDesktopOutput" AfterTargets="Build" Condition="'$(DesignTimeBuild)' != 'true' and '$(IsCrossTargetingBuild)' != 'true'">
+    <PropertyGroup>
+      <RuntimeWorkerOutput Condition="'$(RuntimeIdentifier)' == ''">$(MSBuildThisFileDirectory)..\..\core\GameFlowStudio.Runtime\bin\$(Configuration)\net10.0-windows\</RuntimeWorkerOutput>
+      <RuntimeWorkerOutput Condition="'$(RuntimeIdentifier)' != ''">$(MSBuildThisFileDirectory)..\..\core\GameFlowStudio.Runtime\bin\$(Configuration)\net10.0-windows\$(RuntimeIdentifier)\</RuntimeWorkerOutput>
+    </PropertyGroup>
+    <ItemGroup>
+      <RuntimeWorkerFiles Include="$(RuntimeWorkerOutput)**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(RuntimeWorkerFiles)" DestinationFiles="@(RuntimeWorkerFiles->'$(TargetDir)Runtime\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+  </Target>
+
+  <Target Name="PublishRuntimeWorker" AfterTargets="Publish" Condition="'$(DesignTimeBuild)' != 'true' and '$(RuntimeIdentifier)' != ''">
+    <PropertyGroup>
+      <RuntimeWorkerPublishDir>$(MSBuildThisFileDirectory)obj\runtime-publish\$(Configuration)\$(RuntimeIdentifier)\</RuntimeWorkerPublishDir>
+      <RuntimeWorkerProject>$(MSBuildThisFileDirectory)..\..\core\GameFlowStudio.Runtime\GameFlowStudio.Runtime.csproj</RuntimeWorkerProject>
+    </PropertyGroup>
+    <MSBuild Projects="$(RuntimeWorkerProject)" Targets="Publish" Properties="Configuration=$(Configuration);RuntimeIdentifier=$(RuntimeIdentifier);SelfContained=$(SelfContained);PublishSingleFile=false;PublishDir=$(RuntimeWorkerPublishDir)" />
+    <ItemGroup>
+      <RuntimeWorkerPublishFiles Include="$(RuntimeWorkerPublishDir)**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(RuntimeWorkerPublishFiles)" DestinationFiles="@(RuntimeWorkerPublishFiles->'$(PublishDir)Runtime\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+  </Target>
 </Project>

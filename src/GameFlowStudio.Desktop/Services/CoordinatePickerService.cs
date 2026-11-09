@@ -1,6 +1,6 @@
-using GameFlowStudio.Automation.Coordinates;
 using GameFlowStudio.Contracts.Results;
 using GameFlowStudio.Contracts.Services;
+using GameFlowStudio.Desktop.Interaction;
 using GameFlowStudio.Desktop.Views;
 
 namespace GameFlowStudio.Desktop.Services;

@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Configuration;
 
-namespace GameFlowStudio.Desktop.Services;
+namespace GameFlowStudio.Infrastructure.Ocr;
 
 /// <summary>Gemini OCR 的宿主配置。密钥优先从环境变量读取，避免写入项目文件。</summary>
 public sealed class GeminiOcrOptions

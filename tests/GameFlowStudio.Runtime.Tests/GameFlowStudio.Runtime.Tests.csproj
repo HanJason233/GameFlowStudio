@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\GameFlowStudio.Contracts\GameFlowStudio.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\GameFlowStudio.Protocol\GameFlowStudio.Protocol.csproj" />
+    <ProjectReference Include="..\..\src\GameFlowStudio.Storage\GameFlowStudio.Storage.csproj" />
+    <ProjectReference Include="..\..\core\GameFlowStudio.Runtime\GameFlowStudio.Runtime.csproj" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <Target Name="CopyRuntimeWorkerToIntegrationTestOutput" AfterTargets="Build" Condition="'$(DesignTimeBuild)' != 'true'">
+    <PropertyGroup>
+      <RuntimeWorkerOutput>$(MSBuildThisFileDirectory)..\..\core\GameFlowStudio.Runtime\bin\$(Configuration)\net10.0-windows\</RuntimeWorkerOutput>
+    </PropertyGroup>
+    <ItemGroup>
+      <RuntimeWorkerFiles Include="$(RuntimeWorkerOutput)**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(RuntimeWorkerFiles)" DestinationFiles="@(RuntimeWorkerFiles->'$(TargetDir)%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+  </Target>
+</Project>

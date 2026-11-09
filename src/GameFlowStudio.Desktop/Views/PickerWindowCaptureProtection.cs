@@ -1,6 +1,6 @@
 using System.Windows;
 using System.Windows.Interop;
-using GameFlowStudio.Automation.Windows;
+using GameFlowStudio.Desktop.Interaction;
 
 namespace GameFlowStudio.Desktop.Views;
 

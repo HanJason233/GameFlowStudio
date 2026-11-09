@@ -1,12 +1,13 @@
-using System.Net.Http;
 using System.IO;
 using System.Windows;
 using GameFlowStudio.Desktop.Services;
 using GameFlowStudio.Desktop.ViewModels;
 using GameFlowStudio.Desktop.Views;
 using GameFlowStudio.Contracts.Services;
-using GameFlowStudio.Infrastructure.DependencyInjection;
-using GameFlowStudio.Infrastructure.Logging;
+using GameFlowStudio.Desktop.Interaction;
+using GameFlowStudio.Desktop.Logging;
+using GameFlowStudio.Storage.Projects;
+using GameFlowStudio.Storage.Settings;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -25,12 +26,12 @@ public partial class App : Application
             .ConfigureLogging(logging => { logging.ClearProviders(); logging.SetMinimumLevel(LogLevel.Debug); logging.AddProvider(logProvider); })
             .ConfigureServices((context, services) =>
             {
-                services.AddGameFlowCore();
-                services.AddSingleton<IImageTemplateProvider, WpfImageTemplateProvider>();
-                var geminiOptions = GeminiOcrOptions.FromConfiguration(context.Configuration);
-                services.AddSingleton(geminiOptions);
-                services.AddSingleton(new HttpClient { Timeout = geminiOptions.Timeout });
-                services.AddSingleton<IOcrService, GeminiOcrService>();
+                services.AddSingleton<IProjectStorageService, ProjectStorageService>();
+                services.AddSingleton<ISettingsStorageService, SettingsStorageService>();
+                services.AddSingleton<IDesktopCaptureService, DesktopCaptureService>();
+                services.AddSingleton<IWindowPickerService, DesktopWindowPickerService>();
+                services.AddSingleton<IInputRecordingService, GlobalInputRecordingService>();
+                services.AddSingleton<CursorPositionService>();
                 services.AddSingleton<IImageCaptureService, ImageCaptureService>();
                 services.AddSingleton<IColorPickerService, ColorPickerService>();
                 services.AddSingleton(logProvider);
@@ -41,7 +42,9 @@ public partial class App : Application
                 services.AddSingleton<ICoordinatePickModeService, CoordinatePickModeService>();
                 services.AddSingleton<IWindowSelectionService, WindowSelectionService>();
                 services.AddSingleton<IRelativeCoordinatePickerService, RelativeCoordinatePickerService>();
-                services.AddSingleton<IRuntimeProcessLauncher, RuntimeProcessLauncher>();
+                services.AddSingleton<RuntimeClient>();
+                services.AddSingleton<RuntimeProcessManager>();
+                services.AddSingleton<IPureRunWindowLauncher, PureRunWindowLauncher>();
                 services.AddSingleton<MainViewModel>();
                 services.AddSingleton<MainWindow>();
                 services.AddTransient<RuntimeViewModel>();
@@ -84,7 +87,13 @@ public partial class App : Application
 
     protected override async void OnExit(ExitEventArgs e)
     {
-        if (_host is not null) { await _host.StopAsync(); _host.Dispose(); }
+        if (_host is not null)
+        {
+            if (_host.Services.GetService<RuntimeProcessManager>() is { } runtime)
+                await runtime.ShutdownAsync();
+            await _host.StopAsync();
+            _host.Dispose();
+        }
         if (_temporaryEditorProjectPath is not null)
         {
             try { File.Delete(_temporaryEditorProjectPath); }

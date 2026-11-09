@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging;
 
-namespace GameFlowStudio.Infrastructure.Logging;
+namespace GameFlowStudio.Desktop.Logging;
 
 public sealed record DisplayLogEntry(DateTimeOffset Timestamp, LogLevel Level, string Category, string Message, string? Exception)
 {

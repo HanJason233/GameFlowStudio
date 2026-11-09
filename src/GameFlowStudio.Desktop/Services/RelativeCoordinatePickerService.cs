@@ -1,6 +1,6 @@
 using GameFlowStudio.Contracts.Results;
 using GameFlowStudio.Contracts.Services;
-using GameFlowStudio.Workflow.Executors;
+using GameFlowStudio.Desktop.Interaction;
 
 namespace GameFlowStudio.Desktop.Services;
 
@@ -10,7 +10,7 @@ public interface IRelativeCoordinatePickerService
 }
 
 public sealed class RelativeCoordinatePickerService(
-    IWindowAutomationService windows,
+    IWindowPickerService windows,
     ICoordinatePickerService picker) : IRelativeCoordinatePickerService
 {
     public async Task<CoordinatePickResult?> PickAsync(WindowInfo window)

@@ -5,7 +5,7 @@ using GameFlowStudio.Contracts.Nodes;
 using GameFlowStudio.Contracts.Recording;
 using GameFlowStudio.Contracts.Workflows;
 
-namespace GameFlowStudio.Workflow.Recording;
+namespace GameFlowStudio.Contracts.Recording;
 
 public sealed record RecordedScriptAppendOptions
 {

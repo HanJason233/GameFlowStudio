@@ -1,8 +1,8 @@
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Threading;
-using GameFlowStudio.Automation.Windows;
 using GameFlowStudio.Contracts.Results;
+using GameFlowStudio.Desktop.Interaction;
 
 namespace GameFlowStudio.Desktop.Views;
 

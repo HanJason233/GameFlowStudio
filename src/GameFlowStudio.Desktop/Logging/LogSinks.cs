@@ -1,7 +1,8 @@
 using System.Collections.Concurrent;
+using System.IO;
 using GameFlowStudio.Storage.Serialization;
 
-namespace GameFlowStudio.Infrastructure.Logging;
+namespace GameFlowStudio.Desktop.Logging;
 
 internal interface ILogSink
 {

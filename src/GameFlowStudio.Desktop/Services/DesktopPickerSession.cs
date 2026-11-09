@@ -1,6 +1,6 @@
 using System.Windows;
 using System.Windows.Threading;
-using GameFlowStudio.Automation.Windows;
+using GameFlowStudio.Desktop.Interaction;
 
 namespace GameFlowStudio.Desktop.Services;
 

@@ -4,13 +4,14 @@ using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
+using System.Runtime.InteropServices;
 using GameFlowStudio.Contracts.Results;
 using GameFlowStudio.Contracts.Services;
+using GameFlowStudio.Infrastructure.Ocr;
 using Microsoft.Extensions.Logging;
+using OpenCvSharp;
 
-namespace GameFlowStudio.Desktop.Services;
+namespace GameFlowStudio.Infrastructure.Ocr;
 
 /// <summary>通过 Gemini generateContent 接口识别桌面截图中的文字。</summary>
 public sealed class GeminiOcrService(
@@ -105,13 +106,11 @@ public sealed class GeminiOcrService(
 
     private static byte[] ConvertFrameToPng(CapturedFrame frame)
     {
-        var bitmap = BitmapSource.Create(frame.Width, frame.Height, 96, 96, PixelFormats.Bgra32, null, frame.Bgra32, frame.Width * 4);
-        bitmap.Freeze();
-        using var stream = new MemoryStream();
-        var encoder = new PngBitmapEncoder();
-        encoder.Frames.Add(BitmapFrame.Create(bitmap));
-        encoder.Save(stream);
-        return stream.ToArray();
+        using var bitmap = new Mat(frame.Height, frame.Width, MatType.CV_8UC4);
+        Marshal.Copy(frame.Bgra32, 0, bitmap.Data, checked(frame.Width * frame.Height * 4));
+        if (!Cv2.ImEncode(".png", bitmap, out var bytes))
+            throw new InvalidOperationException("无法将 OCR 截图编码为 PNG。");
+        return bytes;
     }
 
     private static string ReadText(string responseBody)

@@ -26,7 +26,6 @@ public static class ServiceCollectionExtensions
             provider.GetRequiredService<BackgroundInputAutomationService>());
         services.AddSingleton<IBackgroundMouseClickService>(provider =>
             provider.GetRequiredService<BackgroundInputAutomationService>());
-        services.AddSingleton<IInputRecordingService, GlobalInputRecordingService>();
         services.AddSingleton<IWindowAutomationService, WindowAutomationService>();
         services.AddSingleton<IProgramAutomationService, ProgramAutomationService>();
         services.AddSingleton<IWindowScopeService, WindowScopeService>();
@@ -44,7 +43,6 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IProjectStorageService, ProjectStorageService>();
         services.AddSingleton<ISettingsStorageService, SettingsStorageService>();
         services.AddSingleton<IWorkflowValidator, WorkflowValidator>();
-        services.AddSingleton<CursorPositionService>();
         services.AddSingleton<INodeExecutor, StartNodeExecutor>();
         services.AddSingleton<INodeExecutor, EndNodeExecutor>();
         services.AddSingleton<INodeExecutor, WaitNodeExecutor>();

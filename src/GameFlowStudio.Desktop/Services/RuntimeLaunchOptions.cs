@@ -7,7 +7,7 @@ namespace GameFlowStudio.Desktop.Services;
 /// <summary>纯运行进程的命令行参数。</summary>
 public sealed record RuntimeLaunchOptions(string ProjectPath, string? ScriptId, string? EditorProjectPath)
 {
-    public const string RuntimeSwitch = "--runtime";
+    public const string RuntimeSwitch = "--pure-run";
     public const string ScriptSwitch = "--script";
     public const string EditorProjectSwitch = "--editor-project";
 
@@ -71,14 +71,14 @@ public sealed record EditorLaunchOptions(string ProjectPath, bool DeleteOnExit =
     }
 }
 
-public interface IRuntimeProcessLauncher
+public interface IPureRunWindowLauncher
 {
     Task LaunchAsync(AutomationProject project, string? editorProjectPath, CancellationToken cancellationToken);
 }
 
 /// <summary>把最新编辑内容交给独立的纯运行进程。</summary>
-public sealed class RuntimeProcessLauncher(IProjectStorageService storage)
-    : IRuntimeProcessLauncher
+public sealed class PureRunWindowLauncher(IProjectStorageService storage)
+    : IPureRunWindowLauncher
 {
     public async Task LaunchAsync(AutomationProject project, string? editorProjectPath, CancellationToken cancellationToken)
     {

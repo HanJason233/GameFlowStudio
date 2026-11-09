@@ -1,14 +1,15 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\GameFlowStudio.Contracts\GameFlowStudio.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\GameFlowStudio.Contracts\GameFlowStudio.Contracts.csproj" />
     <ProjectReference Include="..\GameFlowStudio.Workflow\GameFlowStudio.Workflow.csproj" />
     <ProjectReference Include="..\GameFlowStudio.Automation\GameFlowStudio.Automation.csproj" />
-    <ProjectReference Include="..\GameFlowStudio.Storage\GameFlowStudio.Storage.csproj" />
+    <ProjectReference Include="..\..\src\GameFlowStudio.Storage\GameFlowStudio.Storage.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.10" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.10" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.10" />
   </ItemGroup>
 
